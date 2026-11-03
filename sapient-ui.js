@@ -51,7 +51,7 @@ export function initDock({ net, drones, ledger, state }) {
         <span class="muted" id="cov-legend"></span>
       </div>
       <canvas id="plan"></canvas>
-      <div class="plan-note">North up, scroll to zoom. Circles are each node's range, lines are links to the fusion node (bright when a message has just been sent), red lines are active engagement tasks, crosses are fused tracks drawn where the fusion node believes they are (circle = position error), grey dots are drones nobody has (truth overlay).</div>
+      <div class="plan-note">North up, scroll to zoom. Circles are each node's range, lines are links to the fusion node (bright when a message has just been sent), red lines are active engagement tasks, crosses are fused tracks drawn where the fusion node believes they are (gold = confirmed, orange = coasting, grey = tentative; circle = position error), faint lines are bearings no track has claimed, wedges show where cameras are pointing, grey dots are drones nobody has (truth overlay).</div>
     </div>
     <div class="tabpane hidden" data-pane="cost" id="cost"></div>
     <div class="tabpane hidden" data-pane="systems" id="systems"></div>`;
@@ -186,7 +186,7 @@ export function initDock({ net, drones, ledger, state }) {
     if (covCache.key === key) return covCache;
     const cell = 250, half = Math.min(terrainState.data.R - 200, 6000), n = Math.round((2 * half) / cell);
     const counts = new Uint8Array(n * n);
-    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) counts[j * n + i] = net.coverageAt(-half + (i + 0.5) * cell, -half + (j + 0.5) * cell, agl, def.rfEmitter);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) counts[j * n + i] = net.coverageAt(-half + (i + 0.5) * cell, -half + (j + 0.5) * cell, agl, def);
     covCache = { key, n, cell, half, counts };
     return covCache;
   }
@@ -246,6 +246,12 @@ export function initDock({ net, drones, ledger, state }) {
       g.fillStyle = hex(n.def.color);
       if (n.def.role === 'sensor') { g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill(); } else g.fillRect(x - 5, y - 5, 10, 10);
       g.fillStyle = '#dbe4f0'; g.fillText(n.short + (n.def.id === 'jammer' && n.mode === 'Jam' ? ' [JAM]' : ''), x + 8, y + 3);
+      if (n.def.fov && n.point) { // camera: its current view
+        const a = (n.point.az * Math.PI) / 180, half = (n.def.fov / 2 * Math.PI) / 180, len = n.def.range;
+        g.fillStyle = hex(n.def.color) + '33'; g.beginPath(); g.moveTo(x, y);
+        g.lineTo(X(n.pos.x * mpu() + len * Math.sin(a - half)), Y(-n.pos.z * mpu() + len * Math.cos(a - half)));
+        g.lineTo(X(n.pos.x * mpu() + len * Math.sin(a + half)), Y(-n.pos.z * mpu() + len * Math.cos(a + half))); g.closePath(); g.fill();
+      }
       if (n.task && !n.task.drone.dead) { // engagement line
         const d = n.task.drone;
         g.strokeStyle = '#ff5252'; g.beginPath(); g.moveTo(x, y); g.lineTo(X(d.pos.x * mpu()), Y(-d.pos.z * mpu())); g.stroke();
@@ -258,24 +264,24 @@ export function initDock({ net, drones, ledger, state }) {
         g.beginPath(); g.arc(X(d.pos.x * mpu()), Y(-d.pos.z * mpu()), 3, 0, Math.PI * 2); g.fill();
       }
     }
+    for (const c of net.bearingCandidates()) { // bearings no track has claimed: rays from the sensor
+      g.strokeStyle = hex(c.color) + '99'; g.beginPath();
+      g.moveTo(X(c.from[0]), Y(c.from[1])); g.lineTo(X(c.from[0] + 3500 * Math.sin(c.az)), Y(c.from[1] + 3500 * Math.cos(c.az))); g.stroke();
+    }
+    const TR_COL = { tentative: '#8a94a3', confirmed: '#ffcc66', coasting: '#ff9800' };
     for (const tr of net.tracks.values()) { // fused tracks, drawn where the fusion node believes they are
-      const cls = tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : 'UAV';
-      if (!tr.est) { // bearing only: show the ray from the sensor
-        const v = [...tr.sources.values()].find((s) => s.from && s.rb);
-        if (!v) continue;
-        const az = (v.rb.azimuth * Math.PI) / 180, len = 3500;
-        g.strokeStyle = hex(v.color) + 'aa'; g.beginPath();
-        g.moveTo(X(v.from.east), Y(v.from.north)); g.lineTo(X(v.from.east + len * Math.sin(az)), Y(v.from.north + len * Math.cos(az))); g.stroke();
-        g.fillStyle = '#ffcc66'; g.fillText(`${tr.short} · bearing only`, X(v.from.east + 0.5 * len * Math.sin(az)) + 4, Y(v.from.north + 0.5 * len * Math.cos(az)));
-        continue;
-      }
+      if (!tr.est) continue;
+      const col = TR_COL[tr.status] || '#ffcc66';
       const x = X(tr.est.east), y = Y(tr.est.north);
-      if (tr.estErr) { g.strokeStyle = '#ffcc6688'; g.beginPath(); g.arc(x, y, Math.max(tr.estErr * k, 3), 0, Math.PI * 2); g.stroke(); }
-      if (view.truth) { // line from belief to truth
+      if (tr.estErr) { g.strokeStyle = col + '88'; g.beginPath(); g.arc(x, y, Math.max(tr.estErr * k, 3), 0, Math.PI * 2); g.stroke(); }
+      if (view.truth && tr.drone) { // line from belief to truth
         g.strokeStyle = '#8a94a3'; g.beginPath(); g.moveTo(x, y); g.lineTo(X(tr.drone.pos.x * mpu()), Y(-tr.drone.pos.z * mpu())); g.stroke();
       }
-      g.strokeStyle = '#ffcc66'; g.beginPath(); g.moveTo(x - 4, y - 4); g.lineTo(x + 4, y + 4); g.moveTo(x + 4, y - 4); g.lineTo(x - 4, y + 4); g.stroke();
-      g.fillStyle = '#ffcc66'; g.fillText(`${tr.short} · ${cls}`, x + 7, y + 3);
+      g.strokeStyle = col; g.beginPath(); g.moveTo(x - 4, y - 4); g.lineTo(x + 4, y + 4); g.moveTo(x + 4, y - 4); g.lineTo(x - 4, y + 4); g.stroke();
+      if (tr.status !== 'tentative') {
+        const cls = tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : 'UAV';
+        g.fillStyle = col; g.fillText(`${tr.short} · ${cls}`, x + 7, y + 3);
+      }
     }
   }
 

@@ -569,15 +569,20 @@ function updateDrones(dt) {
 }
 
 // ---------- what the fusion node believes ----------
-// Each fused track is drawn where the fusion node thinks the drone is, with an error circle. Tracks with no range
-// fix (bearing-only sensors such as RF) also show the bearing rays, so you can see where two rays would cross.
+// Each track is drawn where the fusion node thinks the drone is, with a circle for its position error: gold when confirmed,
+// orange when coasting (no recent update), small and grey while still tentative (it might be a false alarm). Bearings that
+// no track claims (RF, camera) are drawn as rays from the sensor; where two cross, the tracker may start a track there,
+// which can be a ghost if the rays came from different drones. With the truth overlay on, a line joins each track to the
+// real drone it last matched.
 const diamondGeo = new THREE.OctahedronGeometry(1, 0);
 const ringUnit = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 49 }, (_, i) => new THREE.Vector3(Math.cos((i / 48) * Math.PI * 2), 0, Math.sin((i / 48) * Math.PI * 2))));
 const beliefs = new Map(); // track id -> markers
+const rayPool = [];
 const labelLayer = $('labels');
 const _p = new THREE.Vector3();
+const STATUS_COLOUR = { tentative: 0x8a94a3, confirmed: 0xffcc66, coasting: 0xff9800 };
 
-function makeBelief(tr) {
+function makeBelief() {
   const group = new THREE.Group();
   const diamond = new THREE.Mesh(diamondGeo, new THREE.MeshBasicMaterial({ color: 0xffcc66, depthTest: false }));
   diamond.renderOrder = 20;
@@ -589,13 +594,12 @@ function makeBelief(tr) {
   const label = document.createElement('div');
   label.className = 'tlabel';
   labelLayer.appendChild(label);
-  return { group, diamond, ring, link, rays: [], label, pos: new THREE.Vector3(), hasPos: false };
+  return { group, diamond, ring, link, label, pos: new THREE.Vector3(), placed: false };
 }
 
 function disposeBelief(b) {
   scene.remove(b.group, b.link);
   b.diamond.material.dispose(); b.ring.material.dispose(); b.link.geometry.dispose(); b.link.material.dispose();
-  for (const r of b.rays) { scene.remove(r); r.geometry.dispose(); r.material.dispose(); }
   b.label.remove();
 }
 
@@ -603,58 +607,52 @@ function updateBeliefs() {
   const m = WORLD.metresPerUnit;
   for (const [id, b] of beliefs) if (!net.tracks.has(id)) { disposeBelief(b); beliefs.delete(id); }
   for (const tr of net.tracks.values()) {
+    if (!tr.est) continue;
     let b = beliefs.get(tr.id);
-    if (!b) { b = makeBelief(tr); beliefs.set(tr.id, b); }
-    const srcs = [...tr.sources.values()];
-    const hasFix = srcs.some((v) => v.fix);
-    // position estimate
-    b.hasPos = !!tr.est;
-    if (tr.est) {
-      _p.set(tr.est.east / m, tr.est.up / m, -tr.est.north / m);
-      if (b.pos.lengthSq() === 0) b.pos.copy(_p); else b.pos.lerp(_p, 0.35);
-    }
-    b.group.visible = b.hasPos;
-    const size = Math.max(1.5, camera.position.distanceTo(b.pos) * 0.008);
+    if (!b) { b = makeBelief(); beliefs.set(tr.id, b); }
+    _p.set(tr.est.east / m, tr.est.up / m, -tr.est.north / m);
+    if (!b.placed) { b.pos.copy(_p); b.placed = true; } else b.pos.lerp(_p, 0.5);
+    const colour = STATUS_COLOUR[tr.status] ?? 0xffcc66;
+    b.diamond.material.color.setHex(colour); b.ring.material.color.setHex(colour);
+    const size = Math.max(1.5, camera.position.distanceTo(b.pos) * (tr.status === 'tentative' ? 0.005 : 0.008));
     b.diamond.scale.setScalar(size);
     b.group.position.copy(b.pos);
     const errU = Math.max(u(tr.estErr || 0), 0.001);
     b.ring.scale.set(errU, 1, errU);
-    // line from belief to truth, only when the truth overlay is on
-    b.link.visible = b.hasPos && view.truth;
+    b.link.visible = view.truth && !!tr.drone;
     if (b.link.visible) {
       const p = b.link.geometry.attributes.position;
       p.setXYZ(0, b.pos.x, b.pos.y, b.pos.z); p.setXYZ(1, tr.drone.pos.x, tr.drone.pos.y, tr.drone.pos.z); p.needsUpdate = true;
     }
-    // bearing rays for sources without a range fix
-    const bearing = hasFix ? [] : srcs.filter((v) => v.rb && v.rb.range === undefined && v.from);
-    while (b.rays.length < bearing.length) {
-      const ray = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ transparent: true, opacity: 0.7 }));
-      ray.frustumCulled = false; scene.add(ray); b.rays.push(ray);
-    }
-    b.rays.forEach((ray, i) => {
-      const v = bearing[i];
-      ray.visible = !!v;
-      if (!v) return;
-      const az = (v.rb.azimuth * Math.PI) / 180, el = ((v.rb.elevation || 0) * Math.PI) / 180;
-      const len = 3500; // metres drawn
-      const p = ray.geometry.attributes.position;
-      p.setXYZ(0, v.from.east / m, v.from.up / m, -v.from.north / m);
-      p.setXYZ(1, (v.from.east + len * Math.cos(el) * Math.sin(az)) / m, (v.from.up + len * Math.sin(el)) / m, -(v.from.north + len * Math.cos(el) * Math.cos(az)) / m);
-      p.needsUpdate = true;
-      ray.material.color.setHex(v.color);
-    });
-    // label
-    if (b.hasPos) _p.copy(b.pos); else if (bearing[0]) _p.set((bearing[0].from.east) / m, bearing[0].from.up / m, -bearing[0].from.north / m);
-    _p.project(camera);
-    const show = (b.hasPos || bearing.length) && _p.z < 1;
+    _p.copy(b.pos).project(camera);
+    const show = _p.z < 1;
     b.label.style.display = show ? 'block' : 'none';
+    b.label.style.opacity = tr.status === 'tentative' ? '0.55' : '1';
     if (show) {
       b.label.style.left = ((_p.x + 1) / 2) * innerWidth + 'px';
       b.label.style.top = ((1 - _p.y) / 2) * innerHeight + 'px';
       const cls = tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : 'UAV';
-      b.label.textContent = `${tr.short} · ${cls}${tr.estErr ? ` ±${Math.round(tr.estErr)} m` : ' · bearing only'}`;
+      const err = `±${Math.round(tr.estErr || 0)} m`;
+      b.label.textContent = tr.status === 'tentative' ? `tentative ${err}` : `${tr.short} · ${cls} ${err}${tr.status === 'coasting' ? ' · coasting' : ''}`;
     }
   }
+  // bearing candidates: rays from the sensor, coloured by sensor type
+  const cands = net.bearingCandidates();
+  while (rayPool.length < cands.length) {
+    const ray = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ transparent: true, opacity: 0.6 }));
+    ray.frustumCulled = false; scene.add(ray); rayPool.push(ray);
+  }
+  rayPool.forEach((ray, i) => {
+    const c = cands[i];
+    ray.visible = !!c;
+    if (!c) return;
+    const el = c.el ?? 0, len = 3500;
+    const p = ray.geometry.attributes.position;
+    p.setXYZ(0, c.from[0] / m, c.from[2] / m, -c.from[1] / m);
+    p.setXYZ(1, (c.from[0] + len * Math.cos(el) * Math.sin(c.az)) / m, (c.from[2] + len * Math.sin(el)) / m, -(c.from[1] + len * Math.cos(el) * Math.cos(c.az)) / m);
+    p.needsUpdate = true;
+    ray.material.color.setHex(c.color);
+  });
 }
 
 // Truth overlay: when on, every drone is drawn where it really is (colour if tracked, grey if nobody has it).

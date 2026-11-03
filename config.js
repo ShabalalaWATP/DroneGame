@@ -49,6 +49,18 @@ export const TERRAIN = {
 // for kills or surviving waves. Laydown can only change before the first wave starts, so runs are comparable.
 export const ECONOMY = { budget: 15000000 };
 
+// Sensor detection model. A sensor's published range is where it detects a small reference drone (radar cross-section
+// refRcs, size refSize). Bigger targets are seen further away. The chance of detection per scan is
+// 1 / (1 + (range / (reach * pdEdge)) ^ pdSlope): about 86% at the reach, falling off quickly beyond it.
+// The cross-section, size and link-power numbers on the drones are rough assumptions, not measurements.
+export const SENSING = {
+  refRcs: 0.01,          // m^2, a small quadcopter
+  refSize: 0.35,         // m, a small quadcopter
+  pdEdge: 1.35, pdSlope: 6,
+  rangeCap: 2.2,         // detections beyond this many "reaches" are ignored
+  clutterPenalty: 0.1,   // detection chance multiplier for a low flyer inside radar ground clutter
+};
+
 // SAPIENT fusion / C2 behaviour (seconds of simulated time, metres)
 export const FUSION = {
   statusInterval: 5,     // StatusReport period for every node
@@ -79,7 +91,7 @@ export const FUSION_DEF = {
 // Each system's `ref.cost` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
 export const STRUCTURES = {
   radar: {
-    name: 'Radar', short: 'RDR', key: '1', cost: 900000, shotCost: 0, color: 0x4fc3f7, role: 'sensor', kind: 'radar', published: 2000, mount: 6,
+    name: 'Radar', short: 'RDR', key: '1', cost: 900000, shotCost: 0, color: 0x4fc3f7, role: 'sensor', kind: 'radar', published: 2000, mount: 6, falseAlarm: 0.1, // chance of a false alarm per scan
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
     sapient: {
@@ -105,7 +117,7 @@ export const STRUCTURES = {
     },
   },
   radar_s: {
-    name: 'Compact radar', short: 'RDC', key: '2', cost: 45000, shotCost: 0, color: 0x29b6f6, role: 'sensor', kind: 'radar', published: 1000, mount: 4,
+    name: 'Compact radar', short: 'RDC', key: '2', cost: 45000, shotCost: 0, color: 0x29b6f6, role: 'sensor', kind: 'radar', published: 1000, mount: 4, falseAlarm: 0.15,
     lowAlt: 30, lowRange: 300,
     desc: 'Small solid-state radar. Cheap and short range, so you can afford several, but it sees less.',
     sapient: {
@@ -128,7 +140,7 @@ export const STRUCTURES = {
     },
   },
   rf: {
-    name: 'RF detector', short: 'RF', key: '3', cost: 40000, shotCost: 0, color: 0xffd54f, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf',
+    name: 'RF detector', short: 'RF', key: '3', cost: 40000, shotCost: 0, color: 0xffd54f, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
     desc: 'Passive RF sensor. Direction finding only (no range). Cannot see RF-silent drones.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
@@ -152,11 +164,14 @@ export const STRUCTURES = {
     },
   },
   camera: {
-    name: 'EO/IR camera', short: 'EO', key: '4', cost: 100000, shotCost: 0, color: 0x81c784, role: 'sensor', kind: 'camera', published: 1000, mount: 4,
-    desc: 'Electro-optical / infrared camera. Bearing and elevation with strong classification, no range.',
+    name: 'EO/IR camera', short: 'EO', key: '4', cost: 100000, shotCost: 0, color: 0x81c784, role: 'sensor', kind: 'camera', published: 1000, mount: 4, falseAlarm: 0.03,
+    // A narrow field of view (degrees, total) that has to be pointed. Idle, it sweeps; the fusion node cues it to
+    // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.
+    fov: 10, slewRate: 90, searchRate: 12, dwell: 3,
+    desc: 'Electro-optical / infrared camera. Narrow view that must be cued by another sensor. Bearing and elevation with strong classification, no range.',
     sapient: {
       nodeType: 'NODE_TYPE_CAMERA', subType: ['EO/IR', 'C-UAS'], scan: 'SCAN_TYPE_STEERABLE', interval: 0.5,
-      noise: { az: 0.05, el: 0.05 },
+      noise: { az: 0.05, el: 0.05 }, modes: ['Search', 'Track'],
     },
     ref: {
       class: 'EO/IR drone-detection camera',
@@ -293,7 +308,7 @@ export const DRONES = {
     loiterDist: 2500, loiterTime: 60, // orbit radius (m) and seconds on station before it leaves
     spotBonus: 0.5,                   // each spotter on station adds this to strike damage
     bank: 0.35,                       // bank angle (radians) while orbiting
-    cost: 100000,
+    cost: 100000, rcs: 0.15, size: 3.0, rfPower: 2.5, // rcs (m^2), size (m) and link power relative to a small FPV: assumptions
     costRef: {
       note: 'Orlan-10 class reconnaissance drone: estimates $80,000–$120,000 per aircraft (the full system is about 18 million rubles). Game uses $100,000.',
       confidence: 'Wartime press estimates, not procurement prices',
@@ -304,7 +319,7 @@ export const DRONES = {
     // fibre-optic FPV: an FPV that is slower and less agile, flies low, emits no radio and cannot be jammed
     name: 'FO Strike', model: 'quad', hp: 20, speed: 18, damage: 12, scale: 0.7, evade: 0.8,
     rfEmitter: false, airframe: 'Multirotor', color: 0xa1887f, alt: [10, 25], minAgl: 8, jamResist: 1, adapt: 0, fibre: true,
-    cost: 1000,
+    cost: 1000, rcs: 0.01, size: 0.35, rfPower: 1,
     costRef: {
       note: 'Ukrainian contracts in 2025 priced fibre-optic FPVs at about 30,000–60,000 UAH each (roughly $700–$1,500 at about 40–42 UAH/$; the dollar conversion is mine), depending on spool size. Game uses $1,000.',
       confidence: 'Contract reporting; currency converted by approximation',
@@ -317,7 +332,7 @@ export const DRONES = {
   fpv: {
     name: 'FPV Strike', model: 'quad', hp: 20, speed: 30, damage: 12, scale: 0.7, evade: 0.6,
     rfEmitter: true, airframe: 'Multirotor', color: 0xff8a65, alt: [30, 90], minAgl: 15, jamResist: 0, adapt: 1,
-    cost: 400,
+    cost: 400, rcs: 0.01, size: 0.35, rfPower: 1,
     costRef: {
       note: 'Ukrainian FPV strike drones are reported at about $400 each (some makers claim under $400 before the warhead; forum estimates run $500–$1,500). Game uses $400.',
       confidence: 'Press and manufacturer figures',
@@ -330,7 +345,7 @@ export const DRONES = {
   fw: {
     name: 'FW Strike', model: 'fw', hp: 60, speed: 45, damage: 30, scale: 1.3, evade: 0.8,
     rfEmitter: false, airframe: 'Fixed wing', color: 0xe57373, alt: [150, 300], minAgl: 30, jamResist: 0.5, adapt: 0.7,
-    cost: 35000,
+    cost: 35000, rcs: 0.2, size: 2.5, rfPower: 1,
     costRef: {
       note: 'Shahed-136 / Geran-2 class: most estimates $20,000–$50,000 per drone (CSIS about $35,000; Forbes Ukraine uses $50,000); later Geran-2 variants closer to $80,000; export price in leaked documents $193,000. Game uses $35,000.',
       confidence: 'Analyst estimates; wide spread',

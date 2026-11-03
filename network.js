@@ -1,17 +1,19 @@
-// The SAPIENT network for the simulation: nodes (sensors, effectors, fusion, C2 GUI), sensor measurement
-// models, track fusion, effector tasking and alerts. Everything the nodes say goes through sapient.js so it
-// can be inspected in the dock.
+// The SAPIENT network for the simulation: nodes (sensors, effectors, fusion, C2 GUI), probabilistic sensor
+// models, track fusion (tracker.js), camera cueing, effector tasking and alerts. Everything the nodes say goes
+// through sapient.js so it can be inspected in the dock.
 //
-// Simplifications (so the laydown, not the maths, is the point):
-//  - The fusion node associates reports to tracks perfectly (the sim knows which drone each report came from;
-//    that truth id is never put in a message).
+// Simplifications:
 //  - Messages are delivered instantly. There is no latency, loss or bandwidth model yet.
+//  - Detections come with Gaussian noise and a detection probability; the fusion node associates them to tracks by
+//    gating (it does not know which drone a detection came from, so it can make mistakes). The simulation does keep
+//    the true drone alongside each track, only so the displays and the effectors can use it; it is never put in a message.
 //  - Registration `task` definitions are minimal.
 
 import * as S from './sapient.js';
-import { WORLD, TERRAIN, FUSION, PERIMETER, FUSION_DEF, DRONES } from './config.js';
+import { WORLD, TERRAIN, FUSION, SENSING, PERIMETER, FUSION_DEF, DRONES } from './config.js';
 import { rand, gauss, EPOCH_MS } from './rng.js';
 import { terrainState } from './terrain.js';
+import { createTracker } from './tracker.js';
 
 // How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
 // the radar's low-flyer range is multiplied by this.
@@ -29,8 +31,8 @@ export function createNetwork(ctx) {
   const mpu = () => WORLD.metresPerUnit;
   const T = () => ctx.getTime();
   const nodes = new Map();   // node id -> node record (the structure object itself for placed systems)
-  const tracks = new Map();  // track id -> fused track
-  const names = new Map();   // id -> display name (kept after a node leaves, so the log stays readable)
+  const tracker = createTracker(() => S.ulid()); // the fusion node's tracks live here
+  const names = new Map();  // id -> display name (kept after a node leaves, so the log stays readable)
   const counters = {};
   let trackSeq = 0;
   let fusionT = 0, fusedT = 0;
@@ -54,31 +56,49 @@ export function createNetwork(ctx) {
     return { east, north, up, hr, rng: Math.hypot(hr, up) };
   }
   const nodeLoc = (s, errM) => S.location(s.pos.x * mpu(), -s.pos.z * mpu(), antennaM(s), errM);
+  const bearingOf = (r) => ({ az: (deg(Math.atan2(r.east, r.north)) + 360) % 360, el: deg(Math.atan2(r.up, r.hr)) });
 
-  // Does this sensor detect this drone right now? (The physics; the report is built separately.)
-  // Range, then low-flyer clutter, then line of sight over the terrain: hills and buildings block radar, camera and
-  // RF alike; trees block radar and camera and thin out RF.
-  function sees(s, d) {
-    const def = s.def;
-    const r = rel(s, d);
-    if (def.senses === 'perimeter') return r.hr < def.range;
-    if (def.senses === 'rf' && !d.def.rfEmitter) return false;
-    if (r.rng > def.range) return false;
-    const T3 = terrainState.data, m = mpu();
-    const dxm = d.pos.x * m, dzm = d.pos.z * m, dym = d.pos.y * m;
-    if (def.lowAlt && dym - T3.groundAt(dxm, dzm) < def.lowAlt && r.hr > def.lowRange * COVER_CLUTTER[T3.coverAt(dxm, dzm)]) return false; // lost in clutter
-    const sight = T3.los(s.pos.x * m, antennaM(s), s.pos.z * m, dxm, dym, dzm);
-    if (!sight.clear) return false;
-    if (def.senses === 'rf') return r.rng <= def.range * Math.exp(-sight.canopy / TERRAIN.rfCanopyLength);
-    return sight.canopy <= TERRAIN.opticalCanopyTol;
+  // Is the target inside the camera's current field of view?
+  function inView(s, r) {
+    const b = bearingOf(r);
+    const daz = Math.abs(((b.az - s.point.az + 540) % 360) - 180), del = Math.abs(b.el - s.point.el);
+    return daz <= s.def.fov / 2 && del <= s.def.fov / 2;
   }
 
-  // How many sensors would see a drone at this spot? Used for coverage maps. `emitter` is whether it emits RF.
-  function coverageAt(xm, zm, aglM, emitter) {
+  // The chance that this sensor detects this drone on one scan. It depends on:
+  //  - how far away it is compared with the sensor's range for a small reference drone, scaled by how big the target
+  //    looks (radar cross-section for radar, physical size for the camera, link power for RF)
+  //  - ground clutter hiding low flyers from radar, line of sight over the terrain, and trees
+  //  - for a camera, whether it is pointing at the target (it has a narrow field of view and has to be cued)
+  // `pointing: false` ignores the camera's aim, for coverage maps (assume it has been cued).
+  function pd(s, d, { pointing = true } = {}) {
+    const def = s.def, kind = def.kind || def.id;
+    const r = rel(s, d);
+    if (def.senses === 'perimeter') return r.hr < def.range ? 0.98 : 0;
+    if (def.senses === 'rf' && !d.def.rfEmitter) return 0;
+    let reach = def.range;
+    if (kind === 'radar') reach *= Math.pow((d.def.rcs ?? SENSING.refRcs) / SENSING.refRcs, 0.25);
+    else if (kind === 'camera') reach *= (d.def.size ?? SENSING.refSize) / SENSING.refSize;
+    else if (kind === 'rf') reach *= Math.sqrt(d.def.rfPower ?? 1);
+    if (r.rng > reach * SENSING.rangeCap) return 0;
+    const T3 = terrainState.data, m = mpu();
+    const dxm = d.pos.x * m, dzm = d.pos.z * m, dym = d.pos.y * m;
+    let p = 1;
+    if (def.lowAlt && dym - T3.groundAt(dxm, dzm) < def.lowAlt && r.hr > def.lowRange * COVER_CLUTTER[T3.coverAt(dxm, dzm)]) p *= SENSING.clutterPenalty; // lost in clutter
+    const sight = T3.los(s.pos.x * m, antennaM(s), s.pos.z * m, dxm, dym, dzm);
+    if (!sight.clear) return 0;
+    if (kind === 'rf') reach *= Math.exp(-sight.canopy / TERRAIN.rfCanopyLength);
+    else if (sight.canopy > TERRAIN.opticalCanopyTol) return 0;
+    if (pointing && def.fov && !inView(s, r)) return 0;
+    return p / (1 + Math.pow(r.rng / (reach * SENSING.pdEdge), SENSING.pdSlope));
+  }
+
+  // How many sensors would see a drone of this type at this spot (at least half the time)? Used for coverage maps.
+  function coverageAt(xm, zm, aglM, droneDef) {
     const m = mpu(), T3 = terrainState.data;
-    const probe = { pos: { x: xm / m, y: (T3.groundAt(xm, zm) + aglM) / m, z: zm / m }, def: { rfEmitter: emitter } };
+    const probe = { pos: { x: xm / m, y: (T3.groundAt(xm, zm) + aglM) / m, z: zm / m }, def: droneDef };
     let n = 0;
-    for (const s of nodes.values()) if (s.def.role === 'sensor' && s.def.id !== 'perimeter' && sees(s, probe)) n++;
+    for (const s of nodes.values()) if (s.def.role === 'sensor' && s.def.id !== 'perimeter' && pd(s, probe, { pointing: false }) >= 0.5) n++;
     return n;
   }
 
@@ -95,15 +115,15 @@ export function createNetwork(ctx) {
   function modeDefinitions(s) {
     const def = s.def, sp = def.sapient;
     if (def.role === 'sensor') {
-      return [{
-        mode_name: 'Detect', mode_type: 'MODE_TYPE_DEFAULT', mode_description: `${def.name} continuous detection`,
+      return (sp.modes || ['Detect']).map((name, i) => ({
+        mode_name: name, mode_type: i === 0 ? 'MODE_TYPE_DEFAULT' : 'MODE_TYPE_TEMPORARY', mode_description: `${def.name} ${name.toLowerCase()}`,
         settle_time: dur(0), maximum_latency: dur(sp.interval || 1),
         scan_type: sp.scan, tracking_type: 'TRACKING_TYPE_TRACK',
         detection_definition: [{
           location_type: { range_bearing_units: RB_UNITS, range_bearing_datum: RB_DATUM },
           detection_class_definition: [{ class_definition: [{ type: 'Air Vehicle', sub_class: [{ type: 'UAV' }] }] }],
         }],
-      }];
+      }));
     }
     if (def.role === 'fusion') {
       return [{ mode_name: 'Fuse', mode_type: 'MODE_TYPE_DEFAULT', mode_description: 'Track fusion and effector tasking', tracking_type: 'TRACKING_TYPE_TRACK_WITH_RE_ID' }];
@@ -150,9 +170,10 @@ export function createNetwork(ctx) {
     s.nodeId = S.uuid();
     s.short = `${def.short}-${String(counters[def.id]).padStart(2, '0')}`;
     s.name = `${def.name} ${String(counters[def.id]).padStart(2, '0')}`;
-    s.mode = def.role === 'sensor' ? 'Detect' : (def.sapient.modes ? def.sapient.modes[0] : 'Ready');
+    s.mode = def.sapient.modes ? def.sapient.modes[0] : def.role === 'sensor' ? 'Detect' : 'Ready';
     s.reportT = rand() * (def.sapient.interval || 1);
     s.objIds = new Map();
+    if (def.fov) { s.point = { az: rand() * 360, el: 3 }; s.cue = null; s.lookedAt = new Map(); } // a camera has an aim
     s.task = null; s.rejected = null; s.denied = new Set();
     names.set(s.nodeId, s.name);
     register(s);
@@ -186,6 +207,7 @@ export function createNetwork(ctx) {
   function classification(s, d) {
     const id = s.def.kind || s.def.id;
     const sub = (type, c, level, inner) => ({ type, confidence: round(c, 2), level, ...(inner ? { sub_class: [inner] } : {}) });
+    if (!d) return [{ type: 'Unknown', confidence: 0.4 }]; // a false alarm doesn't look like anything in particular
     if (id === 'camera') {
       return [{ type: 'Air Vehicle', confidence: 0.95, sub_class: [sub('UAV', 0.9, 1, sub(d.def.airframe, 0.85, 2))] }];
     }
@@ -201,13 +223,25 @@ export function createNetwork(ctx) {
     return n;
   };
 
-  function senseOne(s, d) {
+  // Where a false alarm appears: random direction and range inside what the sensor covers (a camera only inside its view).
+  function falseGeometry(s) {
+    const def = s.def;
+    const azD = def.fov ? s.point.az + (rand() - 0.5) * def.fov : rand() * 360;
+    const elD = def.fov ? s.point.el + (rand() - 0.5) * def.fov : rand() * 12 - 2;
+    const rng = def.range * (0.15 + 0.85 * rand());
+    const az = (azD * Math.PI) / 180, el = (elD * Math.PI) / 180;
+    const hr = rng * Math.cos(el);
+    return { east: hr * Math.sin(az), north: hr * Math.cos(az), up: rng * Math.sin(el), hr, rng };
+  }
+
+  // Build one detection (a real drone `d`, or a false alarm when d is null), send the SAPIENT DetectionReport, and return
+  // what the fusion node's tracker needs.
+  function measure(s, d) {
     const def = s.def, n = def.sapient.noise || {};
-    const r = rel(s, d);
-    const az = (deg(Math.atan2(r.east, r.north)) + 360) % 360;
-    const el = deg(Math.atan2(r.up, r.hr));
-    const azM = (az + gauss() * (n.az || 0) + 360) % 360;
-    const elM = el + gauss() * (n.el || 0);
+    const r = d ? rel(s, d) : falseGeometry(s);
+    const b = bearingOf(r);
+    const azM = (b.az + gauss() * (n.az || 0) + 360) % 360;
+    const elM = b.el + gauss() * (n.el || 0);
     const rngM = r.rng + gauss() * (n.range || 0);
 
     const rb = {};
@@ -221,99 +255,92 @@ export function createNetwork(ctx) {
     rb.datum = RB_DATUM;
 
     const kind = def.kind || def.id;
-    const conf = kind === 'radar' ? clamp(0.55 + 0.4 * (1 - r.rng / def.range), 0.3, 0.98)
+    const conf = !d ? 0.3 + rand() * 0.2
+      : kind === 'radar' ? clamp(0.55 + 0.4 * (1 - r.rng / def.range), 0.3, 0.98)
       : kind === 'camera' ? 0.85 + rand() * 0.1
       : kind === 'rf' ? 0.75 + rand() * 0.15 : 0.9;
 
-    if (!s.objIds.has(d)) s.objIds.set(d, S.ulid());
+    let objectId;
+    if (d) { if (!s.objIds.has(d)) s.objIds.set(d, S.ulid()); objectId = s.objIds.get(d); } else objectId = S.ulid();
     const report = {
-      report_id: S.ulid(), object_id: s.objIds.get(d),
+      report_id: S.ulid(), object_id: objectId,
       range_bearing: rb, detection_confidence: round(conf, 2),
       classification: classification(s, d),
     };
-    if (def.id !== 'rf') report.behaviour = [{ type: d.mode === 'orbit' ? 'Loitering' : 'Approaching', confidence: 0.7 }];
+    if (d && def.id !== 'rf') report.behaviour = [{ type: d.mode === 'orbit' ? 'Loitering' : 'Approaching', confidence: 0.7 }];
     if (def.sapient.signal) {
       report.signal = [{
         amplitude: round(-45 - 20 * Math.log10(Math.max(r.rng, 100) / 100) + gauss() * 2, 1),
-        centre_frequency: d.freq || 2.4e9,
+        centre_frequency: d ? d.freq || 2.4e9 : rand() < 0.5 ? 2.4e9 : 5.8e9,
       }];
     }
     let vel = null;
-    if (def.sapient.velocity && d.vel) {
+    if (d && def.sapient.velocity && d.vel) {
       const m = mpu();
       vel = { east_rate: round(d.vel.x * m + gauss() * 0.3, 2), north_rate: round(-d.vel.z * m + gauss() * 0.3, 2), up_rate: round(d.vel.y * m + gauss() * 0.3, 2), east_rate_error: 0.5, north_rate_error: 0.5, up_rate_error: 0.5 };
       report.enu_velocity = vel;
     }
     send(S.envelope(s.nodeId, 'detection_report', report), s.nodeId, fusion.nodeId);
 
-    // what the fusion node keeps from this report
-    const sx = s.pos.x * mpu(), sy = -s.pos.z * mpu();
-    let fix = null;
-    if (n.range != null && n.el != null) {
-      const e = rngM * Math.cos((elM * Math.PI) / 180);
-      fix = {
-        east: sx + e * Math.sin((azM * Math.PI) / 180),
-        north: sy + e * Math.cos((azM * Math.PI) / 180),
-        up: antennaM(s) + rngM * Math.sin((elM * Math.PI) / 180),
-      };
+    const rad = (x) => (x * Math.PI) / 180;
+    const from = [s.pos.x * mpu(), -s.pos.z * mpu(), antennaM(s)];
+    return {
+      meas: {
+        node: s.nodeId, color: def.color, from, az: rad(azM), el: n.el != null ? rad(elM) : null, range: n.range != null ? rngM : null,
+        sigAz: rad(n.az), sigEl: n.el != null ? rad(n.el) : null, sigRange: n.range || 0, t: T(), scan: s.scanId, truth: d,
+      },
+      source: { name: s.name, objectId, ts: S.timestamp(), conf, rb, from: { east: from[0], north: from[1], up: from[2] }, color: def.color, vel, cls: report.classification, rangeErr: n.range, hasRange: n.range != null },
+    };
+  }
+
+  // One scan of a sensor: each real drone is detected with probability pd, and false alarms appear at the sensor's own rate.
+  function scan(s) {
+    s.scanId = (s.scanId || 0) + 1;
+    const found = [];
+    for (const d of ctx.drones) {
+      const p = pd(s, d);
+      if (p > 0 && rand() < p) found.push(measure(s, d));
     }
-    const from = { east: sx, north: sy, up: antennaM(s) };
-    return { s, d, report, rb, fix, from, vel, cls: report.classification, conf, rangeErr: n.range };
+    if (s.def.falseAlarm && rand() < s.def.falseAlarm) found.push(measure(s, null));
+    for (const f of found) feed(s, f);
   }
 
   // ---------- fusion ----------
-  const fresh = (tr) => T() - tr.lastT <= FUSION.trackTimeout;
-  const freshSources = (tr) => [...tr.sources.entries()].filter(([, v]) => T() - v.lastT <= FUSION.trackTimeout);
-
-  function updateTrack(m) {
-    const d = m.d;
-    let tr = d.track;
-    if (!tr) {
-      tr = { id: S.ulid(), short: `T${++trackSeq}`, drone: d, firstT: T(), lastT: T(), sources: new Map(), warned: false, crit: false, loiterAlert: false };
-      d.track = tr;
-      tracks.set(tr.id, tr);
-      raiseAlert('information', `New track ${tr.short} first detected by ${m.s.name}`, null, 'DISCRETE_PRIORITY_LOW', tr);
-    }
-    tr.lastT = T();
-    tr.sources.set(m.s.nodeId, { name: m.s.name, objectId: m.report.object_id, ts: S.timestamp(), lastT: T(), conf: m.conf, rb: m.rb, fix: m.fix, from: m.from, color: m.s.def.color, vel: m.vel, cls: m.cls, rangeErr: m.rangeErr });
-    if (d.mode === 'orbit' && !tr.loiterAlert) {
-      tr.loiterAlert = true;
-      raiseAlert('warning', `Track ${tr.short} loitering at standoff range: probable spotter`, null, 'DISCRETE_PRIORITY_MEDIUM', tr);
-    }
+  function feed(s, f) {
+    const tr = tracker.ingest(f.meas, T());
+    if (!tr) return;
+    tr.drone = tr.truth; // for the displays: the real drone this track last matched (null for a false alarm)
+    tr.sources.set(s.nodeId, { ...f.source, lastT: T() });
+    if (!tr.cls || classDepth(f.source.cls) >= classDepth(tr.cls)) tr.cls = f.source.cls; // classification is remembered
   }
 
-  function estimate(tr, srcs) {
-    const fixes = srcs.map(([, v]) => v).filter((v) => v.fix).sort((a, b) => b.lastT - a.lastT);
-    if (fixes.length) {
-      const f = fixes[0];
-      const err = Math.max(f.rangeErr || 10, 10);
-      return { location: S.location(f.fix.east, f.fix.north, f.fix.up, err), fix: f.fix, err };
+  const trackAge = (tr) => T() - tr.lastT;
+  const confirmedTracks = () => [...tracker.tracks.values()].filter((tr) => tr.status === 'confirmed');
+  const siteDist = (tr) => Math.hypot(tr.est.east, tr.est.north);
+
+  function refreshTracks() {
+    for (const tr of tracker.tracks.values()) {
+      const e = tracker.estimate(tr, T());
+      tr.est = { east: e.east, north: e.north, up: e.up };
+      tr.estErr = e.err;
+      tr.speed = Math.hypot(e.vel[0], e.vel[1], e.vel[2]);
+      if (tr.cls) tr.airframe = classDepth(tr.cls) >= 2 ? tr.cls[0].sub_class[0].sub_class[0].type : 'Unknown';
+      else tr.airframe = 'Unknown';
     }
-    if (srcs.length >= 2) { // two or more bearing-only sensors: triangulated, with a coarse error
-      const d = tr.drone, m = mpu();
-      const fix = { east: d.pos.x * m + gauss() * 60, north: -d.pos.z * m + gauss() * 60, up: d.pos.y * m + gauss() * 30 };
-      return { location: S.location(fix.east, fix.north, fix.up, 60), fix, err: 60 };
-    }
-    return { range_bearing: srcs[0][1].rb, fix: null, err: null };
+    for (const d of ctx.drones) d.track = null;
+    for (const tr of tracker.tracks.values()) if (tr.status !== 'tentative' && tr.truth && !tr.truth.dead && !tr.truth.track) tr.truth.track = tr;
   }
 
   function fusedReport(tr) {
-    const srcs = freshSources(tr);
-    if (!srcs.length) return;
-    const est = estimate(tr, srcs);
-    tr.est = est.fix;
-    tr.estErr = est.err;
-    const conf = 1 - srcs.reduce((p, [, v]) => p * (1 - v.conf), 1);
-    const best = srcs.map(([, v]) => v).sort((a, b) => classDepth(b.cls) - classDepth(a.cls) || b.conf - a.conf)[0];
-    tr.airframe = classDepth(best.cls) >= 2 ? best.cls[0].sub_class[0].sub_class[0].type : 'Unknown';
-    const body = { report_id: S.ulid(), object_id: tr.id };
-    if (est.location) body.location = est.location; else body.range_bearing = est.range_bearing;
-    body.detection_confidence = round(conf, 2);
-    body.classification = best.cls;
-    body.behaviour = [{ type: tr.drone.mode === 'orbit' ? 'Loitering' : 'Approaching', confidence: 0.7 }];
-    body.derived_detection = srcs.map(([id, v]) => ({ timestamp: v.ts, node_id: id, object_id: v.objectId }));
-    const withVel = srcs.map(([, v]) => v).find((v) => v.vel);
-    if (withVel) body.enu_velocity = withVel.vel;
+    const srcs = [...tr.sources.entries()].filter(([, v]) => T() - v.lastT <= 3);
+    const body = { report_id: S.ulid(), object_id: tr.id, state: tr.status };
+    body.location = S.location(tr.est.east, tr.est.north, tr.est.up, Math.max(tr.estErr, 5));
+    body.detection_confidence = round(Math.min(0.99, 0.4 + 0.12 * tr.hits), 2);
+    if (tr.cls) body.classification = tr.cls;
+    body.behaviour = [{ type: tr.drone && tr.drone.mode === 'orbit' ? 'Loitering' : 'Approaching', confidence: 0.7 }];
+    if (srcs.length) body.derived_detection = srcs.map(([id, v]) => ({ timestamp: v.ts, node_id: id, object_id: v.objectId }));
+    const e = tracker.estimate(tr, T());
+    body.enu_velocity = { east_rate: round(e.vel[0], 2), north_rate: round(e.vel[1], 2), up_rate: round(e.vel[2], 2) };
     send(S.envelope(fusion.nodeId, 'detection_report', body), fusion.nodeId, gui.nodeId);
   }
 
@@ -324,18 +351,17 @@ export function createNetwork(ctx) {
     const body = { alert_id: id, alert_type: ALERT[kind], status: 'ALERT_STATUS_ACTIVE', description, priority, ranking: kind === 'critical' ? 0.9 : kind === 'warning' ? 0.6 : 0.3, confidence: 0.9 };
     const m = mpu();
     if (tr && tr.est) body.location = S.location(tr.est.east, tr.est.north, tr.est.up, 30);
-    else if (tr) body.location = S.location(tr.drone.pos.x * m, -tr.drone.pos.z * m, tr.drone.pos.y * m, 30);
     else if (pos) body.location = S.location(pos.x * m, -pos.z * m, pos.y * m, 30);
     send(S.envelope(fusion.nodeId, 'alert', body, gui.nodeId), fusion.nodeId, gui.nodeId);
     send(S.envelope(gui.nodeId, 'alert_ack', { alert_id: id, alert_ack_status: 'ALERT_ACK_STATUS_ACCEPTED' }, fusion.nodeId), gui.nodeId, fusion.nodeId);
   }
 
   // ---------- tasking ----------
-  const distM = (s, d) => {
+  // distance from a node to where a track is believed to be (the effector is cued to the estimate, not the truth)
+  const distToTrack = (s, tr) => {
     const m = mpu();
-    return Math.hypot((d.pos.x - s.pos.x) * m, (d.pos.y - (s.pos.y || 0)) * m, (d.pos.z - s.pos.z) * m);
+    return Math.hypot(tr.est.east - s.pos.x * m, tr.est.north + s.pos.z * m, tr.est.up - (s.pos.y || 0) * m);
   };
-  const siteDist = (d) => Math.hypot(d.pos.x, d.pos.z) * mpu();
 
   function sendTask(s, task, name, description) {
     const id = S.ulid();
@@ -361,9 +387,10 @@ export function createNetwork(ctx) {
       control: 'CONTROL_START',
       command: { request: 'Engage', command_parameter: tr.id },
     }, `Engage ${tr.short}`, `Engage track ${tr.short} (${tr.airframe || 'unclassified'})`);
-    const res = ctx.acceptTask(s, tr.drone);
+    // the effector acquires whatever real target is at the track; a false or mis-placed track has none
+    const res = ctx.acceptTask(s, tr.truth);
     if (res.ok) {
-      s.task = { id, drone: tr.drone, trackId: tr.id };
+      s.task = { id, drone: tr.truth, trackId: tr.id };
       sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
       sendStatus(s);
     } else {
@@ -381,19 +408,53 @@ export function createNetwork(ctx) {
     if (s.rejected && T() < s.rejected.until && tr.id === s.rejected.id) return false;
     if (!takesAirframe(def, tr.airframe)) return false; // already known to be beyond this effector
     if (def.engagePolicy === 'fixed-wing' && tr.airframe !== 'Fixed wing') {
-      // last ditch only: something unidentified or fast that has got close and that nothing else is on
+      if (tr.airframe === 'Multirotor') return false; // a known quadcopter is never worth the round
+      // last ditch only: something unidentified that has got close and that nothing else is on
       const taken = [...nodes.values()].some((o) => o !== s && o.task && o.task.trackId === tr.id);
-      if (siteDist(tr.drone) >= FUSION.critZone || taken) return false;
+      if (siteDist(tr) >= FUSION.critZone || taken) return false;
     }
     return true;
   }
 
+  // Point each camera at the most useful track: radar finds things, the camera is then cued to classify them.
+  // Uses the SAPIENT Task `look_at` command. With nothing to look at, a camera sweeps (and rarely catches anything).
+  function cueCameras(live) {
+    for (const s of nodes.values()) {
+      if (!s.def.fov) continue;
+      if (s.cue && T() < s.cue.until && tracker.tracks.has(s.cue.trackId)) continue; // still dwelling on a live track
+      let best = null, bs = Infinity;
+      for (const tr of live) {
+        if (distToTrack(s, tr) > s.def.range * 1.3) continue;
+        const looked = s.lookedAt.get(tr.id);
+        if (tr.airframe !== 'Unknown' && looked !== undefined) continue; // already classified
+        if (looked !== undefined && T() - looked < 4) continue;
+        const score = (tr.airframe === 'Unknown' ? 0 : 1e6) + siteDist(tr);
+        if (score < bs) { bs = score; best = tr; }
+      }
+      if (best) {
+        const loc = S.location(best.est.east, best.est.north, best.est.up, Math.max(best.estErr, 5));
+        const id = sendTask(s, { control: 'CONTROL_START', command: { look_at: { location_list: { locations: [loc] } } } }, `Look at ${best.short}`, `Slew to track ${best.short} and dwell`);
+        s.cue = { trackId: best.id, until: T() + s.def.dwell };
+        s.lookedAt.set(best.id, T());
+        s.mode = 'Track';
+        sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
+        sendStatus(s, true);
+      } else if (s.mode !== 'Search') {
+        const id = sendTask(s, { control: 'CONTROL_START', command: { mode_change: 'Search' } }, 'Mode Search', `Return ${s.name} to its search sweep`);
+        s.cue = null; s.mode = 'Search';
+        sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
+        sendStatus(s, true);
+      }
+    }
+  }
+
   function tasking() {
-    const live = [...tracks.values()].filter(fresh);
+    const live = confirmedTracks();
+    cueCameras(live);
     for (const s of nodes.values()) {
       if (s.def.role !== 'effector') continue;
       if (s.def.id === 'jammer') {
-        const want = live.some((tr) => distM(s, tr.drone) <= s.def.range) ? 'Jam' : 'Standby';
+        const want = live.some((tr) => distToTrack(s, tr) <= s.def.range) ? 'Jam' : 'Standby';
         if (s.mode !== want) {
           const id = sendTask(s, { control: 'CONTROL_START', command: { mode_change: want } }, `Mode ${want}`, `Switch ${s.name} to ${want}`);
           s.mode = want;
@@ -404,26 +465,30 @@ export function createNetwork(ctx) {
       }
       // finish a task that has run its course
       if (s.task) {
-        const d = s.task.drone;
-        if (d.dead) completeTask(s, 'TASK_STATUS_COMPLETED', ['target destroyed or removed']);
-        else if (!d.track || !fresh(d.track)) completeTask(s, 'TASK_STATUS_FAILED', ['track lost']);
-        else if (distM(s, d) > s.def.range) {
-          sendTask(s, { control: 'CONTROL_STOP' }, `Stop ${d.track.short}`, 'Target left engagement envelope');
+        const d = s.task.drone, tr = tracker.tracks.get(s.task.trackId);
+        if (d.dead) { // kill assessment: the effector reports the target gone, so the fusion node drops its track
+          completeTask(s, 'TASK_STATUS_COMPLETED', ['target destroyed or removed']);
+          if (tr) tracker.tracks.delete(tr.id);
+        }
+        else if (!tr) completeTask(s, 'TASK_STATUS_FAILED', ['track lost']);
+        else if (distToTrack(s, tr) > s.def.range) {
+          sendTask(s, { control: 'CONTROL_STOP' }, `Stop ${tr.short}`, 'Target left engagement envelope');
           completeTask(s, 'TASK_STATUS_COMPLETED', ['target left engagement envelope']);
         }
       }
       // best target: the track closest to the site that this effector can reach (skipping one it just rejected)
       let best = null, bd = Infinity;
       for (const tr of live) {
-        if (distM(s, tr.drone) > s.def.range) continue;
+        if (distToTrack(s, tr) > s.def.range) continue;
         if (!eligible(s, tr)) continue;
-        const dd = siteDist(tr.drone);
+        const dd = siteDist(tr);
         if (dd < bd) { bd = dd; best = tr; }
       }
       if (!best || (s.task && s.task.trackId === best.id)) continue;
       if (s.task) {
-        if (siteDist(s.task.drone) - bd < FUSION.retaskAdvantage) continue;
-        sendTask(s, { control: 'CONTROL_STOP' }, `Stop ${s.task.drone.track ? s.task.drone.track.short : 'task'}`, 'Re-tasked to a closer threat');
+        const cur = tracker.tracks.get(s.task.trackId);
+        if (cur && siteDist(cur) - bd < FUSION.retaskAdvantage) continue;
+        sendTask(s, { control: 'CONTROL_STOP' }, `Stop ${cur ? cur.short : 'task'}`, 'Re-tasked to a closer threat');
         completeTask(s, 'TASK_STATUS_COMPLETED', ['re-tasked']);
       }
       assign(s, best);
@@ -431,36 +496,68 @@ export function createNetwork(ctx) {
   }
 
   // ---------- per-step update ----------
+  // Turn a camera towards its cued track (or sweep when idle), at its slew rate.
+  function aimCamera(s, dt) {
+    const def = s.def;
+    let tgtAz = s.point.az, tgtEl = s.point.el, rate = def.searchRate;
+    const tr = s.cue && tracker.tracks.get(s.cue.trackId);
+    if (tr && tr.est) {
+      const m = mpu();
+      const r = { east: tr.est.east - s.pos.x * m, north: tr.est.north + s.pos.z * m, up: tr.est.up - antennaM(s) };
+      r.hr = Math.hypot(r.east, r.north);
+      const b = bearingOf(r);
+      tgtAz = b.az; tgtEl = b.el; rate = def.slewRate;
+    } else { tgtAz = s.point.az + 1; tgtEl = 3; } // sweep
+    const dAz = ((tgtAz - s.point.az + 540) % 360) - 180;
+    const step = rate * dt;
+    s.point.az = (s.point.az + clamp(dAz, -step, step) + 360) % 360;
+    s.point.el += clamp(tgtEl - s.point.el, -step, step);
+  }
+
   function update(dt) {
     S.clock.t = T();
     for (const s of nodes.values()) {
       if (s.def.role === 'sensor') {
+        if (s.def.fov) aimCamera(s, dt);
         s.reportT += dt;
         const iv = s.def.sapient.interval || 1;
         if (s.reportT >= iv) {
           s.reportT = Math.min(s.reportT - iv, iv);
-          for (const d of ctx.drones) if (sees(s, d)) updateTrack(senseOne(s, d));
+          scan(s);
         }
       }
       s.statusT += dt;
       if (s.statusT >= FUSION.statusInterval) { s.statusT = 0; sendStatus(s); }
     }
-    for (const tr of [...tracks.values()]) {
-      if (!fresh(tr)) { tracks.delete(tr.id); if (tr.drone.track === tr) tr.drone.track = null; continue; }
-      const dist = siteDist(tr.drone);
+    tracker.prune(T());
+    refreshTracks();
+    for (const tr of tracker.tracks.values()) {
+      if (tr.justConfirmed) {
+        tr.justConfirmed = false;
+        tr.short = `T${++trackSeq}`;
+        const first = [...tr.sources.values()][0];
+        raiseAlert('information', `New track ${tr.short} confirmed (first detected by ${first ? first.name : 'a sensor'})`, null, 'DISCRETE_PRIORITY_LOW', tr);
+      }
+      if (tr.status === 'tentative') continue;
+      const dist = siteDist(tr);
       if (!tr.warned && dist < FUSION.warnZone) { tr.warned = true; raiseAlert('warning', `Track ${tr.short} inside ${FUSION.warnZone} m of the site`, null, 'DISCRETE_PRIORITY_MEDIUM', tr); }
       if (!tr.crit && dist < FUSION.critZone) { tr.crit = true; raiseAlert('critical', `Track ${tr.short} inside ${FUSION.critZone} m of the site`, null, 'DISCRETE_PRIORITY_HIGH', tr); }
+      if (!tr.loiterAlert && tr.drone && tr.drone.mode === 'orbit') {
+        tr.loiterAlert = true;
+        raiseAlert('warning', `Track ${tr.short} loitering at standoff range: probable spotter`, null, 'DISCRETE_PRIORITY_MEDIUM', tr);
+      }
     }
     fusedT += dt;
-    if (fusedT >= FUSION.fusedInterval) { fusedT = 0; for (const tr of tracks.values()) fusedReport(tr); }
+    if (fusedT >= FUSION.fusedInterval) { fusedT = 0; for (const tr of tracker.tracks.values()) if (tr.status !== 'tentative') fusedReport(tr); }
     fusionT += dt;
     if (fusionT >= FUSION.taskInterval) { fusionT = 0; tasking(); }
   }
 
   // ---------- queries and hooks ----------
-  const isTracked = (d) => !!d.track && fresh(d.track);
+  const isTracked = (d) => !!d.track;
   function onDroneRemoved(d) {
-    if (d.track) { tracks.delete(d.track.id); d.track = null; }
+    d.track = null;
+    for (const tr of tracker.tracks.values()) if (tr.truth === d) { tr.truth = null; tr.drone = null; } // the track outlives the drone briefly, then drops
   }
 
   // Demo of the middleware error path: a detection report missing its mandatory report_id.
@@ -476,7 +573,7 @@ export function createNetwork(ctx) {
     S.clock.epochMs = EPOCH_MS;
     S.clock.t = 0;
     S.clearBus();
-    nodes.clear(); tracks.clear(); names.clear();
+    nodes.clear(); tracker.clear(); names.clear();
     for (const k of Object.keys(counters)) delete counters[k];
     trackSeq = 0; fusionT = 0; fusedT = 0;
     fusion.nodeId = S.uuid(); gui.nodeId = S.uuid(); fusion.statusT = 0;
@@ -492,6 +589,6 @@ export function createNetwork(ctx) {
 
   return {
     init, registerNode, deregisterNode, update, isTracked, onDroneRemoved, raiseAlert, injectFault,
-    coverageAt, nameOf, nodes, tracks, fusion, gui,
+    coverageAt, nameOf, nodes, tracks: tracker.tracks, bearingCandidates: () => tracker.candidates, fusion, gui,
   };
 }
