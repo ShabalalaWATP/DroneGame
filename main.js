@@ -6,8 +6,16 @@ import {
 } from './config.js';
 import { createNetwork } from './network.js';
 import { initDock } from './sapient-ui.js';
+import { bus } from './sapient.js';
+import { view } from './view.js';
+import { seedAll, rand, waveStream } from './rng.js';
 
 const $ = (id) => document.getElementById(id);
+const SIM_STEP = 0.05; // fixed simulation step in game seconds, so a run does not depend on frame rate
+
+// The scenario seed fixes every chance event: wave contents, sensor noise, hit rolls, message IDs.
+const seedParam = new URLSearchParams(location.search).get('seed') || '1';
+seedAll(seedParam);
 const u = (metres) => metres / WORLD.metresPerUnit;           // metres -> scene units
 const hdist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const STRUCT_SCALE = 3;                                       // structures are drawn larger than true size
@@ -65,7 +73,7 @@ const siteMat = new THREE.MeshStandardMaterial({ color: 0x8aa0b4, roughness: 0.7
 
 // ---------- state ----------
 const state = {
-  health: SITE.maxHealth, credits: START_CREDITS, wave: 0, kills: 0, score: 0, time: 0,
+  seed: seedParam, health: SITE.maxHealth, credits: START_CREDITS, wave: 0, kills: 0, score: 0, time: 0,
   speed: 1, lastSpeed: 1, started: false, over: false,
   waveActive: false, queue: [], waveTime: 0, autoTimer: -1, flash: 0, showRings: true,
 };
@@ -176,7 +184,7 @@ function addStructure(id, x, z) {
   holder.add(model);
   holder.position.set(x, 0, z);
   scene.add(holder);
-  const s = { def, group: holder, parts, pos: new THREE.Vector3(x, 0, z), cd: 0, ring: null, beam: null, pulse: null, pulseT: Math.random() };
+  const s = { def, group: holder, parts, pos: new THREE.Vector3(x, 0, z), cd: 0, ring: null, beam: null, pulse: null, pulseT: (structures.length * 0.37) % 1 };
   makeRing(s);
   if (id === 'laser') {
     s.beam = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
@@ -305,6 +313,7 @@ addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { if (tool) setTool(tool); return; }
   if (e.key === ' ') { e.preventDefault(); setSpeed(state.speed === 0 ? state.lastSpeed || 1 : 0); return; }
   if (e.key === 'r' || e.key === 'R') { $('rings').click(); return; }
+  if (e.key === 't' || e.key === 'T') { $('truth').click(); return; }
   if (e.key === 'x' || e.key === 'X') { setTool('sell'); return; }
   const def = Object.values(STRUCTURES).find((d) => d.key === e.key);
   if (def) setTool(def.id);
@@ -313,54 +322,61 @@ addEventListener('keydown', (e) => {
 // ---------- drones ----------
 const rotorMat = new THREE.MeshBasicMaterial({ color: 0xdddddd });
 const darkMat = new THREE.MeshStandardMaterial({ color: 0x333840, roughness: 0.7 });
+const unseenMat = new THREE.MeshBasicMaterial({ color: 0x8a94a3, transparent: true, opacity: 0.4, depthWrite: false });
 const barGeo = new THREE.PlaneGeometry(2, 0.25).translate(1, 0, 0);
 const dropGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -1, 0)]);
 const _v = new THREE.Vector3();
+let droneCount = 0;
 
-// One shared model per drone type; each drone gets a clone (shared geometry and materials).
+// One shared model per drone type, plus a grey copy for drones that no sensor has (shown when the truth overlay is on).
 const droneTemplates = {};
-function droneTemplate(type) {
-  if (droneTemplates[type]) return droneTemplates[type];
+function droneTemplate(type, unseen) {
+  const key = type + (unseen ? ':unseen' : '');
+  if (droneTemplates[key]) return droneTemplates[key];
   const def = DRONES[type];
-  const mat = new THREE.MeshStandardMaterial({ color: def.color, emissive: def.color, emissiveIntensity: 0.4, roughness: 0.5 });
+  const mat = unseen ? unseenMat : new THREE.MeshStandardMaterial({ color: def.color, emissive: def.color, emissiveIntensity: 0.4, roughness: 0.5 });
+  const dark = unseen ? unseenMat : darkMat;
+  const spin = unseen ? unseenMat : rotorMat;
   const g = new THREE.Group();
   const box = (w, h, d, x = 0, y = 0, z = 0, m = mat) => {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
     mesh.position.set(x, y, z); g.add(mesh); return mesh;
   };
   const rotor = (x, y, z, len, axis = 'y') => {
-    const r = box(len, 0.04, 0.14, x, y, z, rotorMat);
+    const r = box(len, 0.04, 0.14, x, y, z, spin);
     r.name = 'rotor'; r.userData.axis = axis;
   };
   const quadRotors = (arm, len) => { for (const sx of [-1, 1]) for (const sz of [-1, 1]) rotor(sx * arm, 0.25, sz * arm, len); };
-  switch (type) {
-    case 'fpv':
-      box(0.6, 0.25, 1.0); quadRotors(0.6, 0.7); break;
-    case 'spotter':
-      box(1.4, 0.3, 0.9); box(0.4, 0.3, 0.4, 0, -0.3, 0.3, darkMat); quadRotors(1.0, 1.1); break;
-    case 'heavy':
-      box(1.0, 0.3, 1.0); box(0.3, 0.3, 0.9, 0, -0.35, 0, darkMat); quadRotors(0.8, 0.9); break;
-    case 'wing':
-      box(0.3, 0.3, 2.4); box(3.4, 0.06, 0.55, 0, 0.05, 0.15); box(1.1, 0.05, 0.35, 0, 0.1, -1.0);
-      box(0.05, 0.45, 0.35, 0, 0.3, -1.0); rotor(0, 0, 1.25, 0.9, 'z'); break;
+  if (def.model === 'fw') {
+    box(0.3, 0.3, 2.4); box(3.4, 0.06, 0.55, 0, 0.05, 0.15); box(1.1, 0.05, 0.35, 0, 0.1, -1.0);
+    box(0.05, 0.45, 0.35, 0, 0.3, -1.0); rotor(0, 0, 1.25, 0.9, 'z');
+  } else { // quadcopter airframe, shared by the FPV and FO strikes
+    box(0.6, 0.25, 1.0); quadRotors(0.6, 0.7);
+    if (def.fibre) box(0.25, 0.25, 0.4, 0, -0.05, -0.55, dark); // fibre spool
   }
-  droneTemplates[type] = g;
+  droneTemplates[key] = g;
   return g;
 }
 
-function spawnDrone(type, bearing) {
+function spawnDrone(type, bearing, rolls = {}) {
   const def = DRONES[type];
   // the enemy adapts: later waves spawn harder to hit and harder to jam
   const k = Math.max(state.wave - 1, 0) * (def.adapt ?? 1);
   const evade = Math.max(Math.min(ADAPT.evadeFloor, def.evade), def.evade * (1 - ADAPT.evadePerWave * k));
   const jamResist = Math.max(def.jamResist, Math.min(ADAPT.jamResistCap, def.jamResist + ADAPT.jamResistPerWave * k));
 
-  const a = bearing + (Math.random() - 0.5) * 0.3;
-  const y = u(def.alt[0] + Math.random() * (def.alt[1] - def.alt[0]));
+  // chance is pre-rolled by the wave's seeded stream; ad-hoc spawns (console, tests) draw from the sim stream
+  const jitter = rolls.jitter ?? (rand() - 0.5) * 0.3;
+  const altFrac = rolls.altFrac ?? rand();
+  const freq = rolls.freq ?? (rand() < 0.5 ? 2.4e9 : 5.8e9);
+  const a = bearing + jitter;
+  const y = u(def.alt[0] + altFrac * (def.alt[1] - def.alt[0]));
   const group = new THREE.Group();
-  const model = droneTemplate(type).clone();
-  group.add(model);
-  const rotors = model.children.filter((c) => c.name === 'rotor');
+  const model = droneTemplate(type, false).clone();
+  const unseen = droneTemplate(type, true).clone();
+  unseen.visible = false;
+  group.add(model, unseen);
+  const rotors = [...model.children, ...unseen.children].filter((c) => c.name === 'rotor');
 
   const bar = new THREE.Group();
   bar.position.y = 1.6;
@@ -378,13 +394,22 @@ function spawnDrone(type, bearing) {
   group.scale.setScalar(def.scale * WORLD.droneVisualScale);
   const pos = new THREE.Vector3(Math.cos(a) * u(WORLD.spawnDist), y, Math.sin(a) * u(WORLD.spawnDist));
   group.position.copy(pos);
-  group.visible = false;
   scene.add(group);
+
+  // fibre-optic drones pay out a line from where they launched
+  let fibre = null;
+  if (def.fibre) {
+    fibre = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pos.clone(), pos.clone()]),
+      new THREE.LineBasicMaterial({ color: 0xd7ccc8, transparent: true, opacity: 0.6 }));
+    fibre.frustumCulled = false;
+    scene.add(fibre);
+  }
+
   drones.push({
-    def, type, pos, group, rotors, bar, fill, fillMat, drop, dropMat,
-    hp: def.hp, evade, jamResist, jamT: 0, detected: false, dead: false, phase: Math.random() * 6,
-    mode: 'approach', angle: 0, orbitT: 0,                 // spotter state
-    vel: new THREE.Vector3(), freq: Math.random() < 0.5 ? 2.4e9 : 5.8e9, track: null,
+    def, type, pos, group, model, unseen, rotors, bar, fill, fillMat, drop, dropMat, fibre,
+    hp: def.hp, evade, jamResist, jamT: 0, detected: false, dead: false, phase: (droneCount++ * 1.7) % 6,
+    mode: 'approach', angle: 0, orbitT: 0, bank: 0,         // spotter state
+    vel: new THREE.Vector3(), freq, track: null,
   });
 }
 
@@ -392,6 +417,7 @@ function removeDrone(d) {
   d.dead = true;
   net.onDroneRemoved(d);
   scene.remove(d.group);
+  if (d.fibre) { scene.remove(d.fibre); d.fibre.geometry.dispose(); d.fibre.material.dispose(); }
   d.fillMat.dispose(); d.dropMat.dispose();
   const i = drones.indexOf(d);
   if (i >= 0) drones.splice(i, 1);
@@ -428,7 +454,7 @@ function moveSpotter(d, spd, dt) {
   if (d.mode === 'approach') {
     if (hdist(d.pos, SITE_POS) <= r) {
       d.mode = 'orbit'; d.angle = Math.atan2(d.pos.z, d.pos.x); d.orbitT = 0;
-      toast(`Spotter on station: strikes +${Math.round(d.def.spotBonus * 100)}% damage`);
+      toast(`${d.def.name} on station: strikes +${Math.round(d.def.spotBonus * 100)}% damage`);
     } else {
       _v.set(-d.pos.x, 0, -d.pos.z).normalize().multiplyScalar(spd);
       d.pos.add(_v);
@@ -450,7 +476,6 @@ function updateDrones(dt) {
   for (let i = drones.length - 1; i >= 0; i--) {
     const d = drones[i];
     d.detected = net.isTracked(d);
-    d.group.visible = d.detected;
 
     // jamming: slows the drone, and link-dependent ones eventually lose control and crash
     let slow = 1, jamTime = Infinity;
@@ -484,7 +509,122 @@ function updateDrones(dt) {
     const dx = d.pos.x - px, dz = d.pos.z - pz;
     if (dt > 0) d.vel.set(dx, d.pos.y - py, dz).divideScalar(dt);
     if (dx || dz) d.group.rotation.y = Math.atan2(dx, dz);
+    if (d.def.bank) { // fixed-wing banks into its orbit
+      d.bank += ((d.mode === 'orbit' ? d.def.bank : 0) - d.bank) * Math.min(1, dt * 2);
+      d.model.rotation.z = d.bank; d.unseen.rotation.z = d.bank;
+    }
     d.group.position.copy(d.pos);
+  }
+}
+
+// ---------- what the fusion node believes ----------
+// Each fused track is drawn where the fusion node thinks the drone is, with an error circle. Tracks with no range
+// fix (bearing-only sensors such as RF) also show the bearing rays, so you can see where two rays would cross.
+const diamondGeo = new THREE.OctahedronGeometry(1, 0);
+const ringUnit = new THREE.BufferGeometry().setFromPoints(Array.from({ length: 49 }, (_, i) => new THREE.Vector3(Math.cos((i / 48) * Math.PI * 2), 0, Math.sin((i / 48) * Math.PI * 2))));
+const beliefs = new Map(); // track id -> markers
+const labelLayer = $('labels');
+const _p = new THREE.Vector3();
+
+function makeBelief(tr) {
+  const group = new THREE.Group();
+  const diamond = new THREE.Mesh(diamondGeo, new THREE.MeshBasicMaterial({ color: 0xffcc66, depthTest: false }));
+  diamond.renderOrder = 20;
+  const ring = new THREE.LineLoop(ringUnit, new THREE.LineBasicMaterial({ color: 0xffcc66, transparent: true, opacity: 0.7 }));
+  const link = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: 0x8a94a3, transparent: true, opacity: 0.6 }));
+  link.frustumCulled = false;
+  group.add(diamond, ring);
+  scene.add(group, link);
+  const label = document.createElement('div');
+  label.className = 'tlabel';
+  labelLayer.appendChild(label);
+  return { group, diamond, ring, link, rays: [], label, pos: new THREE.Vector3(), hasPos: false };
+}
+
+function disposeBelief(b) {
+  scene.remove(b.group, b.link);
+  b.diamond.material.dispose(); b.ring.material.dispose(); b.link.geometry.dispose(); b.link.material.dispose();
+  for (const r of b.rays) { scene.remove(r); r.geometry.dispose(); r.material.dispose(); }
+  b.label.remove();
+}
+
+function updateBeliefs() {
+  const m = WORLD.metresPerUnit;
+  for (const [id, b] of beliefs) if (!net.tracks.has(id)) { disposeBelief(b); beliefs.delete(id); }
+  for (const tr of net.tracks.values()) {
+    let b = beliefs.get(tr.id);
+    if (!b) { b = makeBelief(tr); beliefs.set(tr.id, b); }
+    const srcs = [...tr.sources.values()];
+    const hasFix = srcs.some((v) => v.fix);
+    // position estimate
+    b.hasPos = !!tr.est;
+    if (tr.est) {
+      _p.set(tr.est.east / m, tr.est.up / m, -tr.est.north / m);
+      if (b.pos.lengthSq() === 0) b.pos.copy(_p); else b.pos.lerp(_p, 0.35);
+    }
+    b.group.visible = b.hasPos;
+    const size = Math.max(1.5, camera.position.distanceTo(b.pos) * 0.008);
+    b.diamond.scale.setScalar(size);
+    b.group.position.copy(b.pos);
+    const errU = Math.max(u(tr.estErr || 0), 0.001);
+    b.ring.scale.set(errU, 1, errU);
+    // line from belief to truth, only when the truth overlay is on
+    b.link.visible = b.hasPos && view.truth;
+    if (b.link.visible) {
+      const p = b.link.geometry.attributes.position;
+      p.setXYZ(0, b.pos.x, b.pos.y, b.pos.z); p.setXYZ(1, tr.drone.pos.x, tr.drone.pos.y, tr.drone.pos.z); p.needsUpdate = true;
+    }
+    // bearing rays for sources without a range fix
+    const bearing = hasFix ? [] : srcs.filter((v) => v.rb && v.rb.range === undefined && v.from);
+    while (b.rays.length < bearing.length) {
+      const ray = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ transparent: true, opacity: 0.7 }));
+      ray.frustumCulled = false; scene.add(ray); b.rays.push(ray);
+    }
+    b.rays.forEach((ray, i) => {
+      const v = bearing[i];
+      ray.visible = !!v;
+      if (!v) return;
+      const az = (v.rb.azimuth * Math.PI) / 180, el = ((v.rb.elevation || 0) * Math.PI) / 180;
+      const len = 3500; // metres drawn
+      const p = ray.geometry.attributes.position;
+      p.setXYZ(0, v.from.east / m, v.from.up / m, -v.from.north / m);
+      p.setXYZ(1, (v.from.east + len * Math.cos(el) * Math.sin(az)) / m, (v.from.up + len * Math.sin(el)) / m, -(v.from.north + len * Math.cos(el) * Math.cos(az)) / m);
+      p.needsUpdate = true;
+      ray.material.color.setHex(v.color);
+    });
+    // label
+    if (b.hasPos) _p.copy(b.pos); else if (bearing[0]) _p.set((bearing[0].from.east) / m, bearing[0].from.up / m, -bearing[0].from.north / m);
+    _p.project(camera);
+    const show = (b.hasPos || bearing.length) && _p.z < 1;
+    b.label.style.display = show ? 'block' : 'none';
+    if (show) {
+      b.label.style.left = ((_p.x + 1) / 2) * innerWidth + 'px';
+      b.label.style.top = ((1 - _p.y) / 2) * innerHeight + 'px';
+      const cls = tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : 'UAV';
+      b.label.textContent = `${tr.short} · ${cls}${tr.estErr ? ` ±${Math.round(tr.estErr)} m` : ' · bearing only'}`;
+    }
+  }
+}
+
+// Truth overlay: when on, every drone is drawn where it really is (colour if tracked, grey if nobody has it).
+// When off, only the fused tracks (the belief markers) are visible.
+function updateDroneVisuals(real) {
+  for (const d of drones) {
+    const tracked = d.detected;
+    d.group.visible = view.truth;
+    d.model.visible = tracked;
+    d.unseen.visible = !tracked;
+    d.bar.visible = tracked;
+    d.dropMat.color.setHex(tracked ? d.def.color : 0x667080);
+    for (const r of d.rotors) r.rotation[r.userData.axis || 'y'] += real * 50;
+    d.group.position.y = d.pos.y + Math.sin(performance.now() / 300 + d.phase) * 0.15;
+    d.drop.scale.y = d.pos.y / d.group.scale.y;
+    d.bar.lookAt(camera.position);
+    if (d.fibre) {
+      d.fibre.visible = view.truth;
+      const p = d.fibre.geometry.attributes.position;
+      p.setXYZ(1, d.pos.x, d.pos.y, d.pos.z); p.needsUpdate = true;
+    }
   }
 }
 
@@ -518,7 +658,7 @@ function updateStructures(dt) {
     if (def.id === 'turret') {
       state.credits -= def.shotCost;
       const frac = s.pos.distanceTo(t.pos) / range;
-      const hit = Math.random() < def.accuracy * t.evade * (1 - 0.5 * frac * frac); // accuracy falls with range
+      const hit = rand() < def.accuracy * t.evade * (1 - 0.5 * frac * frac); // accuracy falls with range
       const end = t.pos.clone();
       if (!hit) end.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(3));
       addTracer(muzzle(s).clone(), end, def.color);
@@ -609,7 +749,7 @@ function updateEffects(dt) {
 function startWave() {
   if (state.waveActive || state.over || !state.started) return;
   state.wave++;
-  state.queue = makeWave(state.wave);
+  state.queue = makeWave(state.wave, waveStream(state.seed, state.wave));
   state.waveTime = 0;
   state.waveActive = true;
   state.autoTimer = -1;
@@ -620,7 +760,7 @@ function updateWaves(dt) {
     state.waveTime += dt;
     while (state.queue.length && state.queue[0].t <= state.waveTime) {
       const q = state.queue.shift();
-      spawnDrone(q.type, q.bearing);
+      spawnDrone(q.type, q.bearing, q);
     }
     if (!state.queue.length && !drones.some((d) => d.def.role !== 'spotter')) {
       for (const d of drones) d.mode = 'egress'; // spotters withdraw once the strike is over
@@ -660,7 +800,20 @@ function setSpeed(s) {
 }
 document.querySelectorAll('.speed').forEach((b) => { b.onclick = () => setSpeed(Number(b.dataset.speed)); });
 $('btn-wave').onclick = startWave;
-$('btn-deploy').onclick = () => { state.started = true; $('overlay').classList.add('hidden'); };
+$('seed-input').value = state.seed;
+$('btn-seed-random').onclick = () => { $('seed-input').value = String(Math.floor(Math.random() * 900000) + 100000); }; // a UI action, not part of the sim
+$('btn-deploy').onclick = () => {
+  const seed = $('seed-input').value.trim() || '1';
+  if (seed !== state.seed) { // nothing has happened yet, so re-seeding and restarting the network is safe
+    state.seed = seed;
+    seedAll(seed);
+    net.init();
+    history.replaceState(null, '', `?seed=${encodeURIComponent(seed)}`);
+  }
+  state.started = true;
+  $('overlay').classList.add('hidden');
+};
+$('truth').onchange = (e) => { view.truth = e.target.checked; };
 $('rings').onchange = (e) => { state.showRings = e.target.checked; structures.forEach((s) => { s.ring.visible = state.showRings; }); };
 $('btn-tuning').onclick = () => $('tuning').classList.toggle('hidden');
 
@@ -718,8 +871,8 @@ function updateHud() {
     const def = DRONES[type], kk = (next - 1) * (def.adapt ?? 1);
     return Math.max(Math.min(ADAPT.evadeFloor, def.evade), def.evade * (1 - ADAPT.evadePerWave * kk));
   };
-  hud.status.innerHTML = (spot > 0 ? `<span class="warn">Spotter on station: strikes +${Math.round(spot * 100)}%</span><br>` : '')
-    + `Enemy evasion (1.00 = easy to hit): FPV ${adapted('fpv').toFixed(2)} &middot; Wing ${adapted('wing').toFixed(2)}`;
+  hud.status.innerHTML = (spot > 0 ? `<span class="warn">FW Spotter on station: strikes +${Math.round(spot * 100)}%</span><br>` : '')
+    + `Enemy evasion (1.00 = easy to hit): FPV ${adapted('fpv').toFixed(2)} &middot; FW ${adapted('fw').toFixed(2)}<br>Seed ${state.seed}`;
   hud.btn.disabled = state.waveActive || state.over;
   hud.btn.textContent = state.waveActive ? `Wave ${state.wave} in progress` : `Start wave ${state.wave + 1}`;
   for (const def of Object.values(STRUCTURES)) toolButtons[def.id].classList.toggle('poor', state.credits < def.cost);
@@ -736,12 +889,15 @@ function step(dt) {
 }
 
 const clock = new THREE.Clock();
+let simAcc = 0;
 function frame() {
   const real = Math.min(clock.getDelta(), 0.05);
   if (state.started && !state.over && state.speed > 0) {
-    const total = real * WORLD.timeScale * state.speed;
-    const n = Math.max(1, Math.ceil(total / 0.05));
-    for (let i = 0; i < n; i++) step(total / n);
+    // fixed-size steps: the same seed and laydown give the same run at any frame rate or speed
+    simAcc += real * WORLD.timeScale * state.speed;
+    let n = 0;
+    while (simAcc >= SIM_STEP && n < 400 && !state.over) { step(SIM_STEP); simAcc -= SIM_STEP; n++; }
+    if (n >= 400) simAcc = 0;
   }
   updateEffects(real);
 
@@ -758,12 +914,8 @@ function frame() {
       }
     }
   }
-  for (const d of drones) {
-    for (const r of d.rotors) r.rotation[r.userData.axis || 'y'] += real * 50;
-    d.group.position.y = d.pos.y + Math.sin(performance.now() / 300 + d.phase) * 0.15;
-    d.drop.scale.y = d.pos.y / d.group.scale.y;
-    d.bar.lookAt(camera.position);
-  }
+  updateDroneVisuals(real);
+  updateBeliefs();
 
   if (ghostRing || tool === 'sell') {
     ghost.visible = mouseOnGround && !!tool && state.started;
@@ -792,5 +944,18 @@ buildTuning();
 initDock({ net, structures, drones });
 renderer.setAnimationLoop(frame);
 
+// Headless helpers for experiments and tests: step the sim without rendering, and fingerprint a run.
+function runHeadless(steps) {
+  state.started = true;
+  for (let i = 0; i < steps && !state.over; i++) step(SIM_STEP);
+}
+function digest() { // FNV-1a over every message sent, plus the headline numbers
+  let h = 0x811c9dc5;
+  const feed = (s) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } };
+  for (const e of bus.entries) feed(JSON.stringify(e.msg));
+  feed(JSON.stringify([state.kills, state.health, state.credits, state.score, state.time, bus.seq]));
+  return (h >>> 0).toString(16);
+}
+
 // handy for poking at the game from the dev console
-window.game = { state, drones, structures, missiles, net, addStructure, startWave, spawnDrone, WORLD, STRUCTURES, DRONES };
+window.game = { state, drones, structures, missiles, net, addStructure, startWave, spawnDrone, runHeadless, digest, WORLD, STRUCTURES, DRONES };

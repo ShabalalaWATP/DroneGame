@@ -189,28 +189,29 @@ export function applyRangeScale() {
 applyRangeScale();
 
 export const DRONES = {
-  // alt: spawn altitude range (m). jamResist: 0 = fully jammable, 1 = immune.
+  // model: 'quad' | 'fw'. alt: spawn altitude range (m). jamResist: 0 = fully jammable, 1 = immune.
   // evade: 1 = no manoeuvrability, lower = harder to hit. It scales gun hit chance, missile fuze radius
   // and laser dwell. adapt: how strongly this type gets better at evading/resisting each wave (see ADAPT).
   // rfEmitter: has an active radio link an RF detector can hear. airframe is what a camera classifies it as.
   spotter: {
-    name: 'Spotter', role: 'spotter', hp: 50, speed: 30, damage: 0, reward: 50, scale: 1.1, evade: 0.9,
-    color: 0xce93d8, alt: [400, 500], jamResist: 0.75, adapt: 0.5, rfEmitter: true, airframe: 'Multirotor',
+    name: 'FW Spotter', role: 'spotter', model: 'fw', hp: 50, speed: 30, damage: 0, reward: 50, scale: 1.3, evade: 0.9,
+    color: 0xce93d8, alt: [400, 500], jamResist: 0.75, adapt: 0.5, rfEmitter: true, airframe: 'Fixed wing',
     loiterDist: 2500, loiterTime: 60, // orbit radius (m) and seconds on station before it leaves
     spotBonus: 0.5,                   // each spotter on station adds this to strike damage
+    bank: 0.35,                       // bank angle (radians) while orbiting
   },
-  heavy: {
-    // fibre-optic FPV: low, slow, no radio emission, immune to jamming, no manoeuvrability
-    name: 'FO FPV', hp: 20, speed: 14, damage: 12, reward: 45, scale: 2.0, evade: 1.0, rfEmitter: false, airframe: 'Multirotor',
-    color: 0xa1887f, alt: [10, 25], jamResist: 1, adapt: 0, // never gets better at evading
+  fo: {
+    // fibre-optic FPV: an FPV that is slower and less agile, flies low, emits no radio and cannot be jammed
+    name: 'FO Strike', model: 'quad', hp: 20, speed: 18, damage: 12, reward: 25, scale: 0.7, evade: 0.8,
+    rfEmitter: false, airframe: 'Multirotor', color: 0xa1887f, alt: [10, 25], jamResist: 1, adapt: 0, fibre: true,
   },
   fpv: {
-    name: 'FPV', hp: 20, speed: 30, damage: 12, reward: 12, scale: 0.7, evade: 0.6, rfEmitter: true, airframe: 'Multirotor',
-    color: 0xff8a65, alt: [30, 90], jamResist: 0, adapt: 1,
+    name: 'FPV Strike', model: 'quad', hp: 20, speed: 30, damage: 12, reward: 12, scale: 0.7, evade: 0.6,
+    rfEmitter: true, airframe: 'Multirotor', color: 0xff8a65, alt: [30, 90], jamResist: 0, adapt: 1,
   },
-  wing: {
-    name: 'Fixed-wing', hp: 60, speed: 45, damage: 30, reward: 35, scale: 1.3, evade: 0.8, rfEmitter: false, airframe: 'Fixed wing',
-    color: 0xe57373, alt: [150, 300], jamResist: 0.5, adapt: 0.7,
+  fw: {
+    name: 'FW Strike', model: 'fw', hp: 60, speed: 45, damage: 30, reward: 35, scale: 1.3, evade: 0.8,
+    rfEmitter: false, airframe: 'Fixed wing', color: 0xe57373, alt: [150, 300], jamResist: 0.5, adapt: 0.7,
   },
 };
 for (const [id, def] of Object.entries(DRONES)) def.id = id;
@@ -220,19 +221,23 @@ for (const [id, def] of Object.entries(DRONES)) def.id = id;
 // jamResist = max(base, min(jamResistCap, base + jamResistPerWave * adapt * (wave - 1)))
 export const ADAPT = { evadePerWave: 0.07, evadeFloor: 0.25, jamResistPerWave: 0.05, jamResistCap: 0.95 };
 
-// Returns [{ t, type, bearing }] sorted by spawn time (seconds into the wave).
-export function makeWave(n) {
+// Returns [{ t, type, bearing, jitter, altFrac, freq }] sorted by spawn time (seconds into the wave).
+// `rng` is the wave's own seeded stream (rng.js waveStream), so a wave looks the same however it is reached.
+export function makeWave(n, rng) {
   const out = [];
   const groups = Math.min(1 + Math.floor(n / 3), 3);
-  const bearings = Array.from({ length: groups }, () => Math.random() * Math.PI * 2);
+  const bearings = Array.from({ length: groups }, () => rng() * Math.PI * 2);
   const add = (type, count, start, span) => {
     for (let i = 0; i < count; i++) {
-      out.push({ t: start + (span * i) / Math.max(count, 1), type, bearing: bearings[i % groups] });
+      out.push({
+        t: start + (span * i) / Math.max(count, 1), type, bearing: bearings[i % groups],
+        jitter: (rng() - 0.5) * 0.3, altFrac: rng(), freq: rng() < 0.5 ? 2.4e9 : 5.8e9,
+      });
     }
   };
   add('fpv', 3 + n * 2, 0, 15);
-  if (n >= 2) add('wing', Math.ceil((n - 1) / 2), 4, 14);
-  if (n >= 3) add('heavy', Math.floor((n - 1) / 2), 2, 10);
+  if (n >= 2) add('fw', Math.ceil((n - 1) / 2), 4, 14);
+  if (n >= 3) add('fo', Math.floor((n - 1) / 2), 2, 10);
   if (n >= 3) add('spotter', n >= 8 ? 2 : 1, 0, 1);
   return out.sort((a, b) => a.t - b.t);
 }

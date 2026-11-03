@@ -7,6 +7,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1220; col
   border-radius: 8px; padding: 10px 12px; backdrop-filter: blur(4px); }
 .label { font-size: 11px; letter-spacing: 0.12em; color: #7f93b2; margin-bottom: 4px; }
 
+#labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.tlabel { position: absolute; transform: translate(10px, -50%); font: 11px/1.2 ui-monospace, Consolas, monospace; color: #ffcc66; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; }
+.seed-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.seed-row input { flex: 1; background: #0b1424; color: #fff; border: 1px solid #2f4468; border-radius: 4px; padding: 5px 8px; }
+.seed-note { margin: 4px 0 8px; font-size: 12px; }
 #hud-top-left { top: 12px; left: 12px; width: 320px; }
 .bar { height: 12px; background: #1a2740; border-radius: 6px; overflow: hidden; }
 #health-fill { height: 100%; width: 100%; background: #4caf50; transition: width 0.2s, background 0.2s; }

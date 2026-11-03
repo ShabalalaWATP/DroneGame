@@ -7,6 +7,7 @@
 // illustrative, not taken from the standard.
 
 import { GEO } from './config.js';
+import { idRand, EPOCH_MS } from './rng.js';
 
 export const ICD_VERSION = 'BSI Flex 335 v2.0';
 
@@ -17,7 +18,7 @@ export const CONTENT_KEYS = [
 
 // ---------- simulated clock ----------
 // Message timestamps follow simulated time, so paused/fast-forwarded play stays consistent.
-export const clock = { epochMs: Date.now(), t: 0 };
+export const clock = { epochMs: EPOCH_MS, t: 0 };
 const simMs = () => clock.epochMs + clock.t * 1000;
 export const timestamp = () => new Date(simMs()).toISOString();
 
@@ -27,12 +28,17 @@ export function ulid() {
   let ms = Math.floor(simMs());
   let time = '';
   for (let i = 0; i < 10; i++) { time = B32[ms % 32] + time; ms = Math.floor(ms / 32); }
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
   let rand = '';
-  for (let i = 0; i < 16; i++) rand += B32[bytes[i] % 32];
+  for (let i = 0; i < 16; i++) rand += B32[Math.floor(idRand() * 32)];
   return time + rand;
 }
-export const uuid = () => crypto.randomUUID();
+export function uuid() { // RFC 4122 version 4 layout, from the seeded id stream
+  const b = Array.from({ length: 16 }, () => Math.floor(idRand() * 256));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = b.map((x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
 const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -129,7 +135,7 @@ export function emit(msg, from, to) {
 }
 
 export function clearBus() {
-  bus.entries.length = 0; bus.counts = {}; bus.tx.clear(); bus.rx.clear();
+  bus.entries.length = 0; bus.seq = 0; bus.counts = {}; bus.tx.clear(); bus.rx.clear();
 }
 
 // Send through the middleware: validate, record, and if invalid also record the Error it would return.

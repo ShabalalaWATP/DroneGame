@@ -3,6 +3,7 @@
 
 import { bus } from './sapient.js';
 import { STRUCTURES, WORLD, BUILD, SITE } from './config.js';
+import { view } from './view.js';
 
 const TYPES = [
   ['registration', 'Reg'], ['registration_ack', 'RegAck'], ['status_report', 'Status'], ['detection_report', 'Detect'],
@@ -12,7 +13,7 @@ const MAX_ROWS = 150;
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
-export function initDock({ net }) {
+export function initDock({ net, drones }) {
   const dock = document.getElementById('dock');
   dock.innerHTML = `
     <div class="dock-head">
@@ -41,7 +42,7 @@ export function initDock({ net }) {
     <div class="tabpane hidden" data-pane="nodes"><table id="node-table"></table></div>
     <div class="tabpane hidden" data-pane="plan">
       <canvas id="plan"></canvas>
-      <div class="plan-note">North up, scroll to zoom. Circles are each node's range, lines are links to the fusion node (bright when a message has just been sent), red lines are active engagement tasks, crosses are fused tracks.</div>
+      <div class="plan-note">North up, scroll to zoom. Circles are each node's range, lines are links to the fusion node (bright when a message has just been sent), red lines are active engagement tasks, crosses are fused tracks drawn where the fusion node believes they are (circle = position error), grey dots are drones nobody has (truth overlay).</div>
     </div>
     <div class="tabpane hidden" data-pane="systems" id="systems"></div>`;
 
@@ -206,10 +207,31 @@ export function initDock({ net }) {
         g.strokeStyle = '#ff5252'; g.beginPath(); g.moveTo(x, y); g.lineTo(X(d.pos.x * mpu()), Y(-d.pos.z * mpu())); g.stroke();
       }
     }
-    for (const tr of net.tracks.values()) { // fused tracks
-      const x = X(tr.drone.pos.x * mpu()), y = Y(-tr.drone.pos.z * mpu());
+    if (view.truth) { // truth: drones no sensor has, in grey
+      g.fillStyle = '#8a94a3';
+      for (const d of drones) {
+        if (d.detected) continue;
+        g.beginPath(); g.arc(X(d.pos.x * mpu()), Y(-d.pos.z * mpu()), 3, 0, Math.PI * 2); g.fill();
+      }
+    }
+    for (const tr of net.tracks.values()) { // fused tracks, drawn where the fusion node believes they are
+      const cls = tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : 'UAV';
+      if (!tr.est) { // bearing only: show the ray from the sensor
+        const v = [...tr.sources.values()].find((s) => s.from && s.rb);
+        if (!v) continue;
+        const az = (v.rb.azimuth * Math.PI) / 180, len = 3500;
+        g.strokeStyle = hex(v.color) + 'aa'; g.beginPath();
+        g.moveTo(X(v.from.east), Y(v.from.north)); g.lineTo(X(v.from.east + len * Math.sin(az)), Y(v.from.north + len * Math.cos(az))); g.stroke();
+        g.fillStyle = '#ffcc66'; g.fillText(`${tr.short} · bearing only`, X(v.from.east + 0.5 * len * Math.sin(az)) + 4, Y(v.from.north + 0.5 * len * Math.cos(az)));
+        continue;
+      }
+      const x = X(tr.est.east), y = Y(tr.est.north);
+      if (tr.estErr) { g.strokeStyle = '#ffcc6688'; g.beginPath(); g.arc(x, y, Math.max(tr.estErr * k, 3), 0, Math.PI * 2); g.stroke(); }
+      if (view.truth) { // line from belief to truth
+        g.strokeStyle = '#8a94a3'; g.beginPath(); g.moveTo(x, y); g.lineTo(X(tr.drone.pos.x * mpu()), Y(-tr.drone.pos.z * mpu())); g.stroke();
+      }
       g.strokeStyle = '#ffcc66'; g.beginPath(); g.moveTo(x - 4, y - 4); g.lineTo(x + 4, y + 4); g.moveTo(x + 4, y - 4); g.lineTo(x - 4, y + 4); g.stroke();
-      g.fillStyle = '#ffcc66'; g.fillText(`${tr.short} ${tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : ''}`, x + 7, y + 3);
+      g.fillStyle = '#ffcc66'; g.fillText(`${tr.short} · ${cls}`, x + 7, y + 3);
     }
   }
 

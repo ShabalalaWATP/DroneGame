@@ -10,18 +10,13 @@
 
 import * as S from './sapient.js';
 import { WORLD, FUSION, PERIMETER, FUSION_DEF } from './config.js';
+import { rand, gauss, EPOCH_MS } from './rng.js';
 
 const RB_UNITS = 'RANGE_BEARING_COORDINATE_SYSTEM_DEGREES_M';
 const RB_DATUM = 'RANGE_BEARING_DATUM_TRUE';
 const deg = (r) => (r * 180) / Math.PI;
 const round = (x, n = 3) => Number(x.toFixed(n));
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
-function gauss() {
-  let a = 0, b = 0;
-  while (!a) a = Math.random();
-  while (!b) b = Math.random();
-  return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * b);
-}
 const dur = (value) => ({ units: 'TIME_UNITS_SECONDS', value });
 
 // ctx: { drones: Drone[], getTime(): sim seconds, acceptTask(structure, drone): {ok, reasons?} }
@@ -35,10 +30,9 @@ export function createNetwork(ctx) {
   let trackSeq = 0;
   let fusionT = 0, fusedT = 0;
 
-  const fusion = { def: FUSION_DEF, nodeId: S.uuid(), name: 'Site Fusion Node', short: 'FUSION', pos: { x: 0, y: 0, z: 0 }, mode: 'Fuse', statusT: 0 };
-  const gui = { nodeId: S.uuid(), name: 'C2 Operator GUI', short: 'C2-GUI' };
-  names.set(fusion.nodeId, fusion.name);
-  names.set(gui.nodeId, gui.name);
+  // ids are assigned in init(), from the seeded id stream
+  const fusion = { def: FUSION_DEF, nodeId: '', name: 'Site Fusion Node', short: 'FUSION', pos: { x: 0, y: 0, z: 0 }, mode: 'Fuse', statusT: 0 };
+  const gui = { nodeId: '', name: 'C2 Operator GUI', short: 'C2-GUI' };
   const nameOf = (id) => names.get(id) || String(id).slice(0, 8);
   const routeTo = (s) => (s === fusion ? gui.nodeId : fusion.nodeId);
   const send = (msg, from, to) => S.send(msg, from, to, fusion.nodeId);
@@ -134,7 +128,7 @@ export function createNetwork(ctx) {
     s.short = `${def.short}-${String(counters[def.id]).padStart(2, '0')}`;
     s.name = `${def.name} ${String(counters[def.id]).padStart(2, '0')}`;
     s.mode = def.role === 'sensor' ? 'Detect' : (def.sapient.modes ? def.sapient.modes[0] : 'Ready');
-    s.reportT = Math.random() * (def.sapient.interval || 1);
+    s.reportT = rand() * (def.sapient.interval || 1);
     s.objIds = new Map();
     s.task = null; s.rejectUntil = 0;
     names.set(s.nodeId, s.name);
@@ -172,8 +166,8 @@ export function createNetwork(ctx) {
     if (id === 'camera') {
       return [{ type: 'Air Vehicle', confidence: 0.95, sub_class: [sub('UAV', 0.9, 1, sub(d.def.airframe, 0.85, 2))] }];
     }
-    if (id === 'rf') {
-      return [{ type: 'Air Vehicle', confidence: 0.85, sub_class: [sub('UAV', 0.8, 1, sub('Multirotor', 0.7, 2))] }];
+    if (id === 'rf') { // a radio emitter is recognised as a UAV link, but not as an airframe type
+      return [{ type: 'Air Vehicle', confidence: 0.85, sub_class: [sub('UAV', 0.8, 1)] }];
     }
     return [{ type: 'Air Vehicle', confidence: 0.7, sub_class: [sub('UAV', 0.55, 1)] }];
   }
@@ -204,8 +198,8 @@ export function createNetwork(ctx) {
     rb.datum = RB_DATUM;
 
     const conf = def.id === 'radar' ? clamp(0.55 + 0.4 * (1 - r.rng / def.range), 0.3, 0.98)
-      : def.id === 'camera' ? 0.85 + Math.random() * 0.1
-      : def.id === 'rf' ? 0.75 + Math.random() * 0.15 : 0.9;
+      : def.id === 'camera' ? 0.85 + rand() * 0.1
+      : def.id === 'rf' ? 0.75 + rand() * 0.15 : 0.9;
 
     if (!s.objIds.has(d)) s.objIds.set(d, S.ulid());
     const report = {
@@ -239,7 +233,8 @@ export function createNetwork(ctx) {
         up: (def.mount || 0) + rngM * Math.sin((elM * Math.PI) / 180),
       };
     }
-    return { s, d, report, rb, fix, vel, cls: report.classification, conf, rangeErr: n.range };
+    const from = { east: sx, north: sy, up: def.mount || 0 };
+    return { s, d, report, rb, fix, from, vel, cls: report.classification, conf, rangeErr: n.range };
   }
 
   // ---------- fusion ----------
@@ -256,7 +251,7 @@ export function createNetwork(ctx) {
       raiseAlert('information', `New track ${tr.short} first detected by ${m.s.name}`, null, 'DISCRETE_PRIORITY_LOW', tr);
     }
     tr.lastT = T();
-    tr.sources.set(m.s.nodeId, { name: m.s.name, objectId: m.report.object_id, ts: S.timestamp(), lastT: T(), conf: m.conf, rb: m.rb, fix: m.fix, vel: m.vel, cls: m.cls, rangeErr: m.rangeErr });
+    tr.sources.set(m.s.nodeId, { name: m.s.name, objectId: m.report.object_id, ts: S.timestamp(), lastT: T(), conf: m.conf, rb: m.rb, fix: m.fix, from: m.from, color: m.s.def.color, vel: m.vel, cls: m.cls, rangeErr: m.rangeErr });
     if (d.mode === 'orbit' && !tr.loiterAlert) {
       tr.loiterAlert = true;
       raiseAlert('warning', `Track ${tr.short} loitering at standoff range: probable spotter`, null, 'DISCRETE_PRIORITY_MEDIUM', tr);
@@ -267,14 +262,15 @@ export function createNetwork(ctx) {
     const fixes = srcs.map(([, v]) => v).filter((v) => v.fix).sort((a, b) => b.lastT - a.lastT);
     if (fixes.length) {
       const f = fixes[0];
-      return { location: S.location(f.fix.east, f.fix.north, f.fix.up, Math.max(f.rangeErr || 10, 10)), fix: f.fix };
+      const err = Math.max(f.rangeErr || 10, 10);
+      return { location: S.location(f.fix.east, f.fix.north, f.fix.up, err), fix: f.fix, err };
     }
     if (srcs.length >= 2) { // two or more bearing-only sensors: triangulated, with a coarse error
       const d = tr.drone, m = mpu();
       const fix = { east: d.pos.x * m + gauss() * 60, north: -d.pos.z * m + gauss() * 60, up: d.pos.y * m + gauss() * 30 };
-      return { location: S.location(fix.east, fix.north, fix.up, 60), fix };
+      return { location: S.location(fix.east, fix.north, fix.up, 60), fix, err: 60 };
     }
-    return { range_bearing: srcs[0][1].rb, fix: null };
+    return { range_bearing: srcs[0][1].rb, fix: null, err: null };
   }
 
   function fusedReport(tr) {
@@ -282,6 +278,7 @@ export function createNetwork(ctx) {
     if (!srcs.length) return;
     const est = estimate(tr, srcs);
     tr.est = est.fix;
+    tr.estErr = est.err;
     const conf = 1 - srcs.reduce((p, [, v]) => p * (1 - v.conf), 1);
     const best = srcs.map(([, v]) => v).sort((a, b) => classDepth(b.cls) - classDepth(a.cls) || b.conf - a.conf)[0];
     tr.airframe = classDepth(best.cls) >= 2 ? best.cls[0].sub_class[0].sub_class[0].type : 'Unknown';
@@ -436,9 +433,15 @@ export function createNetwork(ctx) {
   }
 
   function init() {
-    S.clock.epochMs = Date.now();
+    S.clock.epochMs = EPOCH_MS;
     S.clock.t = 0;
     S.clearBus();
+    nodes.clear(); tracks.clear(); names.clear();
+    for (const k of Object.keys(counters)) delete counters[k];
+    trackSeq = 0; fusionT = 0; fusedT = 0;
+    fusion.nodeId = S.uuid(); gui.nodeId = S.uuid(); fusion.statusT = 0;
+    names.set(fusion.nodeId, fusion.name);
+    names.set(gui.nodeId, gui.name);
     register(fusion);
     const p = { def: PERIMETER, pos: { x: 0, y: 0, z: 0 } };
     p.nodeId = S.uuid(); p.short = PERIMETER.short + '-01'; p.name = PERIMETER.name;
