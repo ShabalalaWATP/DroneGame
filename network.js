@@ -9,7 +9,7 @@
 //  - Registration `task` definitions are minimal.
 
 import * as S from './sapient.js';
-import { WORLD, TERRAIN, FUSION, PERIMETER, FUSION_DEF } from './config.js';
+import { WORLD, TERRAIN, FUSION, PERIMETER, FUSION_DEF, DRONES } from './config.js';
 import { rand, gauss, EPOCH_MS } from './rng.js';
 import { terrainState } from './terrain.js';
 
@@ -153,7 +153,7 @@ export function createNetwork(ctx) {
     s.mode = def.role === 'sensor' ? 'Detect' : (def.sapient.modes ? def.sapient.modes[0] : 'Ready');
     s.reportT = rand() * (def.sapient.interval || 1);
     s.objIds = new Map();
-    s.task = null; s.rejected = null;
+    s.task = null; s.rejected = null; s.denied = new Set();
     names.set(s.nodeId, s.name);
     register(s);
     return s;
@@ -184,7 +184,7 @@ export function createNetwork(ctx) {
 
   // ---------- sensing ----------
   function classification(s, d) {
-    const id = s.def.id;
+    const id = s.def.kind || s.def.id;
     const sub = (type, c, level, inner) => ({ type, confidence: round(c, 2), level, ...(inner ? { sub_class: [inner] } : {}) });
     if (id === 'camera') {
       return [{ type: 'Air Vehicle', confidence: 0.95, sub_class: [sub('UAV', 0.9, 1, sub(d.def.airframe, 0.85, 2))] }];
@@ -220,9 +220,10 @@ export function createNetwork(ctx) {
     rb.coordinate_system = RB_UNITS;
     rb.datum = RB_DATUM;
 
-    const conf = def.id === 'radar' ? clamp(0.55 + 0.4 * (1 - r.rng / def.range), 0.3, 0.98)
-      : def.id === 'camera' ? 0.85 + rand() * 0.1
-      : def.id === 'rf' ? 0.75 + rand() * 0.15 : 0.9;
+    const kind = def.kind || def.id;
+    const conf = kind === 'radar' ? clamp(0.55 + 0.4 * (1 - r.rng / def.range), 0.3, 0.98)
+      : kind === 'camera' ? 0.85 + rand() * 0.1
+      : kind === 'rf' ? 0.75 + rand() * 0.15 : 0.9;
 
     if (!s.objIds.has(d)) s.objIds.set(d, S.ulid());
     const report = {
@@ -367,8 +368,24 @@ export function createNetwork(ctx) {
       sendStatus(s);
     } else {
       sendTaskAck(s, id, 'TASK_STATUS_REJECTED', res.reasons);
-      s.rejected = { id: tr.id, until: T() + FUSION.rejectBackoff }; // try a different target next time
+      if (res.permanent) s.denied.add(tr.id); // it can never take this track; don't ask again
+      else s.rejected = { id: tr.id, until: T() + FUSION.rejectBackoff }; // try a different target next time
     }
+  }
+
+  // Should the fusion node offer this track to this effector? Keeps expensive rounds for the targets that need them.
+  const takesAirframe = (def, airframe) => !def.engages || !airframe || airframe === 'Unknown' || def.engages.some((t) => DRONES[t].airframe === airframe);
+  function eligible(s, tr) {
+    const def = s.def;
+    if (s.denied.has(tr.id)) return false;
+    if (s.rejected && T() < s.rejected.until && tr.id === s.rejected.id) return false;
+    if (!takesAirframe(def, tr.airframe)) return false; // already known to be beyond this effector
+    if (def.engagePolicy === 'fixed-wing' && tr.airframe !== 'Fixed wing') {
+      // last ditch only: something unidentified or fast that has got close and that nothing else is on
+      const taken = [...nodes.values()].some((o) => o !== s && o.task && o.task.trackId === tr.id);
+      if (siteDist(tr.drone) >= FUSION.critZone || taken) return false;
+    }
+    return true;
   }
 
   function tasking() {
@@ -399,7 +416,7 @@ export function createNetwork(ctx) {
       let best = null, bd = Infinity;
       for (const tr of live) {
         if (distM(s, tr.drone) > s.def.range) continue;
-        if (s.rejected && T() < s.rejected.until && tr.id === s.rejected.id) continue;
+        if (!eligible(s, tr)) continue;
         const dd = siteDist(tr.drone);
         if (dd < bd) { bd = dd; best = tr; }
       }

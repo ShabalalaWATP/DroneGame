@@ -2,7 +2,7 @@
 // real-world reference for each purchasable system.
 
 import { bus } from './sapient.js';
-import { STRUCTURES, DRONES, WORLD, BUILD, SITE } from './config.js';
+import { STRUCTURES, DRONES, WORLD, BUILD, SITE, ECONOMY } from './config.js';
 import { view } from './view.js';
 import { terrainState } from './terrain.js';
 
@@ -14,7 +14,9 @@ const MAX_ROWS = 150;
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
-export function initDock({ net, drones }) {
+const usd = (v) => '$' + Math.round(v).toLocaleString('en-US');
+
+export function initDock({ net, drones, ledger, state }) {
   const dock = document.getElementById('dock');
   dock.innerHTML = `
     <div class="dock-head">
@@ -22,6 +24,7 @@ export function initDock({ net, drones }) {
         <button data-tab="messages" class="active">Messages</button>
         <button data-tab="nodes">Nodes</button>
         <button data-tab="plan">Plan</button>
+        <button data-tab="cost">Cost</button>
         <button data-tab="systems">Systems</button>
       </div>
       <button id="dock-close" title="Close">&times;</button>
@@ -50,6 +53,7 @@ export function initDock({ net, drones }) {
       <canvas id="plan"></canvas>
       <div class="plan-note">North up, scroll to zoom. Circles are each node's range, lines are links to the fusion node (bright when a message has just been sent), red lines are active engagement tasks, crosses are fused tracks drawn where the fusion node believes they are (circle = position error), grey dots are drones nobody has (truth overlay).</div>
     </div>
+    <div class="tabpane hidden" data-pane="cost" id="cost"></div>
     <div class="tabpane hidden" data-pane="systems" id="systems"></div>`;
 
   const $ = (sel) => dock.querySelector(sel);
@@ -275,17 +279,67 @@ export function initDock({ net, drones }) {
     }
   }
 
+  // ---------- cost ----------
+  const linkList = (sources) => sources && sources.length ? sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)}</a>`).join(' · ') : '<i>none found</i>';
+  const sum = (obj) => Object.values(obj).reduce((a, b) => a + b, 0);
+  const attackCost = (counts) => Object.entries(counts).reduce((t, [type, n]) => t + n * DRONES[type].cost, 0);
+
+  function renderCost() {
+    const spentCapex = ledger.capex, spentShots = ledger.consumables, left = state.budget;
+    const pct = (v) => (100 * v / ECONOMY.budget).toFixed(1) + '%';
+    const launched = attackCost(ledger.launched), destroyed = attackCost(ledger.killed);
+    const defenceSpend = spentCapex + spentShots;
+
+    // laydown by system
+    const owned = {};
+    for (const s of net.nodes.values()) if (s.def.role === 'sensor' || s.def.role === 'effector') if (s.def.id !== 'perimeter') owned[s.def.id] = (owned[s.def.id] || 0) + 1;
+    const laydownRows = Object.entries(owned).map(([id, n]) => `<tr><td>${esc(STRUCTURES[id].name)}</td><td>${n}</td><td>${usd(STRUCTURES[id].cost)}</td><td>${usd(n * STRUCTURES[id].cost)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Nothing placed yet</td></tr>';
+
+    // consumables by effector
+    const effRows = Object.values(STRUCTURES).filter((d) => d.shotCost > 0).map((d) => {
+      const shots = ledger.shots[d.id] || { n: 0, cost: 0 };
+      const kills = sum(ledger.killedBy[d.id] || {});
+      return `<tr><td>${esc(d.name)}</td><td>${usd(d.shotCost)}</td><td>${shots.n}</td><td>${usd(shots.cost)}</td><td>${kills}</td><td>${kills ? usd(shots.cost / kills) : '–'}</td></tr>`;
+    }).join('');
+    const jamKills = sum(ledger.killedBy.jammer || {});
+
+    // enemy by type
+    const enemyRows = Object.values(DRONES).map((d) => {
+      const l = ledger.launched[d.id] || 0, k = ledger.killed[d.id] || 0, x = ledger.leaked[d.id] || 0, e = ledger.escaped[d.id] || 0;
+      return `<tr><td><i style="background:${hex(d.color)}"></i>${esc(d.name)}</td><td>${usd(d.cost)}</td><td>${l}</td><td>${k}</td><td>${x}</td><td>${e}</td><td>${usd(l * d.cost)}</td></tr>`;
+    }).join('');
+
+    const ratio = destroyed ? (spentShots / destroyed) : null;
+    $('#cost').innerHTML =
+      `<div class="sys"><div class="sys-h"><b>Budget</b> <span class="muted">${usd(ECONOMY.budget)} for the whole run</span></div>` +
+      `<div class="budget-bar"><span class="b-capex" style="width:${pct(spentCapex)}"></span><span class="b-shots" style="width:${pct(spentShots)}"></span></div>` +
+      `<div class="muted">Systems ${usd(spentCapex)} (${pct(spentCapex)}) · shots fired ${usd(spentShots)} (${pct(spentShots)}) · <b>left ${usd(left)}</b></div></div>` +
+      `<div class="sys"><div class="sys-h"><b>Cost exchange</b></div>` +
+      `<div><span class="k">Enemy attack</span> ${usd(launched)} launched, ${usd(destroyed)} of it destroyed</div>` +
+      `<div><span class="k">Defence</span> ${usd(defenceSpend)} (${usd(spentCapex)} systems + ${usd(spentShots)} shots)</div>` +
+      `<div><span class="k">Per $1 destroyed</span> ${ratio === null ? '–' : '$' + ratio.toFixed(2) + ' of shots'}${destroyed ? ` · $${(defenceSpend / destroyed).toFixed(2)} including systems` : ''}</div>` +
+      `<div class="muted">Under 1.00 means each dollar of shots destroys more than a dollar of enemy hardware. Jammers cost nothing per use; ${jamKills} kills so far came from jamming.</div></div>` +
+      `<div class="sys"><div class="sys-h"><b>Laydown</b></div><table class="mini"><tr><th>System</th><th>Count</th><th>Each</th><th>Total</th></tr>${laydownRows}</table></div>` +
+      `<div class="sys"><div class="sys-h"><b>Shots fired</b></div><table class="mini"><tr><th>Effector</th><th>Per shot</th><th>Shots</th><th>Spent</th><th>Kills</th><th>Per kill</th></tr>${effRows}</table></div>` +
+      `<div class="sys"><div class="sys-h"><b>Enemy attack</b> <span class="muted">cost to the attacker per drone</span></div><table class="mini"><tr><th>Drone</th><th>Each</th><th>Launched</th><th>Destroyed</th><th>Leaked</th><th>Left</th><th>Attack cost</th></tr>${enemyRows}</table>` +
+      `<div class="muted">Leaked = reached the site. Left = a spotter that withdrew after its time on station.</div></div>` +
+      `<div class="sys"><div class="sys-h"><b>Where the enemy costs come from</b></div>` +
+      Object.values(DRONES).map((d) => `<div class="cost-src"><b>${esc(d.name)}</b> ${usd(d.cost)}: ${esc(d.costRef.note)} <span class="conf">${esc(d.costRef.confidence)}</span><br>${linkList(d.costRef.sources)}</div>`).join('') + `</div>`;
+  }
+
   // ---------- systems reference ----------
   const sysRows = Object.values(STRUCTURES).map((d) => {
     const r = d.ref;
     const links = r.sources.length ? r.sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)}</a>`).join(' · ') : '<i>none found</i>';
-    return `<div class="sys"><div class="sys-h"><i style="background:${hex(d.color)}"></i><b>${esc(d.name)}</b> <span class="muted">$${d.cost} · game range ${d.range} m · ${esc(d.sapient.nodeType.replace('NODE_TYPE_', ''))}</span></div>` +
+    return `<div class="sys"><div class="sys-h"><i style="background:${hex(d.color)}"></i><b>${esc(d.name)}</b> <span class="muted">${usd(d.cost)}${d.shotCost ? ` + ${usd(d.shotCost)}/shot` : ''} · game range ${d.range} m · ${esc(d.sapient.nodeType.replace('NODE_TYPE_', ''))}</span></div>` +
       `<div><span class="k">Real class</span> ${esc(r.class)}</div>` +
       `<div><span class="k">Modelled on</span> ${esc(r.analogues.join(', '))}</div>` +
       `<div><span class="k">Published</span> ${esc(r.published)}</div>` +
       `<div><span class="k">Game basis</span> ${esc(r.basis)}</div>` +
       `<div><span class="k">Confidence</span> <span class="conf ${/ASSUMPTION/.test(r.confidence) ? 'assume' : ''}">${esc(r.confidence)}</span></div>` +
-      `<div><span class="k">Sources</span> ${links}</div></div>`;
+      `<div><span class="k">Sources</span> ${links}</div>` +
+      `<div><span class="k">Price</span> ${esc(r.cost.capex)} <span class="conf ${/ASSUMPTION/.test(r.cost.confidence) ? 'assume' : ''}">${esc(r.cost.confidence)}</span></div>` +
+      `<div><span class="k">Price sources</span> ${linkList(r.cost.sources)}</div></div>`;
   }).join('');
   $('#systems').innerHTML = `<div class="sys note">Ranges are taken from public sources and are mostly vendor claims; check them before relying on them. Anything marked ASSUMPTION had no verified figure. Message formats follow <a href="https://github.com/dstl/SAPIENT-Proto-Files" target="_blank" rel="noopener noreferrer">BSI Flex 335 v2.0</a> (<a href="https://www.gov.uk/government/publications/sapient-interface-control-document" target="_blank" rel="noopener noreferrer">ICD</a>). Delivery here is instant and association is perfect, so this shows the laydown and message flow, not network behaviour.</div>` + sysRows;
 
@@ -295,6 +349,7 @@ export function initDock({ net, drones }) {
     if (activeTab === 'messages') renderMessages(false);
     else if (activeTab === 'nodes') renderNodes();
     else if (activeTab === 'plan') renderPlan();
+    else if (activeTab === 'cost') renderCost();
   }
   setInterval(render, 200);
   return { toggle };

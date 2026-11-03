@@ -72,7 +72,16 @@ button.speed.active { background: #2f4468; border-color: #5c7bb0; }
 #plan { flex: 1 1 0; width: 100%; min-height: 200px; border: 1px solid #1c2b46; border-radius: 4px; }
 .plan-note { margin-top: 6px; font-size: 11px; color: #7f93b2; }
 #systems { display: block; font-size: 12px; }
-#systems.hidden { display: none; }
+#systems.hidden, #cost.hidden { display: none; }
+#cost { display: block; font-size: 12px; }
+.budget-bar { display: flex; height: 12px; background: #1a2740; border-radius: 6px; overflow: hidden; margin: 6px 0; }
+.budget-bar .b-capex { background: #4fc3f7; }
+.budget-bar .b-shots { background: #ef5350; }
+table.mini { width: 100%; border-collapse: collapse; }
+table.mini th { text-align: left; color: #7f93b2; font-weight: 500; border-bottom: 1px solid #263754; padding: 3px 4px; }
+table.mini td { padding: 3px 4px; border-bottom: 1px solid #16233b; }
+table.mini i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.cost-src { margin: 6px 0; padding-left: 6px; border-left: 2px solid #263754; }
 .sys { padding: 8px; border: 1px solid #1c2b46; border-radius: 6px; margin-bottom: 8px; }
 .sys.note { color: #9fb2cf; }
 .sys-h { margin-bottom: 4px; }
@@ -97,6 +106,7 @@ button.speed.active { background: #2f4468; border-color: #5c7bb0; }
 .tool .n { font-weight: 600; }
 .tool .c { font-size: 12px; color: #ffd54f; }
 .tool .k { font-size: 10px; color: #6d82a3; }
+.tool .s { font-size: 10px; color: #ef9a9a; }
 .tool.active { background: #2f4468; border-color: #8fb4ff; box-shadow: 0 0 0 1px #8fb4ff inset; }
 .tool.poor .c { color: #ef5350; }
 

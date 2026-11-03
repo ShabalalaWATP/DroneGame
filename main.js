@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  WORLD, SITE, BUILD, TERRAIN, START_CREDITS, STRUCTURES, DRONES, ADAPT,
-  makeWave, waveBonus, applyRangeScale,
+  WORLD, SITE, BUILD, TERRAIN, ECONOMY, STRUCTURES, DRONES, ADAPT,
+  makeWave, applyRangeScale,
 } from './config.js';
 import { createNetwork } from './network.js';
 import { initDock } from './sapient-ui.js';
@@ -68,11 +68,24 @@ const hereU = (xu, zu) => groundM(xu, zu) / WORLD.metresPerUnit;                
 
 // ---------- state ----------
 const state = {
-  seed: seedParam, terrainSeed: terrainSeedParam, health: SITE.maxHealth, credits: START_CREDITS, wave: 0, kills: 0, score: 0, time: 0,
+  seed: seedParam, terrainSeed: terrainSeedParam, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, time: 0,
   speed: 1, lastSpeed: 1, started: false, over: false,
   waveActive: false, queue: [], waveTime: 0, autoTimer: -1, flash: 0, showRings: true,
 };
 const drones = [], structures = [], missiles = [], effects = [];
+
+// The cost ledger: what the defence has bought and fired, and what the attack has cost the enemy.
+// Tallies are per drone type (launched, destroyed, leaked through to the site, left on their own) and per effector.
+const ledger = {
+  capex: 0,                  // spent on buying systems
+  consumables: 0,            // spent on shots (interceptors, missiles, laser)
+  shots: {},                 // effector id -> { n, cost }
+  launched: {}, killed: {}, leaked: {}, escaped: {},   // drone type -> count
+  killedBy: {},              // effector id (or 'jammer') -> { drone type -> count }
+};
+const tally = (obj, key, n = 1) => { obj[key] = (obj[key] || 0) + n; };
+const enemyCost = (counts) => Object.entries(counts).reduce((sum, [type, n]) => sum + n * DRONES[type].cost, 0);
+const money = (v) => v >= 1e6 ? `$${(v / 1e6).toFixed(v >= 1e7 ? 1 : 2).replace(/\.?0+$/, '')}M` : v >= 1e4 ? `$${Math.round(v / 1e3)}k` : `$${Math.round(v).toLocaleString('en-US')}`;
 
 // ---------- SAPIENT network ----------
 const net = createNetwork({
@@ -83,7 +96,8 @@ const net = createNetwork({
     if (!d || d.dead) return { ok: false, reasons: ['target no longer exists'] };
     if (s.pos.distanceTo(d.pos) > u(s.def.range)) return { ok: false, reasons: ['target outside effector range'] };
     if (!opticalLos(s, d)) return { ok: false, reasons: ['no line of sight to target'] };
-    if (state.credits < (s.def.shotCost || 0)) return { ok: false, reasons: ['insufficient credits for ammunition'] };
+    if (s.def.engages && !s.def.engages.includes(d.type)) return { ok: false, permanent: true, reasons: ['target outside engagement envelope (too fast or too high for this interceptor)'] };
+    if (state.budget < (s.def.shotCost || 0)) return { ok: false, reasons: ['insufficient budget for this shot'] };
     return { ok: true };
   },
 });
@@ -122,11 +136,10 @@ function buildModel(id) {
       lens.position.z = 0.7; head.add(lens);
       parts.spin = head; break;
     }
-    case 'turret': {
-      head.position.y = 1.2;
-      head.add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 1.4), mat(def.color, 0.15)));
-      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2, 8).rotateX(Math.PI / 2), mat(0x333333));
-      barrel.position.z = 1.2; head.add(barrel); break;
+    case 'radar_s': {
+      mast(2); head.position.y = 2.8;
+      head.add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.4, 0.15), mat(def.color, 0.3)));
+      parts.spin = head; break;
     }
     case 'jammer': {
       mast(3);
@@ -141,7 +154,15 @@ function buildModel(id) {
       }
       parts.spin = head; break;
     }
-    case 'interceptor': {
+    case 'interceptor': { // a rack of launch tubes
+      head.position.y = 1.0;
+      for (let i = 0; i < 4; i++) {
+        const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 1.6, 8).rotateX(Math.PI / 2), mat(def.color, 0.25));
+        tube.position.set((i % 2) * 0.6 - 0.3, 0.5 + Math.floor(i / 2) * 0.6, 0.2); tube.rotation.x = -0.6; head.add(tube);
+      }
+      break;
+    }
+    case 'missile': {
       head.position.y = 1.2;
       const l = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 2.8), mat(def.color, 0.15));
       l.position.set(0, 0.6, 0.3); l.rotation.x = -0.7; head.add(l); break;
@@ -237,7 +258,8 @@ function buildToolbar() {
     b.className = 'tool';
     b.style.borderTopColor = '#' + def.color.toString(16).padStart(6, '0');
     b.title = `${def.desc}\nModelled on: ${def.ref.analogues.join(', ')}`;
-    b.innerHTML = `<div class="n">${def.name}</div><div class="c">$${def.cost}</div><div class="k">[${def.key}]</div>`;
+    b.title += `\nCost ${money(def.cost)}${def.shotCost ? `, ${money(def.shotCost)} per shot` : ''}`;
+    b.innerHTML = `<div class="n">${def.name}</div><div class="c">${money(def.cost)}</div>${def.shotCost ? `<div class="s">${money(def.shotCost)}/shot</div>` : ''}<div class="k">[${def.key}]</div>`;
     b.onclick = () => setTool(def.id);
     bar.appendChild(b);
     toolButtons[def.id] = b;
@@ -285,12 +307,13 @@ canvas.addEventListener('pointerup', (e) => {
 function placementProblem(x, z, def) {
   const r = Math.hypot(x, z);
   const xm = x * WORLD.metresPerUnit, zm = z * WORLD.metresPerUnit;
+  if (BUILD.lockAfterStart && state.wave > 0) return 'The laydown is locked once the first wave starts';
   if (r < u(BUILD.minDist)) return `Too close to the station (minimum ${BUILD.minDist} m)`;
   if (r > u(BUILD.maxDist)) return `Outside the build zone (maximum ${BUILD.maxDist} m)`;
   if (terrainState.data.bldgAt(xm, zm)) return 'There is a building here';
   if (terrainState.data.slope(xm, zm) > 0.4) return 'The ground is too steep';
   if (structures.some((s) => hdist(s.pos, { x, z }) < u(BUILD.spacing))) return 'Too close to another structure';
-  if (state.credits < def.cost) return 'Not enough credits';
+  if (state.budget < def.cost) return `Not enough budget (${money(def.cost)} needed, ${money(state.budget)} left)`;
   return null;
 }
 const canPlace = (x, z, def) => !placementProblem(x, z, def);
@@ -298,10 +321,12 @@ const canPlace = (x, z, def) => !placementProblem(x, z, def);
 function handleClick() {
   if (!tool || state.over || !state.started || !mouseOnGround) return;
   if (tool === 'sell') {
+    if (BUILD.lockAfterStart && state.wave > 0) { toast('The laydown is locked once the first wave starts'); return; }
     let best = null, bd = u(150);
     for (const s of structures) { const d = hdist(s.pos, mouseGround); if (d < bd) { bd = d; best = s; } }
     if (best) {
-      state.credits += Math.round(best.def.cost * BUILD.sellRefund);
+      const refund = Math.round(best.def.cost * BUILD.sellRefund);
+      state.budget += refund; ledger.capex -= refund;
       removeStructure(best);
     }
     return;
@@ -309,7 +334,7 @@ function handleClick() {
   const def = STRUCTURES[tool];
   const problem = placementProblem(mouseGround.x, mouseGround.z, def);
   if (!problem) {
-    state.credits -= def.cost;
+    state.budget -= def.cost; ledger.capex += def.cost;
     addStructure(def.id, mouseGround.x, mouseGround.z);
   } else toast(problem);
 }
@@ -366,6 +391,7 @@ function droneTemplate(type, unseen) {
 
 function spawnDrone(type, bearing, rolls = {}) {
   const def = DRONES[type];
+  tally(ledger.launched, type); // the attacker pays for every drone it launches
   // the enemy adapts: later waves spawn harder to hit and harder to jam
   const k = Math.max(state.wave - 1, 0) * (def.adapt ?? 1);
   const evade = Math.max(Math.min(ADAPT.evadeFloor, def.evade), def.evade * (1 - ADAPT.evadePerWave * k));
@@ -432,14 +458,21 @@ function removeDrone(d) {
   if (i >= 0) drones.splice(i, 1);
 }
 
-function damageDrone(d, amount) {
+// `by` is the id of whatever did the damage ('laser', 'interceptor', 'missile', ...), for the cost ledger.
+function recordKill(d, by) {
+  state.kills++;
+  tally(ledger.killed, d.type);
+  ledger.killedBy[by] = ledger.killedBy[by] || {};
+  tally(ledger.killedBy[by], d.type);
+}
+function damageDrone(d, amount, by) {
   if (d.dead) return;
   d.hp -= amount;
   const k = Math.max(d.hp / d.def.hp, 0);
   d.fill.scale.x = k;
   d.fillMat.color.setHSL(k * 0.33, 1, 0.5);
   if (d.hp <= 0) {
-    state.kills++; state.score += d.def.reward; state.credits += d.def.reward;
+    recordKill(d, by);
     addExplosion(d.pos, u(80), 0xffcc66);
     removeDrone(d);
   }
@@ -449,6 +482,7 @@ function damageDrone(d, amount) {
 const spotterBonus = () => drones.reduce((sum, d) => sum + (d.mode === 'orbit' ? d.def.spotBonus || 0 : 0), 0);
 
 function impact(d) {
+  state.leaks++; tally(ledger.leaked, d.type);
   state.health = Math.max(state.health - d.def.damage * (1 + spotterBonus()), 0);
   state.flash = 0.4;
   net.raiseAlert('critical', `Site impact by ${d.def.name}: integrity ${Math.round(state.health)}%`, d.pos, 'DISCRETE_PRIORITY_HIGH');
@@ -476,7 +510,7 @@ function moveSpotter(d, spd, dt) {
   } else {
     _v.set(d.pos.x, 0, d.pos.z).normalize().multiplyScalar(spd);
     d.pos.add(_v);
-    if (hdist(d.pos, SITE_POS) > u(WORLD.spawnDist)) { removeDrone(d); return false; }
+    if (hdist(d.pos, SITE_POS) > u(WORLD.spawnDist)) { tally(ledger.escaped, d.type); removeDrone(d); return false; }
   }
   return true;
 }
@@ -499,7 +533,7 @@ function updateDrones(dt) {
     if (jamTime < Infinity) {
       d.jamT += dt * eff;
       if (d.jamT >= jamTime) {
-        state.kills++; state.score += Math.round(d.def.reward / 2); state.credits += Math.round(d.def.reward / 2);
+        recordKill(d, 'jammer');
         addExplosion(d.pos, u(80), 0xba68c8);
         removeDrone(d);
         continue;
@@ -648,9 +682,9 @@ function updateDroneVisuals(real) {
 // ---------- effectors (they act only on tasks from the fusion node) ----------
 const muzzle = (s) => _m.set(s.pos.x, s.pos.y + (s.def.muzzleY || 2) * STRUCT_SCALE, s.pos.z);
 
-// Direct-fire weapons (gun, laser) need a clear optical path; missiles are cued over the terrain.
+// The laser needs a clear optical path; guided weapons (interceptor drones, missiles) are cued over the terrain.
 function opticalLos(s, d) {
-  if (s.def.id === 'interceptor') return true;
+  if (s.def.fire === 'guided') return true;
   const m = WORLD.metresPerUnit;
   const r = terrainState.data.los(s.pos.x * m, s.pos.y * m + 4, s.pos.z * m, d.pos.x * m, d.pos.y * m, d.pos.z * m);
   return r.clear && r.canopy <= TERRAIN.opticalCanopyTol;
@@ -667,42 +701,48 @@ function updateStructures(dt) {
     let t = s.task && !s.task.drone.dead && s.pos.distanceTo(s.task.drone.pos) <= range ? s.task.drone : null;
     if (t && (def.id === 'laser' || s.cd <= 0) && !opticalLos(s, t)) t = null; // terrain or trees in the way
     if (def.id === 'laser') {
-      s.beam.visible = !!t;
-      if (t) {
+      const firing = !!t && state.budget >= def.shotCost;
+      s.beam.visible = firing;
+      if (firing && !s.beamOn) { spend(def); s.beamT = 0; } // a shot is charged when the beam starts, then every second it stays on
+      s.beamOn = firing;
+      if (firing) {
         aim(s, t);
         const p = s.beam.geometry.attributes.position;
         const m = muzzle(s);
         p.setXYZ(0, m.x, m.y, m.z); p.setXYZ(1, t.pos.x, t.pos.y, t.pos.z); p.needsUpdate = true;
-        damageDrone(t, def.dps * dt * (0.5 + 0.5 * t.evade)); // evasion spoils beam dwell
+        s.beamT = (s.beamT || 0) + dt; // a "shot" is a second of beam time
+        while (s.beamT >= 1) { s.beamT -= 1; spend(def); }
+        damageDrone(t, def.dps * dt * (0.5 + 0.5 * t.evade), 'laser'); // evasion spoils beam dwell
       }
       continue;
     }
     if (!t) continue;
     aim(s, t);
-    if (s.cd > 0 || state.credits < (def.shotCost || 0)) continue;
+    if (s.cd > 0 || state.budget < (def.shotCost || 0)) continue;
     s.cd = def.cooldown;
-    if (def.id === 'turret') {
-      state.credits -= def.shotCost;
-      const frac = s.pos.distanceTo(t.pos) / range;
-      const hit = rand() < def.accuracy * t.evade * (1 - 0.5 * frac * frac); // accuracy falls with range
-      const end = t.pos.clone();
-      if (!hit) end.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(3));
-      addTracer(muzzle(s).clone(), end, def.color);
-      if (hit) damageDrone(t, def.damage);
-    } else if (def.id === 'interceptor') {
+    if (def.fire === 'guided') { // interceptor drones and missiles
       const pending = missiles.filter((m) => m.target === t).length * def.damage;
       if (pending >= t.hp) { s.cd = 0.3; continue; } // enough already in the air
-      state.credits -= def.shotCost;
+      spend(def);
       launchMissile(s, t);
     }
   }
 }
 
+// Pay for a shot out of the budget and record it in the ledger.
+function spend(def) {
+  const cost = def.shotCost || 0;
+  state.budget -= cost;
+  ledger.consumables += cost;
+  const e = ledger.shots[def.id] = ledger.shots[def.id] || { n: 0, cost: 0 };
+  e.n++; e.cost += cost;
+}
+
 // ---------- missiles ----------
 const missileGeo = new THREE.ConeGeometry(0.35, 1.8, 8).rotateX(Math.PI / 2);
 function launchMissile(s, t) {
-  const mesh = new THREE.Mesh(missileGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  mesh.scale.setScalar(STRUCT_SCALE);
+  const mesh = new THREE.Mesh(missileGeo, new THREE.MeshBasicMaterial({ color: s.def.id === 'interceptor' ? 0xffcdd2 : 0xffffff }));
+  mesh.scale.setScalar(s.def.id === 'interceptor' ? STRUCT_SCALE * 0.6 : STRUCT_SCALE);
   const pos = muzzle(s).clone();
   scene.add(mesh);
   const speed = u(s.def.missileSpeed);
@@ -732,7 +772,7 @@ function updateMissiles(dt) {
     if (fuzed || m.life <= 0 || m.pos.y < hereU(m.pos.x, m.pos.z) + 0.2) {
       if (fuzed) {
         const r = u(m.def.splash);
-        for (const d of drones.slice()) if (d.pos.distanceTo(m.pos) < r) damageDrone(d, m.def.damage);
+        for (const d of drones.slice()) if (d.pos.distanceTo(m.pos) < r) damageDrone(d, m.def.damage, m.def.id);
       }
       addExplosion(m.pos, u(m.def.splash), 0xff8844);
       endMissile(m, i);
@@ -790,9 +830,8 @@ function updateWaves(dt) {
     }
     if (!state.queue.length && !drones.some((d) => d.def.role !== 'spotter')) {
       for (const d of drones) d.mode = 'egress'; // spotters withdraw once the strike is over
-      const bonus = waveBonus(state.wave);
-      state.waveActive = false; state.credits += bonus; state.score += bonus;
-      toast(`Wave ${state.wave} cleared! +$${bonus}`);
+      state.waveActive = false;
+      toast(`Wave ${state.wave} cleared. Budget left ${money(state.budget)}`);
       if ($('auto').checked) state.autoTimer = 6;
     }
   } else if (state.autoTimer >= 0) {
@@ -805,7 +844,7 @@ function gameOver() {
   state.over = true;
   const card = document.querySelector('#overlay .card');
   card.innerHTML = `<h1>SITE LOST</h1><p>You held out for <b>${Math.max(state.wave - 1, 0)}</b> full wave(s).</p>
-    <p>Score <b>${state.score}</b> &middot; Kills <b>${state.kills}</b></p>
+    <p>Kills <b>${state.kills}</b> &middot; Enemy attack cost <b>${money(enemyCost(ledger.launched))}</b> &middot; Defence spend <b>${money(ledger.capex + ledger.consumables)}</b></p>
     <button id="btn-restart" class="primary">Play again</button>`;
   $('overlay').classList.remove('hidden');
   $('btn-restart').onclick = () => location.reload();
@@ -870,10 +909,12 @@ function buildTuning() {
   head('STRUCTURES (range in m)');
   for (const def of Object.values(STRUCTURES)) {
     numberField(el, def.name + ' range', def, 'range', { step: 100, min: 10, onChange: refresh });
-    numberField(el, def.name + ' cost', def, 'cost', { step: 10 });
+    numberField(el, def.name + ' cost ($)', def, 'cost', { step: 1000 });
+    if (def.role === 'effector') numberField(el, def.name + ' per shot ($)', def, 'shotCost', { step: 1 });
   }
   head('DRONES');
   for (const def of Object.values(DRONES)) {
+    numberField(el, def.name + ' cost to enemy ($)', def, 'cost', { step: 100 });
     numberField(el, def.name + ' speed (m/s)', def, 'speed', { step: 5, min: 1 });
     numberField(el, def.name + ' HP', def, 'hp', { step: 5, min: 1 });
     numberField(el, def.name + ' evade', def, 'evade', { step: 0.05, min: 0.05 });
@@ -885,16 +926,16 @@ function buildTuning() {
 }
 
 const hud = {
-  fill: $('health-fill'), credits: $('credits'), wave: $('wave'), kills: $('kills'), score: $('score'), btn: $('btn-wave'), status: $('status'),
+  fill: $('health-fill'), budget: $('budget'), wave: $('wave'), kills: $('kills'), leaks: $('leaks'), btn: $('btn-wave'), status: $('status'),
 };
 function updateHud() {
   const k = state.health / SITE.maxHealth;
   hud.fill.style.width = (k * 100).toFixed(0) + '%';
   hud.fill.style.background = k > 0.6 ? '#4caf50' : k > 0.3 ? '#ffb300' : '#e53935';
-  hud.credits.textContent = '$' + Math.floor(state.credits);
+  hud.budget.textContent = money(state.budget);
   hud.wave.textContent = state.wave;
   hud.kills.textContent = state.kills;
-  hud.score.textContent = state.score;
+  hud.leaks.textContent = state.leaks;
   const spot = spotterBonus();
   const next = state.waveActive ? state.wave : state.wave + 1; // wave these numbers apply to
   const adapted = (type) => {
@@ -902,10 +943,12 @@ function updateHud() {
     return Math.max(Math.min(ADAPT.evadeFloor, def.evade), def.evade * (1 - ADAPT.evadePerWave * kk));
   };
   hud.status.innerHTML = (spot > 0 ? `<span class="warn">FW Spotter on station: strikes +${Math.round(spot * 100)}%</span><br>` : '')
+    + `Enemy attack cost ${money(enemyCost(ledger.launched))} &middot; shots fired ${money(ledger.consumables)}`
+    + `${ledger.consumables && enemyCost(ledger.killed) ? ` &middot; $${(ledger.consumables / enemyCost(ledger.killed)).toFixed(2)} per $1 destroyed` : ''}<br>`
     + `Enemy evasion (1.00 = easy to hit): FPV ${adapted('fpv').toFixed(2)} &middot; FW ${adapted('fw').toFixed(2)}<br>Seed ${state.seed} &middot; Terrain ${state.terrainSeed}`;
   hud.btn.disabled = state.waveActive || state.over;
   hud.btn.textContent = state.waveActive ? `Wave ${state.wave} in progress` : `Start wave ${state.wave + 1}`;
-  for (const def of Object.values(STRUCTURES)) toolButtons[def.id].classList.toggle('poor', state.credits < def.cost);
+  for (const def of Object.values(STRUCTURES)) toolButtons[def.id].classList.toggle('poor', state.budget < def.cost);
 }
 
 // ---------- main loop ----------
@@ -975,7 +1018,7 @@ addEventListener('resize', resize);
 resize();
 buildToolbar();
 buildTuning();
-initDock({ net, structures, drones });
+initDock({ net, structures, drones, ledger, state });
 renderer.setAnimationLoop(frame);
 
 // Headless helpers for experiments and tests: step the sim without rendering, and fingerprint a run.
@@ -987,9 +1030,9 @@ function digest() { // FNV-1a over every message sent, plus the headline numbers
   let h = 0x811c9dc5;
   const feed = (s) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } };
   for (const e of bus.entries) feed(JSON.stringify(e.msg));
-  feed(JSON.stringify([state.kills, state.health, state.credits, state.score, state.time, bus.seq]));
+  feed(JSON.stringify([state.kills, state.health, state.budget, state.leaks, state.time, bus.seq, ledger]));
   return (h >>> 0).toString(16);
 }
 
 // handy for poking at the game from the dev console
-window.game = { state, drones, structures, missiles, net, camera, controls, terrainState, addStructure, startWave, spawnDrone, runHeadless, digest, WORLD, STRUCTURES, DRONES };
+window.game = { state, drones, structures, missiles, net, camera, controls, terrainState, addStructure, startWave, spawnDrone, runHeadless, digest, ledger, money, enemyCost, WORLD, STRUCTURES, DRONES };
