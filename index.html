@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Site Guard</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud-top-left" class="panel">
+    <div class="label">SITE INTEGRITY</div>
+    <div class="bar"><div id="health-fill"></div></div>
+    <div class="stats">
+      <span>Credits <b id="credits">0</b></span>
+      <span>Wave <b id="wave">0</b></span>
+      <span>Kills <b id="kills">0</b></span>
+      <span>Score <b id="score">0</b></span>
+    </div>
+    <div id="status" class="hint"></div>
+  </div>
+
+  <div id="hud-top-right" class="panel">
+    <button id="btn-wave" class="primary">Start wave 1</button>
+    <div class="row">
+      <button class="speed" data-speed="0" title="Pause (Space)">&#10074;&#10074;</button>
+      <button class="speed active" data-speed="1">1x</button>
+      <button class="speed" data-speed="2">2x</button>
+      <button class="speed" data-speed="3">3x</button>
+    </div>
+    <label><input type="checkbox" id="auto"> Auto-start next wave</label>
+    <label><input type="checkbox" id="rings" checked> Show ranges (R)</label>
+    <button id="btn-sapient">SAPIENT</button>
+    <button id="btn-tuning">Tuning</button>
+  </div>
+  <div id="tuning" class="panel hidden"></div>
+  <div id="dock" class="panel hidden"></div>
+
+  <div id="hud-bottom-left" class="panel">
+    <div class="label">THREATS</div>
+    <div><i style="background:#ce93d8"></i>Spotter &mdash; high, hard to jam, boosts strikes</div>
+    <div><i style="background:#a1887f"></i>FO FPV &mdash; low, slow, fibre: no radio, no jam</div>
+    <div><i style="background:#ff8a65"></i>FPV &mdash; fast, agile, jammable, emits RF</div>
+    <div><i style="background:#e57373"></i>Fixed-wing &mdash; fast, high, RF-silent, partly jammable</div>
+    <div class="hint">Drag to orbit &middot; right-drag to pan &middot; scroll to zoom</div>
+  </div>
+
+  <div id="toolbar" class="panel"></div>
+  <div id="toast"></div>
+
+  <div id="overlay">
+    <div class="card">
+      <h1>SITE GUARD</h1>
+      <p>Drones are inbound on your facility. Place <b>sensors</b> to detect them and
+         <b>defences</b> to stop them &mdash; undetected drones can't be targeted.</p>
+      <ul>
+        <li>Every system is a SAPIENT node: sensors send detection reports to a fusion node, which tasks the defences. Open the <b>SAPIENT</b> panel to watch the messages and see your laydown.</li>
+        <li>Pick a structure from the bottom bar (or press 1&ndash;7), then click the ground to place it.</li>
+        <li>Press <b>Start wave</b> when you're ready. Kills and surviving waves earn credits.</li>
+        <li>Mix it up: no single defence handles every drone type, and the enemy gets harder to hit and jam every wave.</li>
+      </ul>
+      <button id="btn-deploy" class="primary">Deploy</button>
+    </div>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
