@@ -67,6 +67,8 @@ button.speed.active { background: #2f4468; border-color: #5c7bb0; }
 #node-table th { text-align: left; color: #7f93b2; font-weight: 500; border-bottom: 1px solid #263754; padding: 4px; }
 #node-table td { padding: 3px 4px; border-bottom: 1px solid #16233b; }
 #node-table i, .sys-h i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
+.plan-tools { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 12px; flex-wrap: wrap; }
+.plan-tools select { background: #1b2a45; color: #dbe4f0; border: 1px solid #2f4468; border-radius: 6px; padding: 2px 6px; font-size: 12px; }
 #plan { flex: 1 1 0; width: 100%; min-height: 200px; border: 1px solid #1c2b46; border-radius: 4px; }
 .plan-note { margin-top: 6px; font-size: 11px; color: #7f93b2; }
 #systems { display: block; font-size: 12px; }

@@ -77,7 +77,11 @@
         <input id="seed-input" type="text" spellcheck="false">
         <button id="btn-seed-random" title="Pick a random seed">Random</button>
       </div>
-      <p class="muted seed-note">The same seed and the same laydown give the same attack every time.</p>
+      <div class="seed-row">
+        <label for="terrain-input">Terrain seed</label>
+        <input id="terrain-input" type="text" spellcheck="false">
+      </div>
+      <p class="muted seed-note">The same scenario seed and laydown give the same attack every time. The terrain seed changes the ground (hills, woods, power lines) without changing the attack.</p>
       <button id="btn-deploy" class="primary">Deploy</button>
     </div>
   </div>

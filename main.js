@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  WORLD, SITE, BUILD, START_CREDITS, STRUCTURES, DRONES, ADAPT,
+  WORLD, SITE, BUILD, TERRAIN, START_CREDITS, STRUCTURES, DRONES, ADAPT,
   makeWave, waveBonus, applyRangeScale,
 } from './config.js';
 import { createNetwork } from './network.js';
@@ -9,6 +9,8 @@ import { initDock } from './sapient-ui.js';
 import { bus } from './sapient.js';
 import { view } from './view.js';
 import { seedAll, rand, waveStream } from './rng.js';
+import { generateTerrain, terrainState } from './terrain.js';
+import { buildWorldView, drapedRing, makeHillshade } from './terrain-view.js';
 
 const $ = (id) => document.getElementById(id);
 const SIM_STEP = 0.05; // fixed simulation step in game seconds, so a run does not depend on frame rate
@@ -18,6 +20,7 @@ const seedParam = new URLSearchParams(location.search).get('seed') || '1';
 seedAll(seedParam);
 const u = (metres) => metres / WORLD.metresPerUnit;           // metres -> scene units
 const hdist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 const STRUCT_SCALE = 3;                                       // structures are drawn larger than true size
 
 // ---------- scene ----------
@@ -40,40 +43,32 @@ const sun = new THREE.DirectionalLight(0xffffff, 1.1);
 sun.position.set(60, 120, 40);
 scene.add(sun);
 
-const groundR = u(WORLD.radius);
-const ground = new THREE.Mesh(new THREE.CircleGeometry(groundR, 96), new THREE.MeshStandardMaterial({ color: 0x18261f, roughness: 1 }));
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
-const grid = new THREE.GridHelper(groundR * 2, Math.round((groundR * 2) / u(500)), 0x2c4a3c, 0x203a2e); // 500 m cells
-grid.position.y = 0.05;
-scene.add(grid);
-const buildZone = new THREE.Mesh(
-  new THREE.RingGeometry(u(BUILD.maxDist) - 0.5, u(BUILD.maxDist), 128).rotateX(-Math.PI / 2),
-  new THREE.MeshBasicMaterial({ color: 0x5c7bb0, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
-buildZone.position.y = 0.1;
-scene.add(buildZone);
-
-// ---------- the protected site ----------
+// ---------- terrain and the protected site ----------
+// The terrain seed is separate from the scenario seed: change the attack without changing the ground.
+const terrainSeedParam = new URLSearchParams(location.search).get('terrain') || '1';
 const SITE_POS = new THREE.Vector3(0, 0, 0);
-const SITE_TARGET = new THREE.Vector3(0, u(SITE.targetAlt), 0);
+const SITE_TARGET = new THREE.Vector3(0, u(SITE.targetAlt), 0); // the station base is height 0
 const siteMat = new THREE.MeshStandardMaterial({ color: 0x8aa0b4, roughness: 0.7, emissive: 0xff0000, emissiveIntensity: 0 });
-{
-  const g = new THREE.Group();
-  const box = (w, h, d, x, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), siteMat); m.position.set(x, h / 2, z); g.add(m); };
-  box(8, 3, 6, 0, 0); box(3, 2, 3, 5, 3); box(3, 2, 3, -5, -3); box(2, 1.5, 4, -4, 4);
-  const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 7, 12), siteMat);
-  tower.position.set(2, 3.5, -2); g.add(tower);
-  g.scale.setScalar(1.5);
-  scene.add(g);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(u(SITE.radius) - 0.3, u(SITE.radius), 64).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0xff5252, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
-  ring.position.y = 0.1;
-  scene.add(ring);
+const siteRing = drapedRing(u(SITE.radius), 0.5, 0xff5252, 0.6);
+const buildRing = drapedRing(u(BUILD.maxDist), 0.8, 0x5c7bb0, 0.4);
+scene.add(siteRing.mesh, buildRing.mesh);
+let worldView = null;
+function loadWorld(seed) {
+  if (worldView) worldView.dispose();
+  const data = generateTerrain(seed);
+  terrainState.data = data;
+  terrainState.hillshade = makeHillshade(data);
+  worldView = buildWorldView(scene, data, siteMat);
+  siteRing.update(0, 0);
+  buildRing.update(0, 0);
 }
+loadWorld(terrainSeedParam);
+const groundM = (xu, zu) => terrainState.data.groundAt(xu * WORLD.metresPerUnit, zu * WORLD.metresPerUnit); // metres
+const hereU = (xu, zu) => groundM(xu, zu) / WORLD.metresPerUnit;                                         // scene units
 
 // ---------- state ----------
 const state = {
-  seed: seedParam, health: SITE.maxHealth, credits: START_CREDITS, wave: 0, kills: 0, score: 0, time: 0,
+  seed: seedParam, terrainSeed: terrainSeedParam, health: SITE.maxHealth, credits: START_CREDITS, wave: 0, kills: 0, score: 0, time: 0,
   speed: 1, lastSpeed: 1, started: false, over: false,
   waveActive: false, queue: [], waveTime: 0, autoTimer: -1, flash: 0, showRings: true,
 };
@@ -87,6 +82,7 @@ const net = createNetwork({
   acceptTask(s, d) {
     if (!d || d.dead) return { ok: false, reasons: ['target no longer exists'] };
     if (s.pos.distanceTo(d.pos) > u(s.def.range)) return { ok: false, reasons: ['target outside effector range'] };
+    if (!opticalLos(s, d)) return { ok: false, reasons: ['no line of sight to target'] };
     if (state.credits < (s.def.shotCost || 0)) return { ok: false, reasons: ['insufficient credits for ammunition'] };
     return { ok: true };
   },
@@ -161,30 +157,29 @@ function buildModel(id) {
 }
 
 // ---------- ranges / ghost ----------
-function ringGeometry(rUnits, thickness) {
-  return new THREE.RingGeometry(Math.max(rUnits - thickness, 0.01), rUnits, 128).rotateX(-Math.PI / 2);
-}
 const ringThickness = (r) => Math.max(0.4, r * 0.006);
 
+// Range rings follow the ground, so hills and valleys show where coverage really lies.
 function makeRing(s) {
-  if (s.ring) { s.group.remove(s.ring); s.ring.geometry.dispose(); s.ring.material.dispose(); }
+  if (s.ringObj) { s.group.remove(s.ringObj.mesh); s.ringObj.dispose(); }
   const r = u(s.def.range);
-  s.ring = new THREE.Mesh(ringGeometry(r, ringThickness(r)),
-    new THREE.MeshBasicMaterial({ color: s.def.color, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }));
-  s.ring.position.y = 0.15;
+  s.ringObj = drapedRing(r, ringThickness(r), s.def.color, 0.35);
+  s.ringObj.update(s.pos.x, s.pos.z);
+  s.ring = s.ringObj.mesh;
   s.ring.visible = state.showRings;
   s.group.add(s.ring);
 }
 
 function addStructure(id, x, z) {
   const def = STRUCTURES[id];
+  const y = hereU(x, z);
   const holder = new THREE.Group();
   const { group: model, parts } = buildModel(id);
   model.scale.setScalar(STRUCT_SCALE);
   holder.add(model);
-  holder.position.set(x, 0, z);
+  holder.position.set(x, y, z);
   scene.add(holder);
-  const s = { def, group: holder, parts, pos: new THREE.Vector3(x, 0, z), cd: 0, ring: null, beam: null, pulse: null, pulseT: (structures.length * 0.37) % 1 };
+  const s = { def, group: holder, parts, pos: new THREE.Vector3(x, y, z), cd: 0, ring: null, ringObj: null, beam: null, pulse: null, pulseT: (structures.length * 0.37) % 1 };
   makeRing(s);
   if (id === 'laser') {
     s.beam = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
@@ -194,7 +189,7 @@ function addStructure(id, x, z) {
   if (id === 'jammer') {
     s.pulse = new THREE.Mesh(new THREE.RingGeometry(0.97, 1, 64).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: def.color, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
-    s.pulse.position.y = 0.2; holder.add(s.pulse);
+    s.pulse.position.y = 0.5; holder.add(s.pulse);
   }
   structures.push(s);
   net.registerNode(s);
@@ -204,7 +199,7 @@ function addStructure(id, x, z) {
 function removeStructure(s) {
   net.deregisterNode(s);
   scene.remove(s.group);
-  s.ring.geometry.dispose(); s.ring.material.dispose();
+  s.ringObj.dispose();
   if (s.beam) { scene.remove(s.beam); s.beam.geometry.dispose(); s.beam.material.dispose(); }
   if (s.pulse) { s.pulse.geometry.dispose(); s.pulse.material.dispose(); }
   structures.splice(structures.indexOf(s), 1);
@@ -214,17 +209,21 @@ const ghost = new THREE.Group();
 ghost.visible = false;
 scene.add(ghost);
 let ghostRing = null;
+let ghostAt = { x: NaN, z: NaN };
 const ghostMat = new THREE.MeshBasicMaterial({ color: 0x66ff66, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
 const ghostMarker = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 1.5, 16), ghostMat);
 ghostMarker.scale.setScalar(STRUCT_SCALE);
 ghost.add(ghostMarker);
 function refreshGhost() {
-  if (ghostRing) { ghost.remove(ghostRing); ghostRing.geometry.dispose(); ghostRing = null; }
+  if (ghostRing) { ghost.remove(ghostRing.mesh); ghostRing.mesh.geometry.dispose(); ghostRing = null; }
   const def = STRUCTURES[tool];
   if (def) {
     const r = u(def.range);
-    ghostRing = new THREE.Mesh(ringGeometry(r, ringThickness(r) * 1.5), ghostMat);
-    ghostRing.position.y = 0.2; ghost.add(ghostRing);
+    ghostRing = drapedRing(r, ringThickness(r) * 1.5, 0xffffff, 0.5);
+    ghostRing.mesh.material.dispose();
+    ghostRing.mesh.material = ghostMat; // shares the green/red placement colour
+    ghost.add(ghostRing.mesh);
+    ghostAt = { x: NaN, z: NaN };
   }
 }
 
@@ -265,7 +264,10 @@ let mouseOnGround = false;
 function updateMouse(e) {
   ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  mouseOnGround = !!raycaster.ray.intersectPlane(groundPlane, mouseGround);
+  const hit = worldView ? raycaster.intersectObject(worldView.mesh, false)[0] : null; // the terrain
+  if (hit) { mouseGround.copy(hit.point); mouseOnGround = true; }
+  else mouseOnGround = !!raycaster.ray.intersectPlane(groundPlane, mouseGround);
+  if (mouseOnGround) mouseGround.y = hereU(mouseGround.x, mouseGround.z);
 }
 let downPos = null;
 canvas.addEventListener('pointermove', updateMouse);
@@ -279,12 +281,19 @@ canvas.addEventListener('pointerup', (e) => {
   handleClick();
 });
 
-function canPlace(x, z, def) {
+// Why a structure can't go here, or null if it can.
+function placementProblem(x, z, def) {
   const r = Math.hypot(x, z);
-  if (r < u(BUILD.minDist) || r > u(BUILD.maxDist)) return false;
-  if (state.credits < def.cost) return false;
-  return !structures.some((s) => hdist(s.pos, { x, z }) < u(BUILD.spacing));
+  const xm = x * WORLD.metresPerUnit, zm = z * WORLD.metresPerUnit;
+  if (r < u(BUILD.minDist)) return `Too close to the station (minimum ${BUILD.minDist} m)`;
+  if (r > u(BUILD.maxDist)) return `Outside the build zone (maximum ${BUILD.maxDist} m)`;
+  if (terrainState.data.bldgAt(xm, zm)) return 'There is a building here';
+  if (terrainState.data.slope(xm, zm) > 0.4) return 'The ground is too steep';
+  if (structures.some((s) => hdist(s.pos, { x, z }) < u(BUILD.spacing))) return 'Too close to another structure';
+  if (state.credits < def.cost) return 'Not enough credits';
+  return null;
 }
+const canPlace = (x, z, def) => !placementProblem(x, z, def);
 
 function handleClick() {
   if (!tool || state.over || !state.started || !mouseOnGround) return;
@@ -298,14 +307,11 @@ function handleClick() {
     return;
   }
   const def = STRUCTURES[tool];
-  if (canPlace(mouseGround.x, mouseGround.z, def)) {
+  const problem = placementProblem(mouseGround.x, mouseGround.z, def);
+  if (!problem) {
     state.credits -= def.cost;
     addStructure(def.id, mouseGround.x, mouseGround.z);
-  } else if (state.credits < def.cost) {
-    toast('Not enough credits');
-  } else {
-    toast(`Build between ${BUILD.minDist} m and ${BUILD.maxDist} m from the site, clear of other structures`);
-  }
+  } else toast(problem);
 }
 
 addEventListener('keydown', (e) => {
@@ -370,7 +376,9 @@ function spawnDrone(type, bearing, rolls = {}) {
   const altFrac = rolls.altFrac ?? rand();
   const freq = rolls.freq ?? (rand() < 0.5 ? 2.4e9 : 5.8e9);
   const a = bearing + jitter;
-  const y = u(def.alt[0] + altFrac * (def.alt[1] - def.alt[0]));
+  const sx = Math.cos(a) * u(WORLD.spawnDist), sz = Math.sin(a) * u(WORLD.spawnDist);
+  const agl = def.alt[0] + altFrac * (def.alt[1] - def.alt[0]); // metres above the ground at the spawn point
+  const y = hereU(sx, sz) + u(agl);
   const group = new THREE.Group();
   const model = droneTemplate(type, false).clone();
   const unseen = droneTemplate(type, true).clone();
@@ -392,7 +400,7 @@ function spawnDrone(type, bearing, rolls = {}) {
   group.add(drop);
 
   group.scale.setScalar(def.scale * WORLD.droneVisualScale);
-  const pos = new THREE.Vector3(Math.cos(a) * u(WORLD.spawnDist), y, Math.sin(a) * u(WORLD.spawnDist));
+  const pos = new THREE.Vector3(sx, y, sz);
   group.position.copy(pos);
   scene.add(group);
 
@@ -408,6 +416,7 @@ function spawnDrone(type, bearing, rolls = {}) {
   drones.push({
     def, type, pos, group, model, unseen, rotors, bar, fill, fillMat, drop, dropMat, fibre,
     hp: def.hp, evade, jamResist, jamT: 0, detected: false, dead: false, phase: (droneCount++ * 1.7) % 6,
+    agl0: agl, h0: Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
     mode: 'approach', angle: 0, orbitT: 0, bank: 0,         // spotter state
     vel: new THREE.Vector3(), freq, track: null,
   });
@@ -502,9 +511,17 @@ function updateDrones(dt) {
     if (d.def.role === 'spotter') {
       if (!moveSpotter(d, spd, dt)) continue;
     } else {
-      if (hdist(d.pos, SITE_POS) < u(SITE.radius)) { impact(d); continue; }
-      _v.subVectors(SITE_TARGET, d.pos).normalize().multiplyScalar(spd);
-      d.pos.add(_v);
+      const hrem = hdist(d.pos, SITE_POS);
+      if (hrem < u(SITE.radius)) { impact(d); continue; }
+      // fly at the site, hugging the terrain: height above ground eases from the launch height down to the target
+      // height, never below the type's minimum until it is within 400 m, and climbing early over rising ground
+      const dirx = -d.pos.x / hrem, dirz = -d.pos.z / hrem;
+      d.pos.x += dirx * spd; d.pos.z += dirz * spd;
+      const f = 1 - clamp(hrem / d.h0, 0, 1);
+      const want = Math.max(d.agl0 + (SITE.targetAlt - d.agl0) * f, (d.def.minAgl || 0) * Math.min(1, hrem / u(400)));
+      const ahead = Math.max(groundM(d.pos.x, d.pos.z), groundM(d.pos.x + dirx * u(150), d.pos.z + dirz * u(150)));
+      d.pos.y += clamp(u(ahead + want) - d.pos.y, -spd * 1.2, spd * 0.8);
+      d.pos.y = Math.max(d.pos.y, hereU(d.pos.x, d.pos.z) + u(3));
     }
     const dx = d.pos.x - px, dz = d.pos.z - pz;
     if (dt > 0) d.vel.set(dx, d.pos.y - py, dz).divideScalar(dt);
@@ -618,7 +635,7 @@ function updateDroneVisuals(real) {
     d.dropMat.color.setHex(tracked ? d.def.color : 0x667080);
     for (const r of d.rotors) r.rotation[r.userData.axis || 'y'] += real * 50;
     d.group.position.y = d.pos.y + Math.sin(performance.now() / 300 + d.phase) * 0.15;
-    d.drop.scale.y = d.pos.y / d.group.scale.y;
+    d.drop.scale.y = Math.max(d.pos.y - hereU(d.pos.x, d.pos.z), 0) / d.group.scale.y;
     d.bar.lookAt(camera.position);
     if (d.fibre) {
       d.fibre.visible = view.truth;
@@ -629,7 +646,15 @@ function updateDroneVisuals(real) {
 }
 
 // ---------- effectors (they act only on tasks from the fusion node) ----------
-const muzzle = (s) => _m.set(s.pos.x, (s.def.muzzleY || 2) * STRUCT_SCALE, s.pos.z);
+const muzzle = (s) => _m.set(s.pos.x, s.pos.y + (s.def.muzzleY || 2) * STRUCT_SCALE, s.pos.z);
+
+// Direct-fire weapons (gun, laser) need a clear optical path; missiles are cued over the terrain.
+function opticalLos(s, d) {
+  if (s.def.id === 'interceptor') return true;
+  const m = WORLD.metresPerUnit;
+  const r = terrainState.data.los(s.pos.x * m, s.pos.y * m + 4, s.pos.z * m, d.pos.x * m, d.pos.y * m, d.pos.z * m);
+  return r.clear && r.canopy <= TERRAIN.opticalCanopyTol;
+}
 const _m = new THREE.Vector3();
 const aim = (s, t) => { s.parts.head.rotation.y = Math.atan2(t.pos.x - s.pos.x, t.pos.z - s.pos.z); };
 
@@ -639,7 +664,8 @@ function updateStructures(dt) {
     s.cd = Math.max(0, s.cd - dt);
     if (def.role === 'sensor' || def.id === 'jammer') continue;
     const range = u(def.range);
-    const t = s.task && !s.task.drone.dead && s.pos.distanceTo(s.task.drone.pos) <= range ? s.task.drone : null;
+    let t = s.task && !s.task.drone.dead && s.pos.distanceTo(s.task.drone.pos) <= range ? s.task.drone : null;
+    if (t && (def.id === 'laser' || s.cd <= 0) && !opticalLos(s, t)) t = null; // terrain or trees in the way
     if (def.id === 'laser') {
       s.beam.visible = !!t;
       if (t) {
@@ -703,7 +729,7 @@ function updateMissiles(dt) {
     m.mesh.position.copy(m.pos);
     m.mesh.lookAt(_v.copy(m.pos).add(m.vel));
     const fuzed = m.target && m.pos.distanceTo(m.target.pos) < u(m.def.fuze) * m.target.evade; // evasive targets are harder to catch
-    if (fuzed || m.life <= 0 || m.pos.y < 0.2) {
+    if (fuzed || m.life <= 0 || m.pos.y < hereU(m.pos.x, m.pos.z) + 0.2) {
       if (fuzed) {
         const r = u(m.def.splash);
         for (const d of drones.slice()) if (d.pos.distanceTo(m.pos) < r) damageDrone(d, m.def.damage);
@@ -802,14 +828,18 @@ document.querySelectorAll('.speed').forEach((b) => { b.onclick = () => setSpeed(
 $('btn-wave').onclick = startWave;
 $('seed-input').value = state.seed;
 $('btn-seed-random').onclick = () => { $('seed-input').value = String(Math.floor(Math.random() * 900000) + 100000); }; // a UI action, not part of the sim
+$('terrain-input').value = terrainSeedParam;
 $('btn-deploy').onclick = () => {
+  // nothing has happened yet, so re-seeding, restarting the network and rebuilding the ground are all safe
   const seed = $('seed-input').value.trim() || '1';
-  if (seed !== state.seed) { // nothing has happened yet, so re-seeding and restarting the network is safe
+  const terrainSeed = $('terrain-input').value.trim() || '1';
+  if (seed !== state.seed) {
     state.seed = seed;
     seedAll(seed);
     net.init();
-    history.replaceState(null, '', `?seed=${encodeURIComponent(seed)}`);
   }
+  if (terrainSeed !== state.terrainSeed) { state.terrainSeed = terrainSeed; loadWorld(terrainSeed); }
+  history.replaceState(null, '', `?seed=${encodeURIComponent(seed)}&terrain=${encodeURIComponent(terrainSeed)}`);
   state.started = true;
   $('overlay').classList.add('hidden');
 };
@@ -872,7 +902,7 @@ function updateHud() {
     return Math.max(Math.min(ADAPT.evadeFloor, def.evade), def.evade * (1 - ADAPT.evadePerWave * kk));
   };
   hud.status.innerHTML = (spot > 0 ? `<span class="warn">FW Spotter on station: strikes +${Math.round(spot * 100)}%</span><br>` : '')
-    + `Enemy evasion (1.00 = easy to hit): FPV ${adapted('fpv').toFixed(2)} &middot; FW ${adapted('fw').toFixed(2)}<br>Seed ${state.seed}`;
+    + `Enemy evasion (1.00 = easy to hit): FPV ${adapted('fpv').toFixed(2)} &middot; FW ${adapted('fw').toFixed(2)}<br>Seed ${state.seed} &middot; Terrain ${state.terrainSeed}`;
   hud.btn.disabled = state.waveActive || state.over;
   hud.btn.textContent = state.waveActive ? `Wave ${state.wave} in progress` : `Start wave ${state.wave + 1}`;
   for (const def of Object.values(STRUCTURES)) toolButtons[def.id].classList.toggle('poor', state.credits < def.cost);
@@ -919,7 +949,11 @@ function frame() {
 
   if (ghostRing || tool === 'sell') {
     ghost.visible = mouseOnGround && !!tool && state.started;
-    ghost.position.set(mouseGround.x, 0.1, mouseGround.z);
+    ghost.position.set(mouseGround.x, mouseGround.y + 0.1, mouseGround.z);
+    if (ghostRing && mouseOnGround && (ghostAt.x !== mouseGround.x || ghostAt.z !== mouseGround.z)) {
+      ghostRing.update(mouseGround.x, mouseGround.z); // re-drape the ring over the ground under the cursor
+      ghostAt = { x: mouseGround.x, z: mouseGround.z };
+    }
     const ok = tool === 'sell' || canPlace(mouseGround.x, mouseGround.z, STRUCTURES[tool]);
     ghostMat.color.set(tool === 'sell' ? 0xff9800 : ok ? 0x66ff66 : 0xff5252);
   } else ghost.visible = false;
@@ -958,4 +992,4 @@ function digest() { // FNV-1a over every message sent, plus the headline numbers
 }
 
 // handy for poking at the game from the dev console
-window.game = { state, drones, structures, missiles, net, addStructure, startWave, spawnDrone, runHeadless, digest, WORLD, STRUCTURES, DRONES };
+window.game = { state, drones, structures, missiles, net, camera, controls, terrainState, addStructure, startWave, spawnDrone, runHeadless, digest, WORLD, STRUCTURES, DRONES };

@@ -9,8 +9,13 @@
 //  - Registration `task` definitions are minimal.
 
 import * as S from './sapient.js';
-import { WORLD, FUSION, PERIMETER, FUSION_DEF } from './config.js';
+import { WORLD, TERRAIN, FUSION, PERIMETER, FUSION_DEF } from './config.js';
 import { rand, gauss, EPOCH_MS } from './rng.js';
+import { terrainState } from './terrain.js';
+
+// How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
+// the radar's low-flyer range is multiplied by this.
+const COVER_CLUTTER = [1.5, 0.7, 0.5, 0.5];
 
 const RB_UNITS = 'RANGE_BEARING_COORDINATE_SYSTEM_DEGREES_M';
 const RB_DATUM = 'RANGE_BEARING_DATUM_TRUE';
@@ -38,25 +43,43 @@ export function createNetwork(ctx) {
   const send = (msg, from, to) => S.send(msg, from, to, fusion.nodeId);
 
   // ---------- geometry ----------
+  // Heights are metres above the station base. A node's antenna is its ground height plus its mast.
+  const antennaM = (s) => (s.pos.y || 0) * mpu() + (s.def.mount || 0);
   function rel(s, d) {
     const m = mpu();
     const east = (d.pos.x - s.pos.x) * m;
     const north = -(d.pos.z - s.pos.z) * m;
-    const up = d.pos.y * m - (s.def.mount || 0);
+    const up = d.pos.y * m - antennaM(s);
     const hr = Math.hypot(east, north);
     return { east, north, up, hr, rng: Math.hypot(hr, up) };
   }
-  const nodeLoc = (s, errM) => S.location(s.pos.x * mpu(), -s.pos.z * mpu(), s.def.mount || 0, errM);
+  const nodeLoc = (s, errM) => S.location(s.pos.x * mpu(), -s.pos.z * mpu(), antennaM(s), errM);
 
   // Does this sensor detect this drone right now? (The physics; the report is built separately.)
+  // Range, then low-flyer clutter, then line of sight over the terrain: hills and buildings block radar, camera and
+  // RF alike; trees block radar and camera and thin out RF.
   function sees(s, d) {
     const def = s.def;
     const r = rel(s, d);
     if (def.senses === 'perimeter') return r.hr < def.range;
-    if (r.rng > def.range) return false;
     if (def.senses === 'rf' && !d.def.rfEmitter) return false;
-    if (def.lowAlt && d.pos.y * mpu() < def.lowAlt && r.hr > def.lowRange) return false; // lost in ground clutter
-    return true;
+    if (r.rng > def.range) return false;
+    const T3 = terrainState.data, m = mpu();
+    const dxm = d.pos.x * m, dzm = d.pos.z * m, dym = d.pos.y * m;
+    if (def.lowAlt && dym - T3.groundAt(dxm, dzm) < def.lowAlt && r.hr > def.lowRange * COVER_CLUTTER[T3.coverAt(dxm, dzm)]) return false; // lost in clutter
+    const sight = T3.los(s.pos.x * m, antennaM(s), s.pos.z * m, dxm, dym, dzm);
+    if (!sight.clear) return false;
+    if (def.senses === 'rf') return r.rng <= def.range * Math.exp(-sight.canopy / TERRAIN.rfCanopyLength);
+    return sight.canopy <= TERRAIN.opticalCanopyTol;
+  }
+
+  // How many sensors would see a drone at this spot? Used for coverage maps. `emitter` is whether it emits RF.
+  function coverageAt(xm, zm, aglM, emitter) {
+    const m = mpu(), T3 = terrainState.data;
+    const probe = { pos: { x: xm / m, y: (T3.groundAt(xm, zm) + aglM) / m, z: zm / m }, def: { rfEmitter: emitter } };
+    let n = 0;
+    for (const s of nodes.values()) if (s.def.role === 'sensor' && s.def.id !== 'perimeter' && sees(s, probe)) n++;
+    return n;
   }
 
   // ---------- registration ----------
@@ -130,7 +153,7 @@ export function createNetwork(ctx) {
     s.mode = def.role === 'sensor' ? 'Detect' : (def.sapient.modes ? def.sapient.modes[0] : 'Ready');
     s.reportT = rand() * (def.sapient.interval || 1);
     s.objIds = new Map();
-    s.task = null; s.rejectUntil = 0;
+    s.task = null; s.rejected = null;
     names.set(s.nodeId, s.name);
     register(s);
     return s;
@@ -151,7 +174,7 @@ export function createNetwork(ctx) {
     const body = {
       report_id: S.ulid(), system, info, mode: s.mode,
       power: { source: 'POWERSOURCE_MAINS', status: 'POWERSTATUS_OK' },
-      node_location: S.location(s.pos.x * mpu(), -s.pos.z * mpu(), s.def.mount || 0),
+      node_location: S.location(s.pos.x * mpu(), -s.pos.z * mpu(), antennaM(s)),
     };
     if (s.task) body.active_task_id = s.task.id;
     const st = s.def.sapient.status;
@@ -230,10 +253,10 @@ export function createNetwork(ctx) {
       fix = {
         east: sx + e * Math.sin((azM * Math.PI) / 180),
         north: sy + e * Math.cos((azM * Math.PI) / 180),
-        up: (def.mount || 0) + rngM * Math.sin((elM * Math.PI) / 180),
+        up: antennaM(s) + rngM * Math.sin((elM * Math.PI) / 180),
       };
     }
-    const from = { east: sx, north: sy, up: def.mount || 0 };
+    const from = { east: sx, north: sy, up: antennaM(s) };
     return { s, d, report, rb, fix, from, vel, cls: report.classification, conf, rangeErr: n.range };
   }
 
@@ -309,7 +332,7 @@ export function createNetwork(ctx) {
   // ---------- tasking ----------
   const distM = (s, d) => {
     const m = mpu();
-    return Math.hypot((d.pos.x - s.pos.x) * m, d.pos.y * m, (d.pos.z - s.pos.z) * m);
+    return Math.hypot((d.pos.x - s.pos.x) * m, (d.pos.y - (s.pos.y || 0)) * m, (d.pos.z - s.pos.z) * m);
   };
   const siteDist = (d) => Math.hypot(d.pos.x, d.pos.z) * mpu();
 
@@ -344,7 +367,7 @@ export function createNetwork(ctx) {
       sendStatus(s);
     } else {
       sendTaskAck(s, id, 'TASK_STATUS_REJECTED', res.reasons);
-      s.rejectUntil = T() + FUSION.rejectBackoff;
+      s.rejected = { id: tr.id, until: T() + FUSION.rejectBackoff }; // try a different target next time
     }
   }
 
@@ -372,11 +395,11 @@ export function createNetwork(ctx) {
           completeTask(s, 'TASK_STATUS_COMPLETED', ['target left engagement envelope']);
         }
       }
-      if (T() < s.rejectUntil) continue;
-      // best target: the track closest to the site that this effector can reach
+      // best target: the track closest to the site that this effector can reach (skipping one it just rejected)
       let best = null, bd = Infinity;
       for (const tr of live) {
         if (distM(s, tr.drone) > s.def.range) continue;
+        if (s.rejected && T() < s.rejected.until && tr.id === s.rejected.id) continue;
         const dd = siteDist(tr.drone);
         if (dd < bd) { bd = dd; best = tr; }
       }
@@ -452,6 +475,6 @@ export function createNetwork(ctx) {
 
   return {
     init, registerNode, deregisterNode, update, isTracked, onDroneRemoved, raiseAlert, injectFault,
-    nameOf, nodes, tracks, fusion, gui,
+    coverageAt, nameOf, nodes, tracks, fusion, gui,
   };
 }

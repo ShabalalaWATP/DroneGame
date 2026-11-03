@@ -19,12 +19,31 @@ export const WORLD = {
 export const GEO = { originLat: 0, originLon: 0 };
 
 export const SITE = {
-  radius: 100,           // a drone that gets this close hits the site
-  targetAlt: 20,         // drones aim at this height (m)
+  radius: 150,           // a drone that gets this close hits the site (the power station is about 300 m across)
+  targetAlt: 20,         // drones aim at this height above the ground (m)
   maxHealth: 100,
 };
 
-export const BUILD = { minDist: 150, maxDist: 2500, spacing: 60, sellRefund: 0.7 };
+export const BUILD = { minDist: 250, maxDist: 2500, spacing: 60, sellRefund: 0.7 };
+
+// Procedural terrain. The terrain seed is separate from the scenario seed, so you can change the attack
+// without changing the ground (or the other way round). Heights are metres above the station base.
+export const TERRAIN = {
+  cell: 20,              // resolution of the height/obstacle grid (m)
+  relief: 130,           // hill height far from the station (m)
+  flatRadius: 500,       // the station platform is flat inside this radius (m)
+  blendRadius: 1600,     // terrain reaches full relief at this distance (m)
+  forestThreshold: 0.56, // higher = less forest
+  canopyMin: 12, canopyMax: 20, // tree height range (m)
+  clearRadius: 450,      // no trees within this of the station (m)
+  hamlets: 3,            // small clusters of buildings
+  treeStep: 40,          // one drawn tree per this many metres of forest
+  rfCanopyLength: 300,   // RF detection range falls by 1/e for each this many metres of canopy it passes through
+  opticalCanopyTol: 40,  // radar/EO/guns are blocked by more than this many metres of canopy on the path
+  endClear: 50,          // trees within this distance of a sensor or weapon are assumed cleared
+  pylonSpacing: 260, pylonHeight: 42, // power lines run out from the switchyard
+  visualScale: 2,        // trees, pylons and houses are drawn this much larger than true size so you can see them
+};
 
 export const START_CREDITS = 600;
 
@@ -189,7 +208,8 @@ export function applyRangeScale() {
 applyRangeScale();
 
 export const DRONES = {
-  // model: 'quad' | 'fw'. alt: spawn altitude range (m). jamResist: 0 = fully jammable, 1 = immune.
+  // model: 'quad' | 'fw'. alt: spawn altitude range above ground (m). minAgl: lowest it will fly above ground until
+  // it is close to the site (m). Strikes follow the terrain. jamResist: 0 = fully jammable, 1 = immune.
   // evade: 1 = no manoeuvrability, lower = harder to hit. It scales gun hit chance, missile fuze radius
   // and laser dwell. adapt: how strongly this type gets better at evading/resisting each wave (see ADAPT).
   // rfEmitter: has an active radio link an RF detector can hear. airframe is what a camera classifies it as.
@@ -203,15 +223,15 @@ export const DRONES = {
   fo: {
     // fibre-optic FPV: an FPV that is slower and less agile, flies low, emits no radio and cannot be jammed
     name: 'FO Strike', model: 'quad', hp: 20, speed: 18, damage: 12, reward: 25, scale: 0.7, evade: 0.8,
-    rfEmitter: false, airframe: 'Multirotor', color: 0xa1887f, alt: [10, 25], jamResist: 1, adapt: 0, fibre: true,
+    rfEmitter: false, airframe: 'Multirotor', color: 0xa1887f, alt: [10, 25], minAgl: 8, jamResist: 1, adapt: 0, fibre: true,
   },
   fpv: {
     name: 'FPV Strike', model: 'quad', hp: 20, speed: 30, damage: 12, reward: 12, scale: 0.7, evade: 0.6,
-    rfEmitter: true, airframe: 'Multirotor', color: 0xff8a65, alt: [30, 90], jamResist: 0, adapt: 1,
+    rfEmitter: true, airframe: 'Multirotor', color: 0xff8a65, alt: [30, 90], minAgl: 15, jamResist: 0, adapt: 1,
   },
   fw: {
     name: 'FW Strike', model: 'fw', hp: 60, speed: 45, damage: 30, reward: 35, scale: 1.3, evade: 0.8,
-    rfEmitter: false, airframe: 'Fixed wing', color: 0xe57373, alt: [150, 300], jamResist: 0.5, adapt: 0.7,
+    rfEmitter: false, airframe: 'Fixed wing', color: 0xe57373, alt: [150, 300], minAgl: 30, jamResist: 0.5, adapt: 0.7,
   },
 };
 for (const [id, def] of Object.entries(DRONES)) def.id = id;

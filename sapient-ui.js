@@ -2,8 +2,9 @@
 // real-world reference for each purchasable system.
 
 import { bus } from './sapient.js';
-import { STRUCTURES, WORLD, BUILD, SITE } from './config.js';
+import { STRUCTURES, DRONES, WORLD, BUILD, SITE } from './config.js';
 import { view } from './view.js';
+import { terrainState } from './terrain.js';
 
 const TYPES = [
   ['registration', 'Reg'], ['registration_ack', 'RegAck'], ['status_report', 'Status'], ['detection_report', 'Detect'],
@@ -41,6 +42,11 @@ export function initDock({ net, drones }) {
     </div>
     <div class="tabpane hidden" data-pane="nodes"><table id="node-table"></table></div>
     <div class="tabpane hidden" data-pane="plan">
+      <div class="plan-tools">
+        <label><input type="checkbox" id="cov-on"> Sensor coverage for</label>
+        <select id="cov-threat"></select>
+        <span class="muted" id="cov-legend"></span>
+      </div>
       <canvas id="plan"></canvas>
       <div class="plan-note">North up, scroll to zoom. Circles are each node's range, lines are links to the fusion node (bright when a message has just been sent), red lines are active engagement tasks, crosses are fused tracks drawn where the fusion node believes they are (circle = position error), grey dots are drones nobody has (truth overlay).</div>
     </div>
@@ -162,6 +168,25 @@ export function initDock({ net, drones }) {
   bus.listeners.add((e) => { lastTx.set(e.from, performance.now()); });
   cv.addEventListener('wheel', (e) => { e.preventDefault(); viewR = Math.min(14000, Math.max(800, viewR * (e.deltaY > 0 ? 1.15 : 1 / 1.15))); }, { passive: false });
 
+  // coverage: for each cell, how many sensors would see a drone of the chosen type there (it flies at that type's usual height)
+  const covThreat = $('#cov-threat');
+  covThreat.innerHTML = Object.values(DRONES).map((d) => {
+    const agl = Math.round((d.alt[0] + d.alt[1]) / 2);
+    return `<option value="${d.id}">${d.name} (${d.rfEmitter ? 'RF emitter' : 'RF-silent'}, ${agl} m)</option>`;
+  }).join('');
+  let covCache = { key: '', n: 0, cell: 250, half: 6000, counts: null };
+  function coverageGrid() {
+    const def = DRONES[covThreat.value];
+    const agl = (def.alt[0] + def.alt[1]) / 2;
+    const key = covThreat.value + '|' + [...net.nodes.values()].map((n) => `${n.nodeId}:${n.def.range}`).join(',');
+    if (covCache.key === key) return covCache;
+    const cell = 250, half = Math.min(terrainState.data.R - 200, 6000), n = Math.round((2 * half) / cell);
+    const counts = new Uint8Array(n * n);
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) counts[j * n + i] = net.coverageAt(-half + (i + 0.5) * cell, -half + (j + 0.5) * cell, agl, def.rfEmitter);
+    covCache = { key, n, cell, half, counts };
+    return covCache;
+  }
+
   function renderPlan() {
     const w = cv.clientWidth, h = cv.clientHeight;
     if (!w || !h) return;
@@ -170,6 +195,21 @@ export function initDock({ net, drones }) {
     const X = (e) => w / 2 + e * k, Y = (n) => h / 2 - n * k;
     g.clearRect(0, 0, w, h);
     g.fillStyle = '#0b1424'; g.fillRect(0, 0, w, h);
+    const Rt = terrainState.data ? terrainState.data.R : 0;
+    if (terrainState.hillshade) { // shaded relief, north up
+      g.imageSmoothingEnabled = true;
+      g.drawImage(terrainState.hillshade, X(-Rt), Y(Rt), 2 * Rt * k, 2 * Rt * k);
+    }
+    if ($('#cov-on').checked) {
+      const c = coverageGrid();
+      for (let j = 0; j < c.n; j++) for (let i = 0; i < c.n; i++) {
+        const cnt = c.counts[j * c.n + i];
+        g.fillStyle = cnt === 0 ? 'rgba(229,57,53,0.22)' : cnt === 1 ? 'rgba(102,187,106,0.30)' : cnt === 2 ? 'rgba(129,212,250,0.42)' : 'rgba(255,255,255,0.55)';
+        // z is south, so the cell at scene z maps to plan y = -north
+        g.fillRect(X(-c.half + i * c.cell), Y(c.half - j * c.cell), c.cell * k + 1, c.cell * k + 1);
+      }
+      $('#cov-legend').textContent = 'red: unseen · green: 1 sensor · blue: 2 · white: 3+';
+    } else $('#cov-legend').textContent = '';
     g.lineWidth = 1; g.font = '10px system-ui'; g.fillStyle = '#5f7391'; g.strokeStyle = '#1c2b46';
     for (let r = 1000; r <= viewR * 1.5; r += 1000) {
       g.beginPath(); g.arc(w / 2, h / 2, r * k, 0, Math.PI * 2); g.stroke();
