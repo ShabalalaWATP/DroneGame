@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  WORLD, SITE, BUILD, TERRAIN, ECONOMY, FUSION, WAVES, STRUCTURES, DRONES, ADAPT,
+  WORLD, SITE, BUILD, TERRAIN, ECONOMY, FUSION, WAVES, COMMS, STRUCTURES, DRONES, ADAPT,
   makeWave, applyRangeScale,
 } from './config.js';
 import { createNetwork } from './network.js';
 import { initDock } from './sapient-ui.js';
 import { bus } from './sapient.js';
 import { view } from './view.js';
-import { seedAll, rand, waveStream } from './rng.js';
+import { seedAll, rand, gauss, waveStream } from './rng.js';
 import { createRecorder, createReplay, SNAPSHOT_EVERY } from './replay.js';
 import { generateTerrain, terrainState } from './terrain.js';
 import { buildWorldView, drapedRing, makeHillshade } from './terrain-view.js';
@@ -69,7 +69,7 @@ const hereU = (xu, zu) => groundM(xu, zu) / WORLD.metresPerUnit;                
 
 // ---------- state ----------
 const state = {
-  seed: seedParam, terrainSeed: terrainSeedParam, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, time: 0,
+  seed: seedParam, terrainSeed: terrainSeedParam, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, time: 0, warnedWire: false,
   speed: 1, lastSpeed: 1, started: false, over: false,
   waveActive: false, queue: [], waveTime: 0, autoTimer: -1, flash: 0, showRings: true,
 };
@@ -83,6 +83,8 @@ const ledger = {
   shots: {},                 // effector id -> { n, cost }
   launched: {}, killed: {}, leaked: {}, escaped: {},   // drone type -> count
   killedBy: {},              // effector id (or 'jammer') -> { drone type -> count }
+  terminals: { starlink: 0, cellular: 0 }, // network terminals bought (counted in capex)
+  lost: {}, lostValue: 0,    // systems the enemy destroyed (id -> count) and what they were worth
 };
 const rec = createRecorder(); // history for pause and rewind
 rec.now = () => state.time;
@@ -95,6 +97,7 @@ let pausedForApproval = false;
 const net = createNetwork({
   drones,
   getTime: () => state.time,
+  monitoring: () => state.wave > 0, // the fusion node only chases lost contact once the attack has started
   // when the fusion node asks the operator to authorise an engagement, stop the clock so there is time to decide
   onApprovalRequest() {
     if (state.speed > 0) { pausedForApproval = true; setSpeed(0); }
@@ -213,7 +216,7 @@ function addStructure(id, x, z) {
   holder.add(model);
   holder.position.set(x, y, z);
   scene.add(holder);
-  const s = { def, group: holder, parts, pos: new THREE.Vector3(x, y, z), cd: 0, ring: null, ringObj: null, beam: null, pulse: null, pulseT: (structures.length * 0.37) % 1 };
+  const s = { def, health: def.health || 30, group: holder, parts, pos: new THREE.Vector3(x, y, z), cd: 0, ring: null, ringObj: null, beam: null, pulse: null, pulseT: (structures.length * 0.37) % 1 };
   makeRing(s);
   if (id === 'laser') {
     s.beam = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
@@ -350,6 +353,7 @@ function handleClick() {
     if (best) {
       const refund = Math.round(best.def.cost * BUILD.sellRefund);
       state.budget += refund; ledger.capex -= refund;
+      if (best.uplink) buyTerminal(best.uplink, null); // its terminal is refunded too
       removeStructure(best);
     }
     return;
@@ -470,7 +474,7 @@ function spawnDrone(type, bearing, rolls = {}) {
     hp: def.hp, evade, jamResist, jamT: 0, detected: false, dead: false, phase: (droneCount++ * 1.7) % 6,
     agl0: agl, h0: Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
     mode: 'approach', angle: 0, orbitT: 0, bank: 0,         // spotter state
-    vel: new THREE.Vector3(), freq, track: null,
+    vel: new THREE.Vector3(), freq, track: null, nav: 0, videoJammed: false, targetStructure: null,
   };
   drones.push(d);
   rec.event('launch', `${def.name} launched`, d.uid);
@@ -509,7 +513,7 @@ function damageDrone(d, amount, by) {
 }
 
 // each spotter on station makes every strike hit harder
-const spotterBonus = () => drones.reduce((sum, d) => sum + (d.mode === 'orbit' ? d.def.spotBonus || 0 : 0), 0);
+const spotterBonus = () => drones.reduce((sum, d) => sum + (d.mode === 'orbit' && !d.videoJammed ? d.def.spotBonus || 0 : 0), 0); // a spotter with jammed video can't help
 
 function impact(d) {
   rec.event('leak', `${d.def.name} hit the site`, d.uid);
@@ -547,41 +551,93 @@ function moveSpotter(d, spd, dt) {
   return true;
 }
 
+// ---------- what the enemy goes for ----------
+// FPV and FO strikes look for the loudest radio emitter near them and go for that instead of the site: a radar, a jammer
+// that is switched on, a system with a Starlink or cellular terminal. Everything else heads for the station.
+function emitterScore(s) {
+  const def = s.def;
+  let sig = def.signature || 0;
+  if (def.id === 'jammer' && s.mode !== 'Jam') sig *= 0.1; // a jammer is quiet until it is jamming
+  if (s.uplink) sig += COMMS[s.uplink].signature;
+  return sig;
+}
+const SITE_AIM = { x: 0, z: 0, structure: null };
+function pickTarget(d) {
+  if (!d.def.seeksEmitters) return SITE_AIM;
+  if (d.targetStructure && structures.includes(d.targetStructure)) return { x: d.targetStructure.pos.x, z: d.targetStructure.pos.z, structure: d.targetStructure };
+  d.targetStructure = null;
+  let best = null, bs = 0.3;
+  for (const s of structures) {
+    const dist = hdist(s.pos, d.pos);
+    if (dist > u(3000)) continue;
+    const score = emitterScore(s) / (1 + dist / u(1500));
+    if (score > bs) { bs = score; best = s; }
+  }
+  if (!best) return SITE_AIM;
+  d.targetStructure = best;
+  d.h0 = hdist(d.pos, best.pos); d.agl0 = Math.max((d.pos.y - hereU(d.pos.x, d.pos.z)) * WORLD.metresPerUnit, 5); // restart the descent profile
+  return { x: best.pos.x, z: best.pos.z, structure: best };
+}
+function hitStructure(d, s) {
+  addExplosion(d.pos, u(60), 0xff5252);
+  s.health -= d.def.damage * (1 + spotterBonus());
+  state.hits++;
+  removeDrone(d);
+  net.raiseAlert('critical', `${d.def.name} struck ${s.name}: ${Math.max(Math.round(s.health), 0)}% health left`, s.pos, 'DISCRETE_PRIORITY_HIGH');
+  if (s.health <= 0) {
+    tally(ledger.lost, s.def.id); ledger.lostValue += s.def.cost;
+    rec.event('lost', `${s.name} destroyed`);
+    net.raiseAlert('critical', `${s.name} destroyed`, s.pos, 'DISCRETE_PRIORITY_HIGH');
+    toast(`${s.name} destroyed`);
+    removeStructure(s);
+  }
+}
+
 function updateDrones(dt) {
   for (let i = drones.length - 1; i >= 0; i--) {
     const d = drones[i];
     d.detected = net.isTracked(d);
 
-    // jamming: slows the drone, and link-dependent ones eventually lose control and crash
-    let slow = 1, jamTime = Infinity;
-    const eff = 1 - d.jamResist;
-    if (eff > 0) {
-      for (const s of structures) {
-        if (s.def.id !== 'jammer' || s.mode !== 'Jam' || s.pos.distanceTo(d.pos) > u(s.def.range)) continue;
-        slow = Math.min(slow, 1 - (1 - s.def.slow) * eff);
-        jamTime = Math.min(jamTime, s.def.killTime);
-      }
+    // Jamming. Each jammer that is on and in range jams the bands it is set to, and what that does depends on what the
+    // drone relies on: a jammed control link slows it and eventually crashes it, a jammed video link does the same more
+    // slowly (it is flying blind), and jammed GNSS makes a navigating drone drift off course (and the drift stays).
+    const links = d.def.links || {};
+    let ctrl = false, vid = false, gnss = false, killTime = Infinity;
+    for (const s of structures) {
+      if (s.def.id !== 'jammer' || s.mode !== 'Jam' || s.pos.distanceTo(d.pos) > u(s.def.range)) continue;
+      if (links.control && s.jamBands.has(links.control)) ctrl = true;
+      if (links.video && s.jamBands.has(links.video)) vid = true;
+      if (links.gnss && s.jamBands.has('gnss')) gnss = true;
+      killTime = Math.min(killTime, s.def.killTime);
     }
-    if (jamTime < Infinity) {
-      d.jamT += dt * eff;
-      if (d.jamT >= jamTime) {
+    const eff = 1 - d.jamResist;
+    let slow = 1;
+    const jamRate = ctrl ? 1 : vid ? 0.5 : 0;
+    if (jamRate && eff > 0) {
+      slow = 1 - (1 - (ctrl ? STRUCTURES.jammer.slow : 0.7)) * eff;
+      d.jamT += dt * eff * jamRate;
+      if (d.jamT >= killTime) {
         recordKill(d, 'jammer');
         addExplosion(d.pos, u(80), 0xba68c8);
         removeDrone(d);
         continue;
       }
     } else d.jamT = Math.max(0, d.jamT - dt * 0.5);
+    d.videoJammed = vid;
+    if (gnss) d.nav += gauss() * 0.08 * Math.sqrt(dt);
 
     const px = d.pos.x, py = d.pos.y, pz = d.pos.z;
     const spd = u(d.def.speed) * slow * dt;
     if (d.def.role === 'spotter') {
       if (!moveSpotter(d, spd, dt)) continue;
     } else {
-      const hrem = hdist(d.pos, SITE_POS);
-      if (hrem < u(SITE.radius)) { impact(d); continue; }
-      // fly at the site, hugging the terrain: height above ground eases from the launch height down to the target
+      const tgt = pickTarget(d);
+      const hrem = Math.hypot(tgt.x - d.pos.x, tgt.z - d.pos.z);
+      if (tgt.structure ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(d, tgt.structure); else impact(d); continue; }
+      // fly at the target, hugging the terrain: height above ground eases from the launch height down to the target
       // height, never below the type's minimum until it is within 400 m, and climbing early over rising ground
-      const dirx = -d.pos.x / hrem, dirz = -d.pos.z / hrem;
+      let dirx = (tgt.x - d.pos.x) / hrem, dirz = (tgt.z - d.pos.z) / hrem;
+      if (d.nav) { const c = Math.cos(d.nav), sn = Math.sin(d.nav); [dirx, dirz] = [dirx * c - dirz * sn, dirx * sn + dirz * c]; } // GNSS drift
       d.pos.x += dirx * spd; d.pos.z += dirz * spd;
       const f = 1 - clamp(hrem / d.h0, 0, 1);
       const want = Math.max(d.agl0 + (SITE.targetAlt - d.agl0) * f, (d.def.minAgl || 0) * Math.min(1, hrem / u(400)));
@@ -763,7 +819,7 @@ function updateStructures(dt) {
     s.cd = Math.max(0, s.cd - dt);
     if (def.role === 'sensor' || def.id === 'jammer') continue;
     const range = u(def.range);
-    let t = s.task && !s.task.drone.dead && s.pos.distanceTo(s.task.drone.pos) <= range ? s.task.drone : null;
+    let t = s.task && state.time >= (s.task.activeAt || 0) && !s.task.drone.dead && s.pos.distanceTo(s.task.drone.pos) <= range ? s.task.drone : null; // acts once its task has arrived
     if (t && (def.id === 'laser' || s.cd <= 0) && !opticalLos(s, t)) t = null; // terrain or trees in the way
     if (def.id === 'laser') {
       const firing = !!t && state.budget >= def.shotCost;
@@ -879,6 +935,12 @@ function updateEffects(dt) {
 // ---------- waves ----------
 function startWave() {
   if (state.waveActive || state.over || !state.started) return;
+  const loose = network.unwired().length;
+  if ((loose || !net.fusion.uplinks.size) && !state.warnedWire) { // nodes with no link are offline: warn once
+    state.warnedWire = true;
+    toast(loose ? `${loose} system${loose > 1 ? 's have' : ' has'} no network link and will be offline. Open SAPIENT > Network (Auto-wire), or press Start wave again to go anyway` : 'The fusion node has no network terminal, so it will hear nothing. Open SAPIENT > Network, or press Start wave again to go anyway');
+    return;
+  }
   state.wave++;
   state.queue = makeWave(state.wave, waveStream(state.seed, state.wave));
   state.waveTime = 0;
@@ -1023,6 +1085,61 @@ function updateHud() {
   for (const def of Object.values(STRUCTURES)) toolButtons[def.id].classList.toggle('poor', state.budget < def.cost);
 }
 
+// ---------- the network design: terminals, wires and settings ----------
+// Every sensor and effector reaches the fusion node through a terminal (Starlink or cellular) that costs money; the fusion
+// node needs its own. Like the laydown, the wiring is locked once the first wave starts.
+const designLocked = () => BUILD.lockAfterStart && state.wave > 0;
+const isNode = (s) => (s.def.role === 'sensor' || s.def.role === 'effector') && s.def.id !== 'perimeter';
+
+function buyTerminal(oldKind, newKind) { // charge or refund the difference; false if it can't be afforded
+  const delta = (newKind ? COMMS[newKind].cost : 0) - (oldKind ? COMMS[oldKind].cost : 0);
+  if (delta > state.budget) { toast(`Not enough budget for a ${COMMS[newKind].name} terminal (${money(COMMS[newKind].cost)})`); return false; }
+  state.budget -= delta; ledger.capex += delta;
+  if (oldKind) ledger.terminals[oldKind]--;
+  if (newKind) ledger.terminals[newKind]++;
+  return true;
+}
+const network = {
+  // kind: 'starlink' | 'cellular' | null (unplug)
+  wireNode(s, kind) {
+    if (designLocked()) { toast('The network is locked once the first wave starts'); return false; }
+    if ((s.uplink || null) === kind) return true;
+    if (!buyTerminal(s.uplink, kind)) return false;
+    s.uplink = kind;
+    return true;
+  },
+  wireFusion(kind, on) {
+    if (designLocked()) { toast('The network is locked once the first wave starts'); return false; }
+    const f = net.fusion.uplinks;
+    if (on === f.has(kind)) return true;
+    if (on ? !buyTerminal(null, kind) : !buyTerminal(kind, null)) return false;
+    if (on) f.add(kind); else f.delete(kind);
+    return true;
+  },
+  setCellBand(s, band) { if (!designLocked()) s.cellBand = band; },
+  setFusionCellBand(band) { if (!designLocked()) net.fusion.cellBand = band; },
+  toggleJamBand(s, band, on) { if (on) s.jamBands.add(band); else s.jamBands.delete(band); }, // an operating setting: allowed any time
+  // wire everything unwired: cellular where a tower reaches well, otherwise Starlink if it has sky, and give the fusion node both
+  autoWire() {
+    if (designLocked()) { toast('The network is locked once the first wave starts'); return; }
+    let cell = 0, sat = 0, none = 0;
+    for (const s of net.nodes.values()) {
+      if (!isNode(s) || s.uplink) continue;
+      const c = net.comms.linkFor(s, 'cellular', s.cellBand), k = net.comms.linkFor(s, 'starlink');
+      const pick = c.up && c.quality > 0.4 ? 'cellular' : k.up ? 'starlink' : c.up ? 'cellular' : null;
+      if (pick && network.wireNode(s, pick)) pick === 'cellular' ? cell++ : sat++; else none++;
+    }
+    network.wireFusion('starlink', true); network.wireFusion('cellular', true);
+    toast(`Wired ${cell + sat} systems (${cell} cellular, ${sat} Starlink)${none ? `; ${none} could not be connected` : ''}; fusion node on both`);
+  },
+  clearAll() {
+    if (designLocked()) { toast('The network is locked once the first wave starts'); return; }
+    for (const s of net.nodes.values()) if (isNode(s) && s.uplink) network.wireNode(s, null);
+    network.wireFusion('starlink', false); network.wireFusion('cellular', false);
+  },
+  unwired: () => [...net.nodes.values()].filter((s) => isNode(s) && !s.uplink),
+};
+
 // ---------- history for pause and rewind ----------
 function takeSnapshot() {
   const m = WORLD.metresPerUnit;
@@ -1128,7 +1245,8 @@ const replay = createReplay({
   setSpeed: (s) => setSpeed(s), getLastSpeed: () => state.lastSpeed, setPaused: () => setSpeed(0),
 });
 initDock({
-  net, structures, drones, ledger, state,
+  net, structures, drones, ledger, state, network, designLocked, money,
+  stepOnce: () => { state.started = true; step(SIM_STEP); }, pause: () => setSpeed(0), // for "step to next packet"
   // a figure was edited in the Sources tab: redraw anything built from it
   onFiguresChanged() { structures.forEach(makeRing); refreshGhost(); rebuildToolbar(); buildTuning(); },
 });
@@ -1148,4 +1266,4 @@ function digest() { // FNV-1a over every message sent, plus the headline numbers
 }
 
 // handy for poking at the game from the dev console
-window.game = { state, drones, structures, missiles, net, camera, controls, terrainState, addStructure, startWave, spawnDrone, runHeadless, digest, ledger, money, enemyCost, rec, replay, FUSION, WORLD, STRUCTURES, DRONES };
+window.game = { state, drones, structures, missiles, net, camera, controls, terrainState, addStructure, startWave, spawnDrone, runHeadless, digest, ledger, money, enemyCost, rec, replay, FUSION, network, WORLD, STRUCTURES, DRONES };

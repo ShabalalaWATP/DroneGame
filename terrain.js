@@ -2,7 +2,7 @@
 // No rendering here (see terrain-view.js), so it can run headless. Coordinates are metres in scene axes:
 // x is east, z is south (north is -z), y is height above the station base.
 
-import { WORLD, TERRAIN } from './config.js';
+import { WORLD, TERRAIN, COMMS } from './config.js';
 import { mulberry32, hashSeed } from './rng.js';
 
 // The terrain currently in use. Other modules read it through the helpers below.
@@ -173,6 +173,18 @@ export function generateTerrain(seed) {
     }
   }
 
+  // cell towers: a few masts on high ground, spread out around the station, picked from random candidates
+  const towers = [];
+  const candidates = Array.from({ length: 60 }, () => {
+    const a = rng() * Math.PI * 2, d = 3500 + rng() * 3500;
+    const x = Math.cos(a) * d, z = Math.sin(a) * d;
+    return { x, z, h: ground[at(clamp(Math.round((x + R) / cell), 0, N - 1), clamp(Math.round((z + R) / cell), 0, N - 1))] };
+  }).filter((c) => c.h > waterLevel + 2).sort((a, b) => b.h - a.h);
+  for (const c of candidates) {
+    if (towers.length >= COMMS.towers) break;
+    if (towers.every((t) => Math.hypot(t.x - c.x, t.z - c.z) > 3000)) towers.push({ x: c.x, z: c.z, ground: c.h });
+  }
+
   // ---------- queries ----------
   function groundAt(x, z) { // bilinear
     const fx = clamp((x + R) / cell, 0, N - 1.001), fz = clamp((z + R) / cell, 0, N - 1.001);
@@ -202,7 +214,7 @@ export function generateTerrain(seed) {
   }
 
   return {
-    seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, station: STATION,
+    seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, station: STATION,
     groundAt, cellOf, los,
     coverAt: (x, z) => cover[cellOf(x, z)],
     canopyAt: (x, z) => canopy[cellOf(x, z)],

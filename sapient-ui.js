@@ -3,11 +3,13 @@
 
 import { bus } from './sapient.js';
 import {
-  STRUCTURES, DRONES, WORLD, BUILD, SITE, ECONOMY, WAVES, FIGURE_FIELDS, RESEARCHED,
+  STRUCTURES, DRONES, WORLD, BUILD, SITE, ECONOMY, WAVES, COMMS, FIGURE_FIELDS, RESEARCHED,
   setFigure, resetFigure, resetAllFigures, exportFigures, importFigures, applyRangeScale,
 } from './config.js';
 import { view } from './view.js';
 import { terrainState } from './terrain.js';
+import { annotate } from './sapient-help.js';
+import { initNetworkUi } from './network-ui.js';
 
 const TYPES = [
   ['registration', 'Reg'], ['registration_ack', 'RegAck'], ['status_report', 'Status'], ['detection_report', 'Detect'],
@@ -19,7 +21,7 @@ const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
 const usd = (v) => '$' + Math.round(v).toLocaleString('en-US');
 
-export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
+export function initDock({ net, drones, ledger, state, onFiguresChanged, network, designLocked, money, stepOnce, pause }) {
   const dock = document.getElementById('dock');
   dock.innerHTML = `
     <div class="dock-head">
@@ -27,10 +29,13 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
         <button data-tab="messages" class="active">Messages</button>
         <button data-tab="nodes">Nodes</button>
         <button data-tab="plan">Plan</button>
+        <button data-tab="network">Network</button>
+        <button data-tab="spectrum">Spectrum</button>
+        <button data-tab="learn">Learn</button>
         <button data-tab="cost">Cost</button>
         <button data-tab="systems">Sources</button>
       </div>
-      <button id="dock-close" title="Close">&times;</button>
+      <div><button id="dock-max" title="Make the panel bigger or smaller">&#10530;</button><button id="dock-close" title="Close">&times;</button></div>
     </div>
     <div class="tabpane" data-pane="messages">
       <div class="msg-tools">
@@ -41,6 +46,7 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
           <button id="log-clear">Clear</button>
           <button id="log-export" title="Download every message as newline-delimited JSON">Export</button>
           <button id="log-fault" title="Send a malformed report to see the middleware's Error reply">Inject fault</button>
+          <label class="muted" title="Show a plain-English note beside each field"><input type="checkbox" id="log-explain"> Explain</label>
         </div>
       </div>
       <div id="msg-list"></div>
@@ -56,18 +62,30 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
       <canvas id="plan"></canvas>
       <div class="plan-note">North up, scroll to zoom. Circles are each node's range, lines are links to the fusion node (bright when a message has just been sent), red lines are active engagement tasks, crosses are fused tracks drawn where the fusion node believes they are (gold = confirmed, orange = coasting, grey = tentative; circle = position error), faint lines are bearings no track has claimed, wedges show where cameras are pointing, grey dots are drones nobody has (truth overlay).</div>
     </div>
+    <div class="tabpane hidden" data-pane="network"></div>
+    <div class="tabpane hidden" data-pane="spectrum"></div>
+    <div class="tabpane hidden" data-pane="learn"></div>
     <div class="tabpane hidden" data-pane="cost" id="cost"></div>
     <div class="tabpane hidden" data-pane="systems" id="systems"></div>`;
 
   const $ = (sel) => dock.querySelector(sel);
   const mpu = () => WORLD.metresPerUnit;
   let frozen = false, selected = null, nodeFilter = 'all', activeTab = 'messages';
+  // the message inspector: raw JSON, or annotated with a plain-English note beside each field, plus how the network treated it
+  function showDetail() {
+    if (!selected) return;
+    const n = selected.net;
+    const netLine = n && !n.local ? `// network: ${n.dropped ? 'LOST (' + n.reason + ')' : 'delivered after ' + Math.round(n.delay * 1000) + ' ms'}\n` : '';
+    $('#msg-detail').textContent = netLine + ($('#log-explain').checked ? annotate(selected.msg).join('\n') : JSON.stringify(selected.msg, null, 2));
+  }
+  dock.addEventListener('change', (e) => { if (e.target.id === 'log-explain') showDetail(); });
   const off = new Set();
 
   // ---------- open / close / tabs ----------
   const toggle = () => dock.classList.toggle('hidden');
   document.getElementById('btn-sapient').onclick = toggle;
   $('#dock-close').onclick = toggle;
+  $('#dock-max').onclick = () => dock.classList.toggle('max');
   dock.querySelectorAll('.tabs button').forEach((b) => {
     b.onclick = () => {
       activeTab = b.dataset.tab;
@@ -140,7 +158,7 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
     list.innerHTML = rows.map((e) =>
       `<div class="row t-${e.type}${selected && selected.seq === e.seq ? ' sel' : ''}" data-seq="${e.seq}">` +
       `<span class="tm">${e.t.toFixed(1)}s</span><span class="ft">${esc(net.nameOf(e.from))} → ${esc(net.nameOf(e.to))}</span>` +
-      `<span class="ty">${e.type}</span><span class="sm">${esc(summary(e))}</span></div>`).join('');
+      `<span class="ty">${e.type}</span><span class="sm">${e.net && e.net.dropped ? `<b class="dropmark" title="${esc(e.net.reason)}">✗ ${esc(e.net.reason)}</b> ` : ''}${esc(summary(e))}</span></div>`).join('');
     if (stick) list.scrollTop = list.scrollHeight;
   }
   $('#msg-list').addEventListener('click', (ev) => {
@@ -149,7 +167,7 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
     const seq = Number(row.dataset.seq);
     selected = bus.entries.find((e) => e.seq === seq) || null;
     if (selected) {
-      $('#msg-detail').textContent = JSON.stringify(selected.msg, null, 2);
+      showDetail();
       $('#msg-list').querySelectorAll('.row.sel').forEach((r) => r.classList.remove('sel'));
       row.classList.add('sel');
     }
@@ -303,7 +321,10 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
     // laydown by system
     const owned = {};
     for (const s of net.nodes.values()) if (s.def.role === 'sensor' || s.def.role === 'effector') if (s.def.id !== 'perimeter') owned[s.def.id] = (owned[s.def.id] || 0) + 1;
-    const laydownRows = Object.entries(owned).map(([id, n]) => `<tr><td>${esc(STRUCTURES[id].name)}</td><td>${n}</td><td>${usd(STRUCTURES[id].cost)}</td><td>${usd(n * STRUCTURES[id].cost)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">Nothing placed yet</td></tr>';
+    const termRows = ['starlink', 'cellular'].filter((k) => ledger.terminals[k] > 0).map((k) => `<tr><td>${COMMS[k].name} terminal</td><td>${ledger.terminals[k]}</td><td>${usd(COMMS[k].cost)}</td><td>${usd(ledger.terminals[k] * COMMS[k].cost)}</td></tr>`).join('');
+    const lostCount = Object.values(ledger.lost).reduce((a, b) => a + b, 0);
+    const laydownRows = (Object.entries(owned).map(([id, n]) => `<tr><td>${esc(STRUCTURES[id].name)}</td><td>${n}</td><td>${usd(STRUCTURES[id].cost)}</td><td>${usd(n * STRUCTURES[id].cost)}</td></tr>`).join('') + termRows
+      + (lostCount ? `<tr><td colspan="4" class="muted" style="color:#ff8a80">Lost to enemy strikes: ${lostCount} system${lostCount > 1 ? 's' : ''} worth ${usd(ledger.lostValue)} (${Object.entries(ledger.lost).map(([id, n]) => n + ' ' + STRUCTURES[id].name).join(', ')})</td></tr>` : '')) || '<tr><td colspan="4" class="muted">Nothing placed yet</td></tr>';
 
     // consumables by effector
     const effRows = Object.values(STRUCTURES).filter((d) => d.shotCost > 0).map((d) => {
@@ -348,6 +369,9 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
       if (key === 'published') return confTag(def.ref.confidence) || 'research';
       if (key === 'cost' || key === 'shotCost') return confTag(def.ref.cost.confidence) || 'price';
       if (key === 'missileSpeed') return 'research';
+    } else if (kind === 'comms') {
+      if (key === 'cost') return 'price';
+      return /ASSUMPTION/.test(def.confidence || '') ? 'assumption' : meta.basis;
     } else if (key === 'cost') return confTag(def.costRef.confidence) || 'price';
     return meta.basis;
   }
@@ -385,12 +409,19 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
       `<div><span class="k">Cost basis</span> ${esc(d.costRef.note)} <span class="conf ${confTag(d.costRef.confidence) ? 'assume' : ''}">${esc(d.costRef.confidence)}</span></div>` +
       `<div><span class="k">Sources</span> ${linkList(d.costRef.sources)}</div>` +
       `<div class="muted">Radar cross-section, size, link power and speed are rough class values I chose, not measurements. Tune them to test how sensitive a laydown is.</div></div>`).join('');
+    const commsCards = ['starlink', 'cellular'].map((id) => {
+      const d = COMMS[id];
+      return `<div class="sys"><div class="sys-h"><b>${esc(d.name)}</b> <span class="muted">network terminal · signature ${d.signature} to an enemy seeking emitters</span></div>` +
+        `<div class="figs">${figureRows('comms', id, d)}</div>` +
+        `<div><span class="k">Basis</span> ${esc(d.note)} <span class="conf ${confTag(d.confidence) ? 'assume' : ''}">${esc(d.confidence)}</span></div>` +
+        `<div><span class="k">Sources</span> ${linkList(d.sources)}</div></div>`;
+    }).join('');
     $('#systems').innerHTML =
       `<div class="sys note">Every number here can be changed and takes effect at once. <b>published</b> and <b>price</b> figures come from the sources shown (mostly vendor claims; check them before relying on them), <b>ASSUMPTION</b> had no verified figure, <b>game rule</b> is a balance setting. Message formats follow <a href="https://github.com/dstl/SAPIENT-Proto-Files" target="_blank" rel="noopener noreferrer">BSI Flex 335 v2.0</a>.` +
       `<div class="src-tools"><label>Range scale <input type="number" id="src-rangescale" value="${WORLD.rangeScale}" step="0.1" min="0.1"> x published</label>` +
       `<label>FPV gap <input type="number" id="src-fpvgap" value="${WAVES.fpvGap}" step="1" min="1"> s</label>` +
       `<button id="src-reset">Reset all</button><button id="src-export">Export changes</button><button id="src-import">Import</button><input type="file" id="src-file" accept="application/json" hidden></div></div>` +
-      `<h4 class="src-h">Defences</h4>` + structCards + `<h4 class="src-h">Enemy drones</h4>` + droneCards;
+      `<h4 class="src-h">Defences</h4>` + structCards + `<h4 class="src-h">Network</h4>` + commsCards + `<h4 class="src-h">Enemy drones</h4>` + droneCards;
   }
   const changed = () => { if (onFiguresChanged) onFiguresChanged(); };
   $('#systems').addEventListener('change', (e) => {
@@ -404,7 +435,7 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
     }
     if (!t.dataset.key) return;
     const v = Number(t.value);
-    if (!Number.isFinite(v) || v < 0) { t.value = (t.dataset.kind === 'structures' ? STRUCTURES : DRONES)[t.dataset.id][t.dataset.key]; return; }
+    if (!Number.isFinite(v) || v < 0) { t.value = ({ structures: STRUCTURES, drones: DRONES, comms: COMMS })[t.dataset.kind][t.dataset.id][t.dataset.key]; return; }
     setFigure(t.dataset.kind, t.dataset.id, t.dataset.key, v);
     changed();
     buildSources();
@@ -431,5 +462,6 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
     else if (activeTab === 'cost') renderCost();
   }
   setInterval(render, 200);
+  initNetworkUi({ dock, net, state, network, designLocked, money, stepOnce, pause, getActiveTab: () => activeTab });
   return { toggle };
 }

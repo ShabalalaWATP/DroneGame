@@ -2,7 +2,7 @@
 // drape range rings over the ground and draw a hillshade for the plan map. The data comes from terrain.js.
 
 import * as THREE from 'three';
-import { WORLD, TERRAIN } from './config.js';
+import { WORLD, TERRAIN, COMMS } from './config.js';
 import { terrainState } from './terrain.js';
 import { mulberry32, hashSeed } from './rng.js';
 
@@ -167,6 +167,16 @@ export function buildWorldView(scene, data, siteMat) {
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
     group.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0xaab4c4 })));
+  }
+
+  // ---------- cell towers ----------
+  for (const t of data.towers) {
+    const h = COMMS.towerHeight * vs;
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(u(1.2 * vs), u(3 * vs), u(h), 6), new THREE.MeshStandardMaterial({ color: 0xff5252, roughness: 0.6 }));
+    mast.position.set(u(t.x), u(t.ground + h / 2), u(t.z));
+    const head = new THREE.Mesh(new THREE.BoxGeometry(u(8 * vs), u(3 * vs), u(8 * vs)), new THREE.MeshStandardMaterial({ color: 0xfafafa }));
+    head.position.set(u(t.x), u(t.ground + h), u(t.z));
+    group.add(mast, head);
   }
 
   function dispose() {

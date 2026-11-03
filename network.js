@@ -14,6 +14,7 @@ import { WORLD, TERRAIN, FUSION, SENSING, PERIMETER, FUSION_DEF, DRONES } from '
 import { rand, gauss, EPOCH_MS } from './rng.js';
 import { terrainState } from './terrain.js';
 import { createTracker } from './tracker.js';
+import { createComms } from './comms.js';
 
 // How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
 // the radar's low-flyer range is multiplied by this.
@@ -42,7 +43,26 @@ export function createNetwork(ctx) {
   const gui = { nodeId: '', name: 'C2 Operator GUI', short: 'C2-GUI' };
   const nameOf = (id) => names.get(id) || String(id).slice(0, 8);
   const routeTo = (s) => (s === fusion ? gui.nodeId : fusion.nodeId);
-  const send = (msg, from, to) => S.send(msg, from, to, fusion.nodeId);
+  fusion.uplinks = new Set(); fusion.cellBand = 'B8'; // which networks the fusion node has terminals on
+  const scheduled = [];       // things that happen when a message arrives: { at, fn }, sorted by time
+  const comms = createComms({ getTime: T, nodes, fusion, gui, getJammers: () => [...nodes.values()].filter((n) => n.def.id === 'jammer') });
+
+  // Send a message: it is recorded and validated, then the comms model decides how long it takes or whether it is lost.
+  const send = (msg, from, to) => {
+    const entry = S.send(msg, from, to, fusion.nodeId);
+    const res = comms.transmit(msg, from, to, S.typeOf(msg));
+    entry.net = { dropped: res.dropped, reason: res.reason, delay: res.delay, local: !!res.local };
+    return res;
+  };
+  // Do `fn` when the message arrives (never, if it was lost)
+  function deliver(res, fn) {
+    if (res.dropped) return;
+    if (res.delay <= 0.0005) { fn(); return; }
+    const at = T() + res.delay;
+    let i = scheduled.length;
+    while (i > 0 && scheduled[i - 1].at > at) i--;
+    scheduled.splice(i, 0, { at, fn });
+  }
 
   // ---------- geometry ----------
   // Heights are metres above the station base. A node's antenna is its ground height plus its mast.
@@ -175,6 +195,8 @@ export function createNetwork(ctx) {
     s.objIds = new Map();
     if (def.fov) { s.point = { az: rand() * 360, el: 3 }; s.cue = null; s.lookedAt = new Map(); } // a camera has an aim
     s.task = null; s.rejected = null; s.denied = new Set();
+    s.uplink = null; s.cellBand = 'B8'; s.offline = false; s.lastHeard = T(); s.modePending = null; // no terminal wired yet
+    if (def.bands) s.jamBands = new Set(def.bands);
     names.set(s.nodeId, s.name);
     register(s);
     return s;
@@ -200,7 +222,28 @@ export function createNetwork(ctx) {
     if (s.task) body.active_task_id = s.task.id;
     const st = s.def.sapient.status;
     if (st) body.status = [{ status_level: 'STATUS_LEVEL_INFORMATION_STATUS', status_type: st.type, status_value: st.value }];
-    send(S.envelope(s.nodeId, 'status_report', body), s.nodeId, routeTo(s));
+    const res = send(S.envelope(s.nodeId, 'status_report', body), s.nodeId, routeTo(s));
+    deliver(res, () => heard(s)); // the fusion node hears the node only if the report gets through
+  }
+
+  // The fusion node's view of whether a node is reachable. Three missed status reports in a row means contact is lost.
+  function heard(s) {
+    s.lastHeard = T();
+    if (s.offline) {
+      s.offline = false;
+      raiseAlert('information', `Contact restored with ${s.name}`, null, 'DISCRETE_PRIORITY_LOW');
+    }
+  }
+  function checkContact() {
+    if (!ctx.monitoring || !ctx.monitoring()) return;
+    for (const s of nodes.values()) {
+      if ((s.def.role !== 'sensor' && s.def.role !== 'effector') || s.def.id === 'perimeter' || s.offline) continue;
+      if (T() - s.lastHeard > FUSION.statusInterval * 3.2) { // three status reports in a row missed
+        s.offline = true;
+        const why = comms.pathFor(s);
+        raiseAlert('warning', `Lost contact with ${s.name}: ${why.ok ? 'messages are being lost or delayed' : why.reason}`, null, 'DISCRETE_PRIORITY_MEDIUM');
+      }
+    }
   }
 
   // ---------- sensing ----------
@@ -280,11 +323,12 @@ export function createNetwork(ctx) {
       vel = { east_rate: round(d.vel.x * m + gauss() * 0.3, 2), north_rate: round(-d.vel.z * m + gauss() * 0.3, 2), up_rate: round(d.vel.y * m + gauss() * 0.3, 2), east_rate_error: 0.5, north_rate_error: 0.5, up_rate_error: 0.5 };
       report.enu_velocity = vel;
     }
-    send(S.envelope(s.nodeId, 'detection_report', report), s.nodeId, fusion.nodeId);
+    const sent = send(S.envelope(s.nodeId, 'detection_report', report), s.nodeId, fusion.nodeId);
 
     const rad = (x) => (x * Math.PI) / 180;
     const from = [s.pos.x * mpu(), -s.pos.z * mpu(), antennaM(s)];
     return {
+      sent,
       meas: {
         node: s.nodeId, color: def.color, from, az: rad(azM), el: n.el != null ? rad(elM) : null, range: n.range != null ? rngM : null,
         sigAz: rad(n.az), sigEl: n.el != null ? rad(n.el) : null, sigRange: n.range || 0, t: T(), scan: s.scanId, truth: d,
@@ -302,7 +346,7 @@ export function createNetwork(ctx) {
       if (p > 0 && rand() < p) found.push(measure(s, d));
     }
     if (s.def.falseAlarm && rand() < s.def.falseAlarm) found.push(measure(s, null));
-    for (const f of found) feed(s, f);
+    for (const f of found) deliver(f.sent, () => feed(s, f)); // the tracker only hears it when it arrives
   }
 
   // ---------- fusion ----------
@@ -408,8 +452,8 @@ export function createNetwork(ctx) {
   function sendTask(s, task, name, description) {
     const id = S.ulid();
     const body = { task_id: id, task_name: name, task_description: description, task_start_time: S.timestamp(), ...task };
-    send(S.envelope(fusion.nodeId, 'task', body, s.nodeId), fusion.nodeId, s.nodeId);
-    return id;
+    const res = send(S.envelope(fusion.nodeId, 'task', body, s.nodeId), fusion.nodeId, s.nodeId);
+    return { id, res }; // res says how long the task takes to arrive, or that it was lost
   }
   function sendTaskAck(s, taskId, status, reasons) {
     const body = { task_id: taskId, task_status: status };
@@ -426,14 +470,15 @@ export function createNetwork(ctx) {
 
   function assign(s, tr, approved = false) {
     if (!approved && needsApproval(s)) { if (!isPending(s, tr)) requestApproval(s, tr); return; }
-    const id = sendTask(s, {
+    const { id, res: sent } = sendTask(s, {
       control: 'CONTROL_START',
       command: { request: 'Engage', command_parameter: tr.id },
     }, `Engage ${tr.short}`, `Engage track ${tr.short} (${tr.airframe || 'unclassified'})`);
+    if (sent.dropped) { s.rejected = { id: tr.id, until: T() + FUSION.rejectBackoff }; return; } // the task never arrived
     // the effector acquires whatever real target is at the track; a false or mis-placed track has none
     const res = ctx.acceptTask(s, tr.truth);
     if (res.ok) {
-      s.task = { id, drone: tr.truth, trackId: tr.id };
+      s.task = { id, drone: tr.truth, trackId: tr.id, activeAt: T() + sent.delay }; // it can act once the task has arrived
       sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
       sendStatus(s);
     } else {
@@ -463,7 +508,7 @@ export function createNetwork(ctx) {
   // Uses the SAPIENT Task `look_at` command. With nothing to look at, a camera sweeps (and rarely catches anything).
   function cueCameras(live) {
     for (const s of nodes.values()) {
-      if (!s.def.fov) continue;
+      if (!s.def.fov || s.offline) continue;
       if (s.cue && T() < s.cue.until && tracker.tracks.has(s.cue.trackId)) continue; // still dwelling on a live track
       let best = null, bs = Infinity;
       for (const tr of live) {
@@ -476,17 +521,19 @@ export function createNetwork(ctx) {
       }
       if (best) {
         const loc = S.location(best.est.east, best.est.north, best.est.up, Math.max(best.estErr, 5));
-        const id = sendTask(s, { control: 'CONTROL_START', command: { look_at: { location_list: { locations: [loc] } } } }, `Look at ${best.short}`, `Slew to track ${best.short} and dwell`);
-        s.cue = { trackId: best.id, until: T() + s.def.dwell };
+        const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { look_at: { location_list: { locations: [loc] } } } }, `Look at ${best.short}`, `Slew to track ${best.short} and dwell`);
         s.lookedAt.set(best.id, T());
-        s.mode = 'Track';
-        sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
-        sendStatus(s, true);
-      } else if (s.mode !== 'Search') {
-        const id = sendTask(s, { control: 'CONTROL_START', command: { mode_change: 'Search' } }, 'Mode Search', `Return ${s.name} to its search sweep`);
-        s.cue = null; s.mode = 'Search';
-        sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
-        sendStatus(s, true);
+        deliver(res, () => { // the camera turns once the task arrives
+          s.cue = { trackId: best.id, until: T() + s.def.dwell };
+          s.mode = 'Track';
+          sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
+          sendStatus(s, true);
+        });
+      } else if (s.mode !== 'Search' && s.modePending !== 'Search') {
+        const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { mode_change: 'Search' } }, 'Mode Search', `Return ${s.name} to its search sweep`);
+        s.modePending = 'Search';
+        deliver(res, () => { s.cue = null; s.mode = 'Search'; s.modePending = null; sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED'); sendStatus(s, true); });
+        if (res.dropped) s.modePending = null;
       }
     }
   }
@@ -495,14 +542,15 @@ export function createNetwork(ctx) {
     const live = confirmedTracks();
     cueCameras(live);
     for (const s of nodes.values()) {
-      if (s.def.role !== 'effector') continue;
+      if (s.def.role !== 'effector' || s.offline) continue; // an effector we have lost contact with can't be tasked
       if (s.def.id === 'jammer') {
         const want = live.some((tr) => distToTrack(s, tr) <= s.def.range) ? 'Jam' : 'Standby';
-        if (s.mode !== want) {
-          const id = sendTask(s, { control: 'CONTROL_START', command: { mode_change: want } }, `Mode ${want}`, `Switch ${s.name} to ${want}`);
-          s.mode = want;
-          sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
-          sendStatus(s, true);
+        if (s.mode !== want && s.modePending !== want) {
+          const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { mode_change: want } }, `Mode ${want}`, `Switch ${s.name} to ${want}`);
+          if (!res.dropped) {
+            s.modePending = want;
+            deliver(res, () => { s.mode = want; s.modePending = null; sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED'); sendStatus(s, true); });
+          }
         }
         continue;
       }
@@ -562,6 +610,7 @@ export function createNetwork(ctx) {
 
   function update(dt) {
     S.clock.t = T();
+    while (scheduled.length && scheduled[0].at <= T()) scheduled.shift().fn(); // messages that have now arrived
     for (const s of nodes.values()) {
       if (s.def.role === 'sensor') {
         if (s.def.fov) aimCamera(s, dt);
@@ -608,7 +657,7 @@ export function createNetwork(ctx) {
     fusedT += dt;
     if (fusedT >= FUSION.fusedInterval) { fusedT = 0; for (const tr of tracker.tracks.values()) if (tr.status !== 'tentative') fusedReport(tr); }
     fusionT += dt;
-    if (fusionT >= FUSION.taskInterval) { fusionT = 0; tasking(); }
+    if (fusionT >= FUSION.taskInterval) { fusionT = 0; checkContact(); tasking(); }
   }
 
   // ---------- queries and hooks ----------
@@ -634,6 +683,7 @@ export function createNetwork(ctx) {
     nodes.clear(); tracker.clear(); names.clear();
     for (const k of Object.keys(counters)) delete counters[k];
     trackSeq = 0; fusionT = 0; fusedT = 0; pending.length = 0;
+    scheduled.length = 0; comms.reset(); fusion.uplinks.clear(); fusion.cellBand = 'B8';
     fusion.nodeId = S.uuid(); gui.nodeId = S.uuid(); fusion.statusT = 0;
     names.set(fusion.nodeId, fusion.name);
     names.set(gui.nodeId, gui.name);
@@ -647,6 +697,6 @@ export function createNetwork(ctx) {
 
   return {
     init, registerNode, deregisterNode, update, isTracked, onDroneRemoved, raiseAlert, injectFault,
-    decide, pendingRequests: pending, coverageAt, nameOf, nodes, tracks: tracker.tracks, bearingCandidates: () => tracker.candidates, fusion, gui,
+    comms, decide, pendingRequests: pending, coverageAt, nameOf, nodes, tracks: tracker.tracks, bearingCandidates: () => tracker.candidates, fusion, gui,
   };
 }

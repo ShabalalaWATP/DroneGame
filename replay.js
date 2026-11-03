@@ -177,7 +177,7 @@ export function createReplay(deps) {
     const total = rec.frames.length ? rec.frames[rec.frames.length - 1].t - rec.frames[0].t : 0;
     if (!total) { eventsEl.innerHTML = ''; return; }
     const t0 = rec.frames[0].t;
-    const colour = { kill: '#66bb6a', leak: '#ff5252', spotter: '#ffd600' };
+    const colour = { kill: '#66bb6a', leak: '#ff5252', spotter: '#ffd600', lost: '#ff9100' };
     eventsEl.innerHTML = rec.events.filter((e) => colour[e.type]).map((e) =>
       `<i style="left:${(100 * (e.t - t0) / total).toFixed(2)}%;background:${colour[e.type]}" title="${e.text} (${fmtTime(e.t)})"></i>`).join('');
   }

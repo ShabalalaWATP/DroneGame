@@ -139,13 +139,14 @@ export function clearBus() {
 }
 
 // Send through the middleware: validate, record, and if invalid also record the Error it would return.
+// Returns the bus entry for the message (entry.ok is false if it failed validation).
 export function send(msg, from, to, middlewareId) {
   const problems = validate(msg);
-  emit(msg, from, to);
+  const entry = emit(msg, from, to);
+  entry.ok = problems.length === 0;
   if (problems.length) {
     const packet = btoa(unescape(encodeURIComponent(JSON.stringify(msg)))).slice(0, 200);
     emit(envelope(middlewareId, 'error', { packet, error_message: problems }, from), middlewareId, from);
-    return false;
   }
-  return true;
+  return entry;
 }

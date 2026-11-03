@@ -97,7 +97,63 @@ export const PERIMETER = {
 
 export const FUSION_DEF = {
   id: 'fusion', name: 'Site Fusion Node', short: 'FUSION', role: 'fusion', color: 0xffffff,
+  mount: 80, // its network terminals are on a mast (assumed) clear of the 70 m cooling towers around it
   sapient: { nodeType: 'NODE_TYPE_FUSION_NODE', subType: ['C-UAS fusion'] },
+};
+
+// ---------- radio spectrum ----------
+// Frequencies in GHz, as [low, high] ranges. Used by the Spectrum view, to work out which jammer bands overlap
+// which links, and to say what each enemy drone depends on. GNSS and the ISM/ELRS control and video bands are
+// widely published values; the radar X-band figure is an assumption (see the radar's ref).
+export const SPECTRUM = {
+  bands: {
+    control900: { label: 'Control 868/915 MHz', f: [[0.860, 0.930]], note: 'Long-range control links (e.g. ELRS)' },
+    control24: { label: 'Control 2.4 GHz', f: [[2.400, 2.4835]], note: 'Common FPV and hobby control link' },
+    video58: { label: 'Video 5.8 GHz', f: [[5.650, 5.925]], note: 'Common FPV video downlink' },
+    gnss: { label: 'GNSS L1/L2', f: [[1.215, 1.255], [1.559, 1.610]], note: 'GPS and similar navigation signals' },
+  },
+  detectorListens: [0.07, 6], // the RF detector sweeps 70 MHz to 6 GHz (trade reference)
+};
+export const overlaps = (a, b) => a.some(([a0, a1]) => b.some(([b0, b1]) => a0 < b1 && b0 < a1));
+
+// ---------- communications ----------
+// Every sensor and effector reaches the fusion node over its own terminal: Starlink or a cellular modem. Both ends of a
+// path (the node's terminal and the fusion node's terminal) must be up. Capacity is bits per second, latency seconds.
+// Starlink figures come from reviews and regulatory filings; cellular latency, capacity and tower range had no verified
+// source and are assumptions. Message sizes are rough protobuf-sized estimates, plus overhead for IP and encryption.
+export const COMMS = {
+  bytes: { detection_report: 220, status_report: 140, registration: 900, registration_ack: 50, task: 180, task_ack: 60, alert: 160, alert_ack: 40, error: 100 },
+  overhead: 60,           // bytes added to every message by the network layers
+  queueLimit: 4,          // seconds a message may wait for a busy link before it is dropped
+  internetLatency: 0.02,  // seconds added when the two ends use different networks
+  towers: 3,              // cell towers placed on high ground around the station
+  towerHeight: 40,        // m
+  starlink: {
+    name: 'Starlink', cost: 349, latency: 0.04, capacity: 12e6, loss: 0.005,
+    minElevation: 25,     // degrees: the dish needs sky above this angle
+    skyBlockLimit: 0.4,   // the link fails when more than this fraction of that sky is blocked
+    signature: 0.3,       // how loud it is to an enemy looking for emitters (relative)
+    band: [[14.0, 14.5], [10.7, 12.7]],
+    note: 'Latency 20–60 ms typical (measured median about 26 ms), upload about 5–20 Mbps, 50–100 W, standard kit $349. Ku-band: user uplink 14.0–14.5 GHz, downlink 10.7–12.7 GHz. Needs a clear view of the sky.',
+    confidence: 'Reviews and regulatory filings; resellers disagree on speeds',
+    sources: [
+      { label: 'Starlink review 2026 (measured speeds)', url: 'https://internetinspace.pages.dev/blog/starlink-review-2026' },
+      { label: 'Japan MIC filing: Ku-band allocations', url: 'https://www.soumu.go.jp/main_content/000660088.pdf' },
+    ],
+  },
+  cellular: {
+    name: 'Cellular', cost: 600, latency: 0.045, capacity: 10e6, loss: 0.01,
+    towerRange: 12000,    // m for a low band; higher bands reach less (rangeFactor)
+    signature: 0.5,
+    bands: {
+      B8: { label: 'Band 8 (900 MHz)', f: [[0.880, 0.960]], rangeFactor: 1.0 },
+      B3: { label: 'Band 3 (1800 MHz)', f: [[1.710, 1.880]], rangeFactor: 0.55 },
+      n78: { label: 'n78 (3.5 GHz)', f: [[3.300, 3.800]], rangeFactor: 0.3 },
+    },
+    note: 'Industrial routers list at about $250–350 (4G) and $599 (5G). Latency, capacity and tower range had no verified source: assumptions. Lower bands reach further but sit near the 868/915 MHz control-link band.',
+    confidence: 'ASSUMPTION for latency, capacity and range; price from retail listings',
+    sources: [{ label: 'Teltonika router prices (retailer)', url: 'https://shop.multilink.us/teltonika/' }],
+  },
 };
 
 // Costs are in US dollars. `cost` is what a system costs to buy and deploy; `shotCost` is charged every time a
@@ -106,6 +162,7 @@ export const FUSION_DEF = {
 export const STRUCTURES = {
   radar: {
     name: 'Radar', short: 'RDR', key: '1', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 6, falseAlarm: 0.1, // chance of a false alarm per scan
+    health: 30, signature: 1.0, emits: [{ label: 'X-band radar (assumed 9.2\u20139.5 GHz)', f: [[9.2, 9.5]] }], // radar band: assumption
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
     sapient: {
@@ -132,6 +189,7 @@ export const STRUCTURES = {
   },
   radar_s: {
     name: 'Compact radar', short: 'RDC', key: '2', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 4, falseAlarm: 0.15,
+    health: 30, signature: 0.8, emits: [{ label: 'K-band radar 24.45\u201324.65 GHz', f: [[24.45, 24.65]] }], // published for EchoGuard (US)
     lowAlt: 30, lowRange: 300,
     desc: 'Small solid-state radar. Cheap and short range, so you can afford several, but it sees less.',
     sapient: {
@@ -155,6 +213,7 @@ export const STRUCTURES = {
   },
   rf: {
     name: 'RF detector', short: 'RF', key: '3', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
+    health: 30, signature: 0.05, emits: [], listens: [[0.07, 6]], // passive
     desc: 'Passive RF sensor. Direction finding only (no range). Cannot see RF-silent drones.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
@@ -179,6 +238,7 @@ export const STRUCTURES = {
   },
   camera: {
     name: 'EO/IR camera', short: 'EO', key: '4', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 4, falseAlarm: 0.03,
+    health: 30, signature: 0.05, emits: [], // passive
     // A narrow field of view (degrees, total) that has to be pointed. Idle, it sweeps; the fusion node cues it to
     // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.
     fov: 10, slewRate: 90, searchRate: 12, dwell: 3,
@@ -203,6 +263,7 @@ export const STRUCTURES = {
   },
   jammer: {
     name: 'RF jammer', short: 'JAM', key: '5', cost: 60000, shotCost: 0, color: 0x7c4dff, role: 'effector', published: 1000,
+    health: 30, signature: 1.5, emits: [], bands: ['control24', 'video58'], // which bands it jams (changeable per jammer); loud while jamming
     slow: 0.5, killTime: 5, // jammed drones slow down; after killTime seconds of full jamming they lose link and crash
     desc: 'RF jammer. Switched on only while tracks are in range. Autonomous/fibre drones ignore it. No cost per use.',
     sapient: { nodeType: 'NODE_TYPE_JAMMER', subType: ['RF', 'GNSS'], scan: 'SCAN_TYPE_FIXED', modes: ['Standby', 'Jam'] },
@@ -228,6 +289,7 @@ export const STRUCTURES = {
   },
   interceptor: {
     name: 'Interceptor drones', short: 'INT', key: '6', cost: 100000, shotCost: 5000, color: 0x00e5ff, role: 'effector', published: 5000, muzzleY: 1.6, fire: 'guided',
+    health: 30, signature: 0.2, emits: [],
     engages: ['fpv', 'fo'], // too slow to catch the fixed-wing drones (game rule)
     damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80,
     desc: 'Cheap ram-type interceptor drones. Each launch costs $5,000. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
@@ -251,6 +313,7 @@ export const STRUCTURES = {
   },
   missile: {
     name: 'Missile', short: 'MSL', key: '7', cost: 1000000, shotCost: 200000, color: 0xff4081, role: 'effector', published: 10000, muzzleY: 2.2, fire: 'guided',
+    health: 30, signature: 0.2, emits: [],
     engagePolicy: 'fixed-wing', // the fusion node keeps this for fixed-wing tracks (or anything that gets close), to save the expensive rounds
     damage: 70, splash: 40, fuze: 30, cooldown: 4, missileSpeed: 150,
     desc: 'High-end guided missile that can hit the fixed-wing drones. Each shot costs $200,000, so the fusion node saves it for fixed-wing tracks.',
@@ -277,6 +340,7 @@ export const STRUCTURES = {
   },
   laser: {
     name: 'Laser', short: 'LSR', key: '8', cost: 2000000, shotCost: 13, color: 0xffffff, role: 'effector', published: 1000, muzzleY: 2.6,
+    health: 30, signature: 0.3, emits: [],
     dps: 28,
     desc: 'High-energy laser. $2,000,000 to deploy and about $13 per shot, but it needs dwell time, so evasive targets take longer to burn.',
     sapient: { nodeType: 'NODE_TYPE_LDEW', subType: ['Laser'], scan: 'SCAN_TYPE_STEERABLE' },
@@ -318,6 +382,7 @@ export const DRONES = {
   // cost: what one drone costs the attacker in dollars, with the evidence in costRef.
   spotter: {
     name: 'FW Spotter', role: 'spotter', model: 'fw', hp: 50, speed: 30, damage: 0, scale: 1.3, evade: 0.9,
+    links: { control: 'control900', video: 'video58', gnss: true }, // radio dependencies, for jamming
     color: 0xffd600, alt: [400, 500], jamResist: 0.75, adapt: 0.5, rfEmitter: true, airframe: 'Fixed wing',
     loiterDist: 2500, loiterTime: 60, // orbit radius (m) and seconds on station before it leaves
     spotBonus: 0.5,                   // each spotter on station adds this to strike damage
@@ -332,6 +397,7 @@ export const DRONES = {
   fo: {
     // fibre-optic FPV: an FPV that is slower and less agile, flies low, emits no radio and cannot be jammed
     name: 'FO Strike', model: 'quad', hp: 20, speed: 18, damage: 12, scale: 0.7, evade: 0.8,
+    links: {}, seeksEmitters: true, // fibre: nothing to jam; operator-guided, so it goes for emitters too
     rfEmitter: false, airframe: 'Multirotor', color: 0xff9100, alt: [10, 25], minAgl: 8, jamResist: 1, adapt: 0, fibre: true,
     cost: 1000, rcs: 0.01, size: 0.35, rfPower: 1,
     costRef: {
@@ -345,6 +411,7 @@ export const DRONES = {
   },
   fpv: {
     name: 'FPV Strike', model: 'quad', hp: 20, speed: 30, damage: 12, scale: 0.7, evade: 0.6,
+    links: { control: 'control24', video: 'video58' }, seeksEmitters: true, // goes for the loudest emitter it can find
     rfEmitter: true, airframe: 'Multirotor', color: 0xff1744, alt: [30, 90], minAgl: 15, jamResist: 0, adapt: 1,
     cost: 400, rcs: 0.01, size: 0.35, rfPower: 1,
     costRef: {
@@ -358,6 +425,7 @@ export const DRONES = {
   },
   fw: {
     name: 'FW Strike', model: 'fw', hp: 60, speed: 45, damage: 30, scale: 1.3, evade: 0.8,
+    links: { gnss: true }, // autonomous, navigates by GNSS
     rfEmitter: false, airframe: 'Fixed wing', color: 0xd500f9, alt: [150, 300], minAgl: 30, jamResist: 0.5, adapt: 0.7,
     cost: 35000, rcs: 0.2, size: 2.5, rfPower: 1,
     costRef: {
@@ -423,6 +491,10 @@ export const FIGURE_FIELDS = {
   dwell: { label: 'Dwell', unit: 's', step: 0.5, basis: 'rule' },
   slow: { label: 'Slow factor', unit: 'x', step: 0.05, basis: 'rule' },
   killTime: { label: 'Crash after', unit: 's', step: 0.5, basis: 'rule' },
+  latency: { label: 'Latency', unit: 's', step: 0.005, basis: 'research' },
+  capacity: { label: 'Capacity', unit: 'bit/s', step: 1000000, basis: 'research' },
+  loss: { label: 'Packet loss', unit: 'fraction', step: 0.005, basis: 'rule' },
+  towerRange: { label: 'Tower range (low band)', unit: 'm', step: 500, basis: 'assumption' },
   speed: { label: 'Speed', unit: 'm/s', step: 1, basis: 'rule' },
   hp: { label: 'Health', unit: 'hp', step: 5, basis: 'rule' },
   rcs: { label: 'Radar cross-section', unit: 'm²', step: 0.01, basis: 'assumption' },
@@ -436,30 +508,35 @@ const grab = (obj, keys) => Object.fromEntries(keys.filter((k) => typeof obj[k] 
 export const RESEARCHED = {
   structures: Object.fromEntries(Object.entries(STRUCTURES).map(([id, d]) => [id, grab(d, STRUCT_KEYS)])),
   drones: Object.fromEntries(Object.entries(DRONES).map(([id, d]) => [id, grab(d, DRONE_KEYS)])),
+  comms: {
+    starlink: grab(COMMS.starlink, ['cost', 'latency', 'capacity', 'loss']),
+    cellular: grab(COMMS.cellular, ['cost', 'latency', 'capacity', 'loss', 'towerRange']),
+  },
   world: { rangeScale: WORLD.rangeScale },
   waves: { fpvGap: WAVES.fpvGap },
 };
+const STORE = { structures: STRUCTURES, drones: DRONES, comms: COMMS };
+const KINDS = ['structures', 'drones', 'comms'];
 
-// Set one figure. kind is 'structures' or 'drones'.
+// Set one figure. kind is 'structures', 'drones' or 'comms'.
 export function setFigure(kind, id, key, value) {
-  const target = kind === 'structures' ? STRUCTURES[id] : DRONES[id];
-  target[key] = value;
+  STORE[kind][id][key] = value;
   if (kind === 'structures' && key === 'published') applyRangeScale();
 }
 export function resetFigure(kind, id, key) {
   setFigure(kind, id, key, RESEARCHED[kind][id][key]);
 }
 export function resetAllFigures() {
-  for (const kind of ['structures', 'drones']) for (const [id, vals] of Object.entries(RESEARCHED[kind])) for (const [k, v] of Object.entries(vals)) setFigure(kind, id, k, v);
+  for (const kind of KINDS) for (const [id, vals] of Object.entries(RESEARCHED[kind])) for (const [k, v] of Object.entries(vals)) setFigure(kind, id, k, v);
   WORLD.rangeScale = RESEARCHED.world.rangeScale; WAVES.fpvGap = RESEARCHED.waves.fpvGap;
   applyRangeScale();
 }
 // Only the figures that differ from the researched values.
 export function exportFigures() {
-  const out = { structures: {}, drones: {}, world: {}, waves: {} };
-  for (const kind of ['structures', 'drones']) {
+  const out = { structures: {}, drones: {}, comms: {}, world: {}, waves: {} };
+  for (const kind of KINDS) {
     for (const [id, vals] of Object.entries(RESEARCHED[kind])) {
-      const src = kind === 'structures' ? STRUCTURES[id] : DRONES[id];
+      const src = STORE[kind][id];
       for (const [k, v] of Object.entries(vals)) if (src[k] !== v) (out[kind][id] = out[kind][id] || {})[k] = src[k];
     }
   }
@@ -468,7 +545,7 @@ export function exportFigures() {
   return out;
 }
 export function importFigures(json) {
-  for (const kind of ['structures', 'drones']) {
+  for (const kind of KINDS) {
     for (const [id, vals] of Object.entries(json[kind] || {})) {
       if (!RESEARCHED[kind][id]) continue;
       for (const [k, v] of Object.entries(vals)) if (k in RESEARCHED[kind][id] && Number.isFinite(v)) setFigure(kind, id, k, v);
