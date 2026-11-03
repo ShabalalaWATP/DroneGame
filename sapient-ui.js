@@ -2,7 +2,10 @@
 // real-world reference for each purchasable system.
 
 import { bus } from './sapient.js';
-import { STRUCTURES, DRONES, WORLD, BUILD, SITE, ECONOMY } from './config.js';
+import {
+  STRUCTURES, DRONES, WORLD, BUILD, SITE, ECONOMY, WAVES, FIGURE_FIELDS, RESEARCHED,
+  setFigure, resetFigure, resetAllFigures, exportFigures, importFigures, applyRangeScale,
+} from './config.js';
 import { view } from './view.js';
 import { terrainState } from './terrain.js';
 
@@ -16,7 +19,7 @@ const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
 const usd = (v) => '$' + Math.round(v).toLocaleString('en-US');
 
-export function initDock({ net, drones, ledger, state }) {
+export function initDock({ net, drones, ledger, state, onFiguresChanged }) {
   const dock = document.getElementById('dock');
   dock.innerHTML = `
     <div class="dock-head">
@@ -25,7 +28,7 @@ export function initDock({ net, drones, ledger, state }) {
         <button data-tab="nodes">Nodes</button>
         <button data-tab="plan">Plan</button>
         <button data-tab="cost">Cost</button>
-        <button data-tab="systems">Systems</button>
+        <button data-tab="systems">Sources</button>
       </div>
       <button id="dock-close" title="Close">&times;</button>
     </div>
@@ -114,9 +117,10 @@ export function initDock({ net, drones, ledger, state }) {
       default: return '';
     }
   }
-  const matches = (e) => !off.has(e.type) && (nodeFilter === 'all' || e.from === nodeFilter || e.to === nodeFilter);
+  // while rewinding, the log shows only what had been sent up to the moment being reviewed
+  const matches = (e) => !off.has(e.type) && (view.replayT == null || e.t <= view.replayT) && (nodeFilter === 'all' || e.from === nodeFilter || e.to === nodeFilter);
 
-  let lastRendered = -1, nodeCount = -1;
+  let lastRendered = -1, nodeCount = -1, lastReplayT = null;
   function renderMessages(force) {
     for (const [t] of TYPES) $('#cnt-' + t).textContent = bus.counts[t] || 0;
     if (nodeCount !== net.nodes.size) {
@@ -126,8 +130,8 @@ export function initDock({ net, drones, ledger, state }) {
       sel.value = nodeFilter;
     }
     if (frozen && !force) return;
-    if (!force && bus.seq === lastRendered) return;
-    lastRendered = bus.seq;
+    if (!force && bus.seq === lastRendered && view.replayT === lastReplayT) return;
+    lastRendered = bus.seq; lastReplayT = view.replayT;
     const rows = [];
     for (let i = bus.entries.length - 1; i >= 0 && rows.length < MAX_ROWS; i--) if (matches(bus.entries[i])) rows.push(bus.entries[i]);
     rows.reverse();
@@ -333,21 +337,90 @@ export function initDock({ net, drones, ledger, state }) {
       Object.values(DRONES).map((d) => `<div class="cost-src"><b>${esc(d.name)}</b> ${usd(d.cost)}: ${esc(d.costRef.note)} <span class="conf">${esc(d.costRef.confidence)}</span><br>${linkList(d.costRef.sources)}</div>`).join('') + `</div>`;
   }
 
-  // ---------- systems reference ----------
-  const sysRows = Object.values(STRUCTURES).map((d) => {
-    const r = d.ref;
-    const links = r.sources.length ? r.sources.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)}</a>`).join(' · ') : '<i>none found</i>';
-    return `<div class="sys"><div class="sys-h"><i style="background:${hex(d.color)}"></i><b>${esc(d.name)}</b> <span class="muted">${usd(d.cost)}${d.shotCost ? ` + ${usd(d.shotCost)}/shot` : ''} · game range ${d.range} m · ${esc(d.sapient.nodeType.replace('NODE_TYPE_', ''))}</span></div>` +
-      `<div><span class="k">Real class</span> ${esc(r.class)}</div>` +
-      `<div><span class="k">Modelled on</span> ${esc(r.analogues.join(', '))}</div>` +
-      `<div><span class="k">Published</span> ${esc(r.published)}</div>` +
-      `<div><span class="k">Game basis</span> ${esc(r.basis)}</div>` +
-      `<div><span class="k">Confidence</span> <span class="conf ${/ASSUMPTION/.test(r.confidence) ? 'assume' : ''}">${esc(r.confidence)}</span></div>` +
-      `<div><span class="k">Sources</span> ${links}</div>` +
-      `<div><span class="k">Price</span> ${esc(r.cost.capex)} <span class="conf ${/ASSUMPTION/.test(r.cost.confidence) ? 'assume' : ''}">${esc(r.cost.confidence)}</span></div>` +
-      `<div><span class="k">Price sources</span> ${linkList(r.cost.sources)}</div></div>`;
-  }).join('');
-  $('#systems').innerHTML = `<div class="sys note">Ranges are taken from public sources and are mostly vendor claims; check them before relying on them. Anything marked ASSUMPTION had no verified figure. Message formats follow <a href="https://github.com/dstl/SAPIENT-Proto-Files" target="_blank" rel="noopener noreferrer">BSI Flex 335 v2.0</a> (<a href="https://www.gov.uk/government/publications/sapient-interface-control-document" target="_blank" rel="noopener noreferrer">ICD</a>). Delivery here is instant and association is perfect, so this shows the laydown and message flow, not network behaviour.</div>` + sysRows;
+  // ---------- sources: every researched figure, tuneable ----------
+  // Each system and each enemy drone shows the figures that came from research (or are labelled assumptions or game rules),
+  // with the evidence beside them. Editing a number changes the game straight away; the arrow resets it to the researched
+  // value. "Export" saves just your changes as JSON so an experiment can be repeated.
+  const confTag = (text) => /ASSUMPTION/i.test(text || '') ? 'assumption' : null;
+  function basisOf(kind, def, key) {
+    const meta = FIGURE_FIELDS[key];
+    if (kind === 'structures') {
+      if (key === 'published') return confTag(def.ref.confidence) || 'research';
+      if (key === 'cost' || key === 'shotCost') return confTag(def.ref.cost.confidence) || 'price';
+      if (key === 'missileSpeed') return 'research';
+    } else if (key === 'cost') return confTag(def.costRef.confidence) || 'price';
+    return meta.basis;
+  }
+  const BASIS_LABEL = { research: 'published', price: 'price', assumption: 'ASSUMPTION', rule: 'game rule' };
+
+  function figureRows(kind, id, def) {
+    return Object.keys(RESEARCHED[kind][id]).map((key) => {
+      const meta = FIGURE_FIELDS[key];
+      const basis = basisOf(kind, def, key);
+      const base = RESEARCHED[kind][id][key];
+      return `<label class="fig ${basis}"><span class="fl">${esc(meta.label)}</span>` +
+        `<input type="number" data-kind="${kind}" data-id="${id}" data-key="${key}" value="${def[key]}" step="${meta.step}" min="0">` +
+        `<span class="fu">${esc(meta.unit)}</span><span class="fb ${basis}">${BASIS_LABEL[basis]}</span>` +
+        `<button class="fr${def[key] === base ? ' hidden' : ''}" data-reset="${kind}|${id}|${key}" title="Reset to ${base}">↺</button></label>`;
+    }).join('');
+  }
+
+  function buildSources() {
+    const structCards = Object.values(STRUCTURES).map((d) => {
+      const r = d.ref;
+      return `<div class="sys"><div class="sys-h"><i style="background:${hex(d.color)}"></i><b>${esc(d.name)}</b> <span class="muted">${esc(d.sapient.nodeType.replace('NODE_TYPE_', ''))} · game range ${d.range} m</span></div>` +
+        `<div class="figs">${figureRows('structures', d.id, d)}</div>` +
+        `<div><span class="k">Real class</span> ${esc(r.class)}</div>` +
+        `<div><span class="k">Modelled on</span> ${esc(r.analogues.join(', '))}</div>` +
+        `<div><span class="k">Published</span> ${esc(r.published)}</div>` +
+        `<div><span class="k">Game basis</span> ${esc(r.basis)}</div>` +
+        `<div><span class="k">Confidence</span> <span class="conf ${confTag(r.confidence) ? 'assume' : ''}">${esc(r.confidence)}</span></div>` +
+        `<div><span class="k">Sources</span> ${linkList(r.sources)}</div>` +
+        `<div><span class="k">Price</span> ${esc(r.cost.capex)} <span class="conf ${confTag(r.cost.confidence) ? 'assume' : ''}">${esc(r.cost.confidence)}</span></div>` +
+        `<div><span class="k">Price sources</span> ${linkList(r.cost.sources)}</div></div>`;
+    }).join('');
+    const droneCards = Object.values(DRONES).map((d) =>
+      `<div class="sys"><div class="sys-h"><i style="background:${hex(d.color)}"></i><b>${esc(d.name)}</b> <span class="muted">enemy drone · ${esc(d.airframe)}${d.rfEmitter ? ' · emits RF' : ' · RF-silent'}</span></div>` +
+      `<div class="figs">${figureRows('drones', d.id, d)}</div>` +
+      `<div><span class="k">Cost basis</span> ${esc(d.costRef.note)} <span class="conf ${confTag(d.costRef.confidence) ? 'assume' : ''}">${esc(d.costRef.confidence)}</span></div>` +
+      `<div><span class="k">Sources</span> ${linkList(d.costRef.sources)}</div>` +
+      `<div class="muted">Radar cross-section, size, link power and speed are rough class values I chose, not measurements. Tune them to test how sensitive a laydown is.</div></div>`).join('');
+    $('#systems').innerHTML =
+      `<div class="sys note">Every number here can be changed and takes effect at once. <b>published</b> and <b>price</b> figures come from the sources shown (mostly vendor claims; check them before relying on them), <b>ASSUMPTION</b> had no verified figure, <b>game rule</b> is a balance setting. Message formats follow <a href="https://github.com/dstl/SAPIENT-Proto-Files" target="_blank" rel="noopener noreferrer">BSI Flex 335 v2.0</a>.` +
+      `<div class="src-tools"><label>Range scale <input type="number" id="src-rangescale" value="${WORLD.rangeScale}" step="0.1" min="0.1"> x published</label>` +
+      `<label>FPV gap <input type="number" id="src-fpvgap" value="${WAVES.fpvGap}" step="1" min="1"> s</label>` +
+      `<button id="src-reset">Reset all</button><button id="src-export">Export changes</button><button id="src-import">Import</button><input type="file" id="src-file" accept="application/json" hidden></div></div>` +
+      `<h4 class="src-h">Defences</h4>` + structCards + `<h4 class="src-h">Enemy drones</h4>` + droneCards;
+  }
+  const changed = () => { if (onFiguresChanged) onFiguresChanged(); };
+  $('#systems').addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.id === 'src-rangescale') { const v = Number(t.value); if (v > 0) { WORLD.rangeScale = v; applyRangeScale(); changed(); buildSources(); } return; }
+    if (t.id === 'src-fpvgap') { const v = Number(t.value); if (v > 0) WAVES.fpvGap = v; return; }
+    if (t.id === 'src-file') {
+      const f = t.files[0]; if (!f) return;
+      f.text().then((txt) => { try { importFigures(JSON.parse(txt)); changed(); buildSources(); } catch (err) { alert('That file is not a valid figures export.'); } });
+      return;
+    }
+    if (!t.dataset.key) return;
+    const v = Number(t.value);
+    if (!Number.isFinite(v) || v < 0) { t.value = (t.dataset.kind === 'structures' ? STRUCTURES : DRONES)[t.dataset.id][t.dataset.key]; return; }
+    setFigure(t.dataset.kind, t.dataset.id, t.dataset.key, v);
+    changed();
+    buildSources();
+  });
+  $('#systems').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.reset) { const [kind, id, key] = b.dataset.reset.split('|'); resetFigure(kind, id, key); changed(); buildSources(); }
+    else if (b.id === 'src-reset') { resetAllFigures(); changed(); buildSources(); }
+    else if (b.id === 'src-export') {
+      const blob = new Blob([JSON.stringify(exportFigures(), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'site-guard-figures.json'; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } else if (b.id === 'src-import') $('#src-file').click();
+  });
+  buildSources();
 
   // ---------- refresh ----------
   function render() {

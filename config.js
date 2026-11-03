@@ -30,9 +30,15 @@ export const BUILD = { minDist: 250, maxDist: 2500, spacing: 60, sellRefund: 1, 
 // without changing the ground (or the other way round). Heights are metres above the station base.
 export const TERRAIN = {
   cell: 20,              // resolution of the height/obstacle grid (m)
-  relief: 130,           // hill height far from the station (m)
-  flatRadius: 500,       // the station platform is flat inside this radius (m)
-  blendRadius: 1600,     // terrain reaches full relief at this distance (m)
+  relief: 380,           // mountain height far from the station (m); lower it for gentler country
+  flatRadius: 450,       // the station platform is flat inside this radius (m)
+  blendRadius: 1300,     // terrain reaches full relief at this distance (m)
+  warp: 700,             // how far the ground is twisted by domain warping (m): bigger = more winding ridges
+  waterLevel: -12,       // height of rivers and lakes relative to the station (m)
+  riverWidth: 0.08,      // river valley width in noise units (bigger = wider rivers)
+  snowLine: 0.72,        // snow above this fraction of the relief
+  treeLine: 0.55,        // no trees above this fraction of the relief
+  meshStride: 3,         // drawn terrain vertex every this many grid cells (smaller = finer, slower)
   forestThreshold: 0.56, // higher = less forest
   canopyMin: 12, canopyMax: 20, // tree height range (m)
   clearRadius: 450,      // no trees within this of the station (m)
@@ -71,7 +77,15 @@ export const FUSION = {
   critZone: 800,         // CRITICAL alert inside this
   rejectBackoff: 3,      // after a rejected task, don't retry that effector for this long
   retaskAdvantage: 300,  // switch target only if the new one is this much closer to the site
+  // Who decides to engage. SAPIENT has no message for a weapon-release decision (see the Alert/AlertAck emulation in
+  // network.js), so this is a C2 policy: 'auto' engages by itself, 'costly' asks the operator for engagements whose
+  // shot costs at least authorityThreshold dollars, 'all' asks for every engagement.
+  authority: 'auto', authorityThreshold: 50000, authorityTimeout: 20, // timeout in seconds, then the request lapses
+  killConfirmDelay: 2.5, // after an effector reports a kill, sensors must lose the track for this long to confirm it (s)
 };
+
+// How the attack arrives. FPV drones come one at a time, each from its own direction, this many seconds apart.
+export const WAVES = { fpvGap: 20 };
 
 // The site's own close-in sensing. It is a SAPIENT node too, so everything flows through the same messages.
 export const PERIMETER = {
@@ -91,7 +105,7 @@ export const FUSION_DEF = {
 // Each system's `ref.cost` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
 export const STRUCTURES = {
   radar: {
-    name: 'Radar', short: 'RDR', key: '1', cost: 900000, shotCost: 0, color: 0x4fc3f7, role: 'sensor', kind: 'radar', published: 2000, mount: 6, falseAlarm: 0.1, // chance of a false alarm per scan
+    name: 'Radar', short: 'RDR', key: '1', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 6, falseAlarm: 0.1, // chance of a false alarm per scan
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
     sapient: {
@@ -117,7 +131,7 @@ export const STRUCTURES = {
     },
   },
   radar_s: {
-    name: 'Compact radar', short: 'RDC', key: '2', cost: 45000, shotCost: 0, color: 0x29b6f6, role: 'sensor', kind: 'radar', published: 1000, mount: 4, falseAlarm: 0.15,
+    name: 'Compact radar', short: 'RDC', key: '2', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 4, falseAlarm: 0.15,
     lowAlt: 30, lowRange: 300,
     desc: 'Small solid-state radar. Cheap and short range, so you can afford several, but it sees less.',
     sapient: {
@@ -140,7 +154,7 @@ export const STRUCTURES = {
     },
   },
   rf: {
-    name: 'RF detector', short: 'RF', key: '3', cost: 40000, shotCost: 0, color: 0xffd54f, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
+    name: 'RF detector', short: 'RF', key: '3', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
     desc: 'Passive RF sensor. Direction finding only (no range). Cannot see RF-silent drones.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
@@ -164,7 +178,7 @@ export const STRUCTURES = {
     },
   },
   camera: {
-    name: 'EO/IR camera', short: 'EO', key: '4', cost: 100000, shotCost: 0, color: 0x81c784, role: 'sensor', kind: 'camera', published: 1000, mount: 4, falseAlarm: 0.03,
+    name: 'EO/IR camera', short: 'EO', key: '4', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 4, falseAlarm: 0.03,
     // A narrow field of view (degrees, total) that has to be pointed. Idle, it sweeps; the fusion node cues it to
     // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.
     fov: 10, slewRate: 90, searchRate: 12, dwell: 3,
@@ -188,7 +202,7 @@ export const STRUCTURES = {
     },
   },
   jammer: {
-    name: 'RF jammer', short: 'JAM', key: '5', cost: 60000, shotCost: 0, color: 0xba68c8, role: 'effector', published: 1000,
+    name: 'RF jammer', short: 'JAM', key: '5', cost: 60000, shotCost: 0, color: 0x7c4dff, role: 'effector', published: 1000,
     slow: 0.5, killTime: 5, // jammed drones slow down; after killTime seconds of full jamming they lose link and crash
     desc: 'RF jammer. Switched on only while tracks are in range. Autonomous/fibre drones ignore it. No cost per use.',
     sapient: { nodeType: 'NODE_TYPE_JAMMER', subType: ['RF', 'GNSS'], scan: 'SCAN_TYPE_FIXED', modes: ['Standby', 'Jam'] },
@@ -213,7 +227,7 @@ export const STRUCTURES = {
     },
   },
   interceptor: {
-    name: 'Interceptor drones', short: 'INT', key: '6', cost: 100000, shotCost: 5000, color: 0xef9a9a, role: 'effector', published: 5000, muzzleY: 1.6, fire: 'guided',
+    name: 'Interceptor drones', short: 'INT', key: '6', cost: 100000, shotCost: 5000, color: 0x00e5ff, role: 'effector', published: 5000, muzzleY: 1.6, fire: 'guided',
     engages: ['fpv', 'fo'], // too slow to catch the fixed-wing drones (game rule)
     damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80,
     desc: 'Cheap ram-type interceptor drones. Each launch costs $5,000. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
@@ -236,7 +250,7 @@ export const STRUCTURES = {
     },
   },
   missile: {
-    name: 'Missile', short: 'MSL', key: '7', cost: 1000000, shotCost: 200000, color: 0xef5350, role: 'effector', published: 10000, muzzleY: 2.2, fire: 'guided',
+    name: 'Missile', short: 'MSL', key: '7', cost: 1000000, shotCost: 200000, color: 0xff4081, role: 'effector', published: 10000, muzzleY: 2.2, fire: 'guided',
     engagePolicy: 'fixed-wing', // the fusion node keeps this for fixed-wing tracks (or anything that gets close), to save the expensive rounds
     damage: 70, splash: 40, fuze: 30, cooldown: 4, missileSpeed: 150,
     desc: 'High-end guided missile that can hit the fixed-wing drones. Each shot costs $200,000, so the fusion node saves it for fixed-wing tracks.',
@@ -262,7 +276,7 @@ export const STRUCTURES = {
     },
   },
   laser: {
-    name: 'Laser', short: 'LSR', key: '8', cost: 2000000, shotCost: 13, color: 0xfff176, role: 'effector', published: 1000, muzzleY: 2.6,
+    name: 'Laser', short: 'LSR', key: '8', cost: 2000000, shotCost: 13, color: 0xffffff, role: 'effector', published: 1000, muzzleY: 2.6,
     dps: 28,
     desc: 'High-energy laser. $2,000,000 to deploy and about $13 per shot, but it needs dwell time, so evasive targets take longer to burn.',
     sapient: { nodeType: 'NODE_TYPE_LDEW', subType: ['Laser'], scan: 'SCAN_TYPE_STEERABLE' },
@@ -304,7 +318,7 @@ export const DRONES = {
   // cost: what one drone costs the attacker in dollars, with the evidence in costRef.
   spotter: {
     name: 'FW Spotter', role: 'spotter', model: 'fw', hp: 50, speed: 30, damage: 0, scale: 1.3, evade: 0.9,
-    color: 0xce93d8, alt: [400, 500], jamResist: 0.75, adapt: 0.5, rfEmitter: true, airframe: 'Fixed wing',
+    color: 0xffd600, alt: [400, 500], jamResist: 0.75, adapt: 0.5, rfEmitter: true, airframe: 'Fixed wing',
     loiterDist: 2500, loiterTime: 60, // orbit radius (m) and seconds on station before it leaves
     spotBonus: 0.5,                   // each spotter on station adds this to strike damage
     bank: 0.35,                       // bank angle (radians) while orbiting
@@ -318,7 +332,7 @@ export const DRONES = {
   fo: {
     // fibre-optic FPV: an FPV that is slower and less agile, flies low, emits no radio and cannot be jammed
     name: 'FO Strike', model: 'quad', hp: 20, speed: 18, damage: 12, scale: 0.7, evade: 0.8,
-    rfEmitter: false, airframe: 'Multirotor', color: 0xa1887f, alt: [10, 25], minAgl: 8, jamResist: 1, adapt: 0, fibre: true,
+    rfEmitter: false, airframe: 'Multirotor', color: 0xff9100, alt: [10, 25], minAgl: 8, jamResist: 1, adapt: 0, fibre: true,
     cost: 1000, rcs: 0.01, size: 0.35, rfPower: 1,
     costRef: {
       note: 'Ukrainian contracts in 2025 priced fibre-optic FPVs at about 30,000–60,000 UAH each (roughly $700–$1,500 at about 40–42 UAH/$; the dollar conversion is mine), depending on spool size. Game uses $1,000.',
@@ -331,7 +345,7 @@ export const DRONES = {
   },
   fpv: {
     name: 'FPV Strike', model: 'quad', hp: 20, speed: 30, damage: 12, scale: 0.7, evade: 0.6,
-    rfEmitter: true, airframe: 'Multirotor', color: 0xff8a65, alt: [30, 90], minAgl: 15, jamResist: 0, adapt: 1,
+    rfEmitter: true, airframe: 'Multirotor', color: 0xff1744, alt: [30, 90], minAgl: 15, jamResist: 0, adapt: 1,
     cost: 400, rcs: 0.01, size: 0.35, rfPower: 1,
     costRef: {
       note: 'Ukrainian FPV strike drones are reported at about $400 each (some makers claim under $400 before the warhead; forum estimates run $500–$1,500). Game uses $400.',
@@ -344,7 +358,7 @@ export const DRONES = {
   },
   fw: {
     name: 'FW Strike', model: 'fw', hp: 60, speed: 45, damage: 30, scale: 1.3, evade: 0.8,
-    rfEmitter: false, airframe: 'Fixed wing', color: 0xe57373, alt: [150, 300], minAgl: 30, jamResist: 0.5, adapt: 0.7,
+    rfEmitter: false, airframe: 'Fixed wing', color: 0xd500f9, alt: [150, 300], minAgl: 30, jamResist: 0.5, adapt: 0.7,
     cost: 35000, rcs: 0.2, size: 2.5, rfPower: 1,
     costRef: {
       note: 'Shahed-136 / Geran-2 class: most estimates $20,000–$50,000 per drone (CSIS about $35,000; Forbes Ukraine uses $50,000); later Geran-2 variants closer to $80,000; export price in leaked documents $193,000. Game uses $35,000.',
@@ -377,9 +391,90 @@ export function makeWave(n, rng) {
       });
     }
   };
-  add('fpv', 3 + n * 2, 0, 15);
+  // FPV strikes arrive one at a time, each from its own direction, WAVES.fpvGap seconds apart
+  for (let i = 0; i < 3 + n * 2; i++) {
+    out.push({ t: i * WAVES.fpvGap, type: 'fpv', bearing: rng() * Math.PI * 2, jitter: 0, altFrac: rng(), freq: rng() < 0.5 ? 2.4e9 : 5.8e9 });
+  }
   if (n >= 2) add('fw', Math.ceil((n - 1) / 2), 4, 14);
   if (n >= 3) add('fo', Math.floor((n - 1) / 2), 2, 10);
   if (n >= 3) add('spotter', n >= 8 ? 2 : 1, 0, 1);
   return out.sort((a, b) => a.t - b.t);
+}
+
+// ---------- tuneable research figures ----------
+// Every number that came from research (or is a labelled assumption) can be edited in the Sources tab. These helpers
+// remember the researched values so each one can be reset, and export/import a set of edits as JSON.
+const STRUCT_KEYS = ['published', 'cost', 'shotCost', 'missileSpeed', 'damage', 'splash', 'fuze', 'cooldown', 'dps', 'falseAlarm', 'lowRange', 'fov', 'dwell', 'slow', 'killTime'];
+const DRONE_KEYS = ['cost', 'speed', 'hp', 'rcs', 'size', 'rfPower', 'evade', 'jamResist'];
+
+export const FIGURE_FIELDS = {
+  published: { label: 'Range', unit: 'm', step: 100, basis: 'research' },
+  cost: { label: 'Price', unit: '$', step: 1000, basis: 'price' },
+  shotCost: { label: 'Per shot', unit: '$', step: 100, basis: 'price' },
+  missileSpeed: { label: 'Speed', unit: 'm/s', step: 10, basis: 'research' },
+  damage: { label: 'Damage', unit: 'hp', step: 5, basis: 'rule' },
+  splash: { label: 'Blast radius', unit: 'm', step: 5, basis: 'rule' },
+  fuze: { label: 'Fuze radius', unit: 'm', step: 5, basis: 'rule' },
+  cooldown: { label: 'Reload', unit: 's', step: 0.5, basis: 'rule' },
+  dps: { label: 'Beam damage', unit: 'hp/s', step: 2, basis: 'rule' },
+  falseAlarm: { label: 'False alarms', unit: 'per scan', step: 0.01, basis: 'rule' },
+  lowRange: { label: 'Clutter range', unit: 'm', step: 50, basis: 'rule' },
+  fov: { label: 'View', unit: 'deg', step: 1, basis: 'rule' },
+  dwell: { label: 'Dwell', unit: 's', step: 0.5, basis: 'rule' },
+  slow: { label: 'Slow factor', unit: 'x', step: 0.05, basis: 'rule' },
+  killTime: { label: 'Crash after', unit: 's', step: 0.5, basis: 'rule' },
+  speed: { label: 'Speed', unit: 'm/s', step: 1, basis: 'rule' },
+  hp: { label: 'Health', unit: 'hp', step: 5, basis: 'rule' },
+  rcs: { label: 'Radar cross-section', unit: 'm²', step: 0.01, basis: 'assumption' },
+  size: { label: 'Size', unit: 'm', step: 0.05, basis: 'assumption' },
+  rfPower: { label: 'RF link power', unit: 'x FPV', step: 0.5, basis: 'assumption' },
+  evade: { label: 'Evasion', unit: '1=easy', step: 0.05, basis: 'rule' },
+  jamResist: { label: 'Jam resistance', unit: '0–1', step: 0.05, basis: 'rule' },
+};
+
+const grab = (obj, keys) => Object.fromEntries(keys.filter((k) => typeof obj[k] === 'number').map((k) => [k, obj[k]]));
+export const RESEARCHED = {
+  structures: Object.fromEntries(Object.entries(STRUCTURES).map(([id, d]) => [id, grab(d, STRUCT_KEYS)])),
+  drones: Object.fromEntries(Object.entries(DRONES).map(([id, d]) => [id, grab(d, DRONE_KEYS)])),
+  world: { rangeScale: WORLD.rangeScale },
+  waves: { fpvGap: WAVES.fpvGap },
+};
+
+// Set one figure. kind is 'structures' or 'drones'.
+export function setFigure(kind, id, key, value) {
+  const target = kind === 'structures' ? STRUCTURES[id] : DRONES[id];
+  target[key] = value;
+  if (kind === 'structures' && key === 'published') applyRangeScale();
+}
+export function resetFigure(kind, id, key) {
+  setFigure(kind, id, key, RESEARCHED[kind][id][key]);
+}
+export function resetAllFigures() {
+  for (const kind of ['structures', 'drones']) for (const [id, vals] of Object.entries(RESEARCHED[kind])) for (const [k, v] of Object.entries(vals)) setFigure(kind, id, k, v);
+  WORLD.rangeScale = RESEARCHED.world.rangeScale; WAVES.fpvGap = RESEARCHED.waves.fpvGap;
+  applyRangeScale();
+}
+// Only the figures that differ from the researched values.
+export function exportFigures() {
+  const out = { structures: {}, drones: {}, world: {}, waves: {} };
+  for (const kind of ['structures', 'drones']) {
+    for (const [id, vals] of Object.entries(RESEARCHED[kind])) {
+      const src = kind === 'structures' ? STRUCTURES[id] : DRONES[id];
+      for (const [k, v] of Object.entries(vals)) if (src[k] !== v) (out[kind][id] = out[kind][id] || {})[k] = src[k];
+    }
+  }
+  if (WORLD.rangeScale !== RESEARCHED.world.rangeScale) out.world.rangeScale = WORLD.rangeScale;
+  if (WAVES.fpvGap !== RESEARCHED.waves.fpvGap) out.waves.fpvGap = WAVES.fpvGap;
+  return out;
+}
+export function importFigures(json) {
+  for (const kind of ['structures', 'drones']) {
+    for (const [id, vals] of Object.entries(json[kind] || {})) {
+      if (!RESEARCHED[kind][id]) continue;
+      for (const [k, v] of Object.entries(vals)) if (k in RESEARCHED[kind][id] && Number.isFinite(v)) setFigure(kind, id, k, v);
+    }
+  }
+  if (json.world && Number.isFinite(json.world.rangeScale)) WORLD.rangeScale = json.world.rangeScale;
+  if (json.waves && Number.isFinite(json.waves.fpvGap)) WAVES.fpvGap = json.waves.fpvGap;
+  applyRangeScale();
 }

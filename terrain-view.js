@@ -20,25 +20,35 @@ export function buildWorldView(scene, data, siteMat) {
   const vs = TERRAIN.visualScale;
 
   // ---------- ground ----------
-  const stride = 5; // mesh vertex every 5 grid cells (100 m); the sim grid is finer
+  const stride = Math.max(1, TERRAIN.meshStride); // mesh vertex every few grid cells; the sim grid is finer
   const seg = Math.floor((data.N - 1) / stride);
   const geo = new THREE.PlaneGeometry(u(2 * R), u(2 * R), seg, seg).rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
   const colours = new Float32Array(pos.count * 3);
-  const low = new THREE.Color(0x2f4a2a), mid = new THREE.Color(0x56633a), high = new THREE.Color(0x7a735f);
-  const rock = new THREE.Color(0x625e55), forest = new THREE.Color(0x22381f), built = new THREE.Color(0x77797c);
-  const gravel = new THREE.Color(0x6e6e68), c = new THREE.Color();
+  const low = new THREE.Color(0x3a5a2c), mid = new THREE.Color(0x5f6f3a), high = new THREE.Color(0x8a7d62);
+  const rock = new THREE.Color(0x6f6a62), snow = new THREE.Color(0xeef3f7), forest = new THREE.Color(0x1f3a22), built = new THREE.Color(0x8a8c90);
+  const gravel = new THREE.Color(0x77776f), water = new THREE.Color(0x1d6a96), shallow = new THREE.Color(0x3b8fb5), c = new THREE.Color();
+  const e = data.cell * stride; // spacing for curvature
   for (let v = 0; v < pos.count; v++) {
     const x = pos.getX(v) * MPU(), z = pos.getZ(v) * MPU();
     const h = data.groundAt(x, z);
     pos.setY(v, u(h));
     const t = clamp(h / TERRAIN.relief, 0, 1);
-    c.copy(low).lerp(mid, clamp(t * 2, 0, 1)).lerp(high, clamp(t * 2 - 1, 0, 1));
-    c.lerp(rock, clamp((data.slope(x, z) - 0.25) * 3, 0, 0.7));
     const cov = data.coverAt(x, z);
-    if (cov === 1) c.lerp(forest, 0.65); else if (cov === 2) c.lerp(built, 0.7);
-    if (Math.hypot(x, z) < 280) c.lerp(gravel, 0.8);
-    if (Math.floor(h / 25) % 2 === 1) c.multiplyScalar(1.06); // faint contour bands
+    if (cov === 4) { // water, a little lighter towards the banks
+      const bank = clamp((data.groundAt(x + e, z) + data.groundAt(x - e, z) + data.groundAt(x, z + e) + data.groundAt(x, z - e)) / 4 - h, 0, 40) / 40;
+      c.copy(water).lerp(shallow, bank);
+    } else {
+      c.copy(low).lerp(mid, clamp(t * 2.2, 0, 1)).lerp(high, clamp(t * 2.2 - 1, 0, 1));
+      const slope = data.slope(x, z);
+      c.lerp(rock, clamp((slope - 0.3) * 3, 0, 0.8));
+      if (t > TERRAIN.snowLine) c.lerp(snow, clamp((t - TERRAIN.snowLine) * 8, 0, 1) * (1 - clamp((slope - 0.9) * 2, 0, 0.6)));
+      if (cov === 1) c.lerp(forest, 0.65); else if (cov === 2) c.lerp(built, 0.7);
+      if (Math.hypot(x, z) < 280) c.lerp(gravel, 0.8);
+      // convex ground (ridges) catches the light, concave ground (valleys) is darker: cheap ambient occlusion
+      const curv = h - (data.groundAt(x + e, z) + data.groundAt(x - e, z) + data.groundAt(x, z + e) + data.groundAt(x, z - e)) / 4;
+      c.multiplyScalar(1 + clamp(curv * 0.006, -0.3, 0.25));
+    }
     colours[v * 3] = c.r; colours[v * 3 + 1] = c.g; colours[v * 3 + 2] = c.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colours, 3));
@@ -214,6 +224,8 @@ export function makeHillshade(data, size = 320) {
       let r = lo[0] + (hi[0] - lo[0]) * t, gr = lo[1] + (hi[1] - lo[1]) * t, b = lo[2] + (hi[2] - lo[2]) * t;
       const cov = data.coverAt(x, z);
       if (cov === 1) { r *= 0.55; gr *= 0.8; b *= 0.55; } else if (cov === 2) { r = 150; gr = 150; b = 150; }
+      else if (cov === 4) { r = 40; gr = 110; b = 160; }
+      else if (t > TERRAIN.snowLine) { const s = clamp((t - TERRAIN.snowLine) * 8, 0, 1); r += (235 - r) * s; gr += (240 - gr) * s; b += (245 - b) * s; }
       const o = (py * size + px) * 4;
       img.data[o] = r * shade; img.data[o + 1] = gr * shade; img.data[o + 2] = b * shade; img.data[o + 3] = 255;
     }

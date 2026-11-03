@@ -51,26 +51,42 @@ export const STATION = [
 export function generateTerrain(seed) {
   const rng = mulberry32(hashSeed(`${seed}:terrain`));
   const nElev = makeNoise(rng), nRidge = makeNoise(rng), nForest = makeNoise(rng), nDetail = makeNoise(rng);
-  const { cell, relief, flatRadius, blendRadius } = TERRAIN;
+  const nWarp = makeNoise(rng), nRiver = makeNoise(rng);
+  const { cell, relief, flatRadius, blendRadius, waterLevel } = TERRAIN;
   const R = WORLD.radius;
   const N = Math.round((2 * R) / cell) + 1; // grid points per side
   const ground = new Float32Array(N * N);
   const canopy = new Uint8Array(N * N); // tree height (m), 0 = none
   const bldg = new Uint8Array(N * N);   // building height (m), 0 = none
-  const cover = new Uint8Array(N * N);  // 0 open, 1 forest, 2 built, 3 power-line corridor
+  const cover = new Uint8Array(N * N);  // 0 open, 1 forest, 2 built, 3 power-line corridor, 4 water
   const at = (i, j) => j * N + i;
   const wc = (i) => -R + i * cell;
 
-  // heights: rolling hills and ridges, flattened to nothing around the station
+  // Heights: the ground is twisted (domain warping) so ridges wind instead of running in straight lines, mountains are
+  // built from ridged noise where a broad "mountain" mask is high, river valleys are cut along a noise contour, and
+  // everything is flattened to nothing around the station. Anything below waterLevel becomes flat water.
   for (let j = 0; j < N; j++) {
     for (let i = 0; i < N; i++) {
       const x = wc(i), z = wc(j), r = Math.hypot(x, z);
-      const base = nElev.fbm(x / 3500, z / 3500, 5);
-      const ridge = 1 - Math.abs(2 * nRidge.fbm(x / 1800 + 50, z / 1800 - 30, 4) - 1);
-      const detail = nDetail.fbm(x / 350, z / 350, 3);
-      let h = relief * (0.5 * smooth((base - 0.35) / 0.45) + 0.4 * ridge * ridge * ridge) + 10 * detail;
+      const wx = x + TERRAIN.warp * (nWarp.fbm(x / 2600 + 13, z / 2600 - 7, 3) - 0.5) * 2;
+      const wz = z + TERRAIN.warp * (nWarp.fbm(x / 2600 - 21, z / 2600 + 9, 3) - 0.5) * 2;
+      const base = nElev.fbm(wx / 4200, wz / 4200, 5);
+      const mountain = 0.3 + 0.7 * smooth((base - 0.3) / 0.35);
+      let ridge = 0, amp = 1, freq = 1 / 2100, weight = 0, prev = 1;
+      for (let o = 0; o < 5; o++) { // ridged multifractal: sharp crests, with finer crests on the coarser ones
+        let n = 1 - Math.abs(2 * nRidge.noise(wx * freq + o * 17, wz * freq - o * 9) - 1);
+        n = n * n * (0.4 + 0.6 * prev); prev = n;
+        ridge += n * amp; weight += amp; amp *= 0.5; freq *= 2.1;
+      }
+      ridge /= weight;
+      let h = relief * (0.22 * smooth(base) + 0.95 * mountain * Math.pow(ridge, 1.15));
+      h += 16 * nDetail.fbm(x / 260, z / 260, 3);
+      h *= 0.32 + 0.95 * smooth((r - 900) / 4200); // the station sits in a broad valley; the ground climbs into ridges around it
+      const rv = Math.abs(nRiver.fbm(wx / 2800 + 40, wz / 2800 - 12, 3) - 0.5);
+      const valley = Math.pow(1 - smooth(rv / TERRAIN.riverWidth), 0.6);
+      h += (waterLevel - 6 - h) * valley * 0.92; // river channels run down to just below the water surface
       h *= smooth((r - flatRadius) / (blendRadius - flatRadius));
-      ground[at(i, j)] = h;
+      ground[at(i, j)] = Math.max(h, waterLevel);
     }
   }
 
@@ -79,12 +95,15 @@ export function generateTerrain(seed) {
     return Math.hypot(ground[at(i1, j)] - ground[at(i0, j)], ground[at(i, j1)] - ground[at(i, j0)]) / (2 * cell);
   };
 
-  // forest: thick where the forest noise is high, never on steep ground or near the station
+  // water: anything at the water level is a river or lake
+  for (let k = 0; k < ground.length; k++) if (ground[k] <= waterLevel + 0.01) cover[k] = 4;
+
+  // forest: thick where the forest noise is high, never on steep ground, in water, above the tree line or near the station
   for (let j = 0; j < N; j++) {
     for (let i = 0; i < N; i++) {
       const x = wc(i), z = wc(j);
-      if (Math.hypot(x, z) < TERRAIN.clearRadius) continue;
-      if (nForest.fbm(x / 900 + 10, z / 900 - 5, 4) > TERRAIN.forestThreshold && slopeAt(i, j) < 0.4) {
+      if (Math.hypot(x, z) < TERRAIN.clearRadius || cover[at(i, j)] === 4 || ground[at(i, j)] > relief * TERRAIN.treeLine) continue;
+      if (nForest.fbm(x / 900 + 10, z / 900 - 5, 4) > TERRAIN.forestThreshold && slopeAt(i, j) < 0.5) {
         canopy[at(i, j)] = Math.round(TERRAIN.canopyMin + (TERRAIN.canopyMax - TERRAIN.canopyMin) * nDetail.fbm(x / 70, z / 70, 2));
         cover[at(i, j)] = 1;
       }
@@ -113,7 +132,7 @@ export function generateTerrain(seed) {
       const a = rng() * Math.PI * 2, d = 1800 + rng() * 3200;
       const x = Math.cos(a) * d, z = Math.sin(a) * d;
       const i = Math.round((x + R) / cell), j = Math.round((z + R) / cell);
-      if (canopy[at(i, j)] || slopeAt(i, j) > 0.12) continue;
+      if (canopy[at(i, j)] || slopeAt(i, j) > 0.12 || cover[at(i, j)] === 4 || ground[at(i, j)] > relief * 0.3) continue;
       const n = 6 + Math.floor(rng() * 7);
       for (let b = 0; b < n; b++) {
         const bd = { x: x + (rng() - 0.5) * 260, z: z + (rng() - 0.5) * 260, w: 10 + rng() * 8, d: 8 + rng() * 6, h: 5 + rng() * 5 };
@@ -148,7 +167,7 @@ export function generateTerrain(seed) {
         for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
           const k = at(clamp(ci + di, 0, N - 1), clamp(cj + dj, 0, N - 1));
           canopy[k] = 0;
-          if (cover[k] !== 2) cover[k] = 3;
+          if (cover[k] !== 2 && cover[k] !== 4) cover[k] = 3;
         }
       }
     }

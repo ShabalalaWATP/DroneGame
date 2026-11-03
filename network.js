@@ -17,7 +17,7 @@ import { createTracker } from './tracker.js';
 
 // How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
 // the radar's low-flyer range is multiplied by this.
-const COVER_CLUTTER = [1.5, 0.7, 0.5, 0.5];
+const COVER_CLUTTER = [1.5, 0.7, 0.5, 0.5, 1.5]; // the last is water: open, so low flyers over it are easy to see
 
 const RB_UNITS = 'RANGE_BEARING_COORDINATE_SYSTEM_DEGREES_M';
 const RB_DATUM = 'RANGE_BEARING_DATUM_TRUE';
@@ -315,7 +315,7 @@ export function createNetwork(ctx) {
   }
 
   const trackAge = (tr) => T() - tr.lastT;
-  const confirmedTracks = () => [...tracker.tracks.values()].filter((tr) => tr.status === 'confirmed');
+  const confirmedTracks = () => [...tracker.tracks.values()].filter((tr) => tr.status === 'confirmed' && !tr.killWatch);
   const siteDist = (tr) => Math.hypot(tr.est.east, tr.est.north);
 
   function refreshTracks() {
@@ -346,14 +346,56 @@ export function createNetwork(ctx) {
 
   // ---------- alerts ----------
   const ALERT = { information: 'ALERT_TYPE_INFORMATION', warning: 'ALERT_TYPE_WARNING', critical: 'ALERT_TYPE_CRITICAL' };
-  function raiseAlert(kind, description, pos, priority = 'DISCRETE_PRIORITY_MEDIUM', tr = null) {
+  // Returns the alert id. With autoAck false the C2 GUI does not answer it (a human has to, as for engagement requests).
+  function raiseAlert(kind, description, pos, priority = 'DISCRETE_PRIORITY_MEDIUM', tr = null, autoAck = true) {
     const id = S.ulid();
     const body = { alert_id: id, alert_type: ALERT[kind], status: 'ALERT_STATUS_ACTIVE', description, priority, ranking: kind === 'critical' ? 0.9 : kind === 'warning' ? 0.6 : 0.3, confidence: 0.9 };
     const m = mpu();
     if (tr && tr.est) body.location = S.location(tr.est.east, tr.est.north, tr.est.up, 30);
     else if (pos) body.location = S.location(pos.x * m, -pos.z * m, pos.y * m, 30);
     send(S.envelope(fusion.nodeId, 'alert', body, gui.nodeId), fusion.nodeId, gui.nodeId);
-    send(S.envelope(gui.nodeId, 'alert_ack', { alert_id: id, alert_ack_status: 'ALERT_ACK_STATUS_ACCEPTED' }, fusion.nodeId), gui.nodeId, fusion.nodeId);
+    if (autoAck) ackAlert(id, 'ALERT_ACK_STATUS_ACCEPTED');
+    return id;
+  }
+  const ackAlert = (alertId, status) => send(S.envelope(gui.nodeId, 'alert_ack', { alert_id: alertId, alert_ack_status: status }, fusion.nodeId), gui.nodeId, fusion.nodeId);
+
+  // ---------- engagement authority ----------
+  // SAPIENT has no message for "may I fire". The emulation uses an Alert from the fusion node to the C2 GUI asking for a
+  // decision, and the operator's answer comes back as an AlertAck (ACCEPTED / REJECTED, or CANCELLED if it lapses).
+  const pending = []; // { id, alertId, s, tr, t0, text }
+  const usd = (v) => '$' + Math.round(v).toLocaleString('en-US');
+  function needsApproval(s) {
+    if (FUSION.authority === 'all') return true;
+    return FUSION.authority === 'costly' && (s.def.shotCost || 0) >= FUSION.authorityThreshold;
+  }
+  const isPending = (s, tr) => pending.some((p) => p.s === s && p.tr.id === tr.id);
+  function requestApproval(s, tr) {
+    const cost = s.def.shotCost ? `, ${usd(s.def.shotCost)} per shot` : '';
+    const text = `Authorise ${s.name} to engage ${tr.short} (${tr.airframe === 'Unknown' ? 'unclassified' : tr.airframe})${cost}?`;
+    const alertId = raiseAlert('warning', `Engagement request: ${text}`, null, 'DISCRETE_PRIORITY_HIGH', tr, false);
+    const req = { id: alertId, alertId, s, tr, t0: T(), text };
+    pending.push(req);
+    if (ctx.onApprovalRequest) ctx.onApprovalRequest(req);
+  }
+  function decide(id, approve) {
+    const i = pending.findIndex((p) => p.id === id);
+    if (i < 0) return;
+    const req = pending.splice(i, 1)[0];
+    ackAlert(req.alertId, approve ? 'ALERT_ACK_STATUS_ACCEPTED' : 'ALERT_ACK_STATUS_REJECTED');
+    if (approve && tracker.tracks.has(req.tr.id) && req.s.def.role === 'effector' && nodes.has(req.s.nodeId)) assign(req.s, req.tr, true);
+    else if (!approve) req.s.denied.add(req.tr.id);
+    if (ctx.onApprovalDecided) ctx.onApprovalDecided(req, approve);
+  }
+  function expireRequests() {
+    for (let i = pending.length - 1; i >= 0; i--) {
+      const p = pending[i];
+      const gone = !tracker.tracks.has(p.tr.id) || !nodes.has(p.s.nodeId);
+      if (!gone && T() - p.t0 < FUSION.authorityTimeout) continue;
+      pending.splice(i, 1);
+      ackAlert(p.alertId, 'ALERT_ACK_STATUS_CANCELLED');
+      p.s.rejected = { id: p.tr.id, until: T() + 10 }; // may ask again after a pause
+      if (ctx.onApprovalDecided) ctx.onApprovalDecided(p, null);
+    }
   }
 
   // ---------- tasking ----------
@@ -382,7 +424,8 @@ export function createNetwork(ctx) {
     sendStatus(s);
   }
 
-  function assign(s, tr) {
+  function assign(s, tr, approved = false) {
+    if (!approved && needsApproval(s)) { if (!isPending(s, tr)) requestApproval(s, tr); return; }
     const id = sendTask(s, {
       control: 'CONTROL_START',
       command: { request: 'Engage', command_parameter: tr.id },
@@ -404,7 +447,7 @@ export function createNetwork(ctx) {
   const takesAirframe = (def, airframe) => !def.engages || !airframe || airframe === 'Unknown' || def.engages.some((t) => DRONES[t].airframe === airframe);
   function eligible(s, tr) {
     const def = s.def;
-    if (s.denied.has(tr.id)) return false;
+    if (s.denied.has(tr.id) || isPending(s, tr)) return false;
     if (s.rejected && T() < s.rejected.until && tr.id === s.rejected.id) return false;
     if (!takesAirframe(def, tr.airframe)) return false; // already known to be beyond this effector
     if (def.engagePolicy === 'fixed-wing' && tr.airframe !== 'Fixed wing') {
@@ -466,9 +509,12 @@ export function createNetwork(ctx) {
       // finish a task that has run its course
       if (s.task) {
         const d = s.task.drone, tr = tracker.tracks.get(s.task.trackId);
-        if (d.dead) { // kill assessment: the effector reports the target gone, so the fusion node drops its track
+        if (d.dead) { // the effector reports the target gone; the fusion node then waits for the sensors to agree
           completeTask(s, 'TASK_STATUS_COMPLETED', ['target destroyed or removed']);
-          if (tr) tracker.tracks.delete(tr.id);
+          if (tr && !tr.killWatch) {
+            tr.killWatch = { t: T(), lastT: tr.lastT, by: s.name };
+            raiseAlert('information', `Kill reported by ${s.name} on ${tr.short}: waiting for sensors to confirm`, null, 'DISCRETE_PRIORITY_LOW', tr);
+          }
         }
         else if (!tr) completeTask(s, 'TASK_STATUS_FAILED', ['track lost']);
         else if (distToTrack(s, tr) > s.def.range) {
@@ -531,6 +577,18 @@ export function createNetwork(ctx) {
     }
     tracker.prune(T());
     refreshTracks();
+    expireRequests();
+    for (const tr of [...tracker.tracks.values()]) { // kill confirmation: the sensors must have lost the track
+      if (!tr.killWatch || T() - tr.killWatch.t < FUSION.killConfirmDelay) continue;
+      if (tr.lastT <= tr.killWatch.lastT + 1e-6) {
+        raiseAlert('information', `Kill confirmed: ${tr.short} (${tr.airframe === 'Unknown' ? 'unclassified' : tr.airframe}), reported by ${tr.killWatch.by}`, null, 'DISCRETE_PRIORITY_LOW', tr);
+        if (ctx.onKillConfirmed) ctx.onKillConfirmed(tr);
+        tracker.tracks.delete(tr.id);
+      } else {
+        raiseAlert('warning', `Kill NOT confirmed: ${tr.short} is still being detected`, null, 'DISCRETE_PRIORITY_MEDIUM', tr);
+        tr.killWatch = null;
+      }
+    }
     for (const tr of tracker.tracks.values()) {
       if (tr.justConfirmed) {
         tr.justConfirmed = false;
@@ -575,7 +633,7 @@ export function createNetwork(ctx) {
     S.clearBus();
     nodes.clear(); tracker.clear(); names.clear();
     for (const k of Object.keys(counters)) delete counters[k];
-    trackSeq = 0; fusionT = 0; fusedT = 0;
+    trackSeq = 0; fusionT = 0; fusedT = 0; pending.length = 0;
     fusion.nodeId = S.uuid(); gui.nodeId = S.uuid(); fusion.statusT = 0;
     names.set(fusion.nodeId, fusion.name);
     names.set(gui.nodeId, gui.name);
@@ -589,6 +647,6 @@ export function createNetwork(ctx) {
 
   return {
     init, registerNode, deregisterNode, update, isTracked, onDroneRemoved, raiseAlert, injectFault,
-    coverageAt, nameOf, nodes, tracks: tracker.tracks, bearingCandidates: () => tracker.candidates, fusion, gui,
+    decide, pendingRequests: pending, coverageAt, nameOf, nodes, tracks: tracker.tracks, bearingCandidates: () => tracker.candidates, fusion, gui,
   };
 }

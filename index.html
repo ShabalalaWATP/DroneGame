@@ -41,6 +41,10 @@
     <label><input type="checkbox" id="auto"> Auto-start next wave</label>
     <label><input type="checkbox" id="rings" checked> Show ranges (R)</label>
     <label title="On: every drone is drawn where it really is (grey if no sensor has it). Off: you only see what the fusion node believes."><input type="checkbox" id="truth" checked> Truth overlay (T)</label>
+    <label title="Name tags on every system and drone"><input type="checkbox" id="labels-toggle" checked> Labels (L)</label>
+    <label title="Who decides to engage. SAPIENT has no weapon-release message, so this is a C2 policy."> Engagement authority
+      <select id="authority"><option value="auto">Automatic</option><option value="costly">Ask for costly shots</option><option value="all">Ask for every engagement</option></select>
+    </label>
     <button id="btn-sapient">SAPIENT</button>
     <button id="btn-tuning">Tuning</button>
   </div>
@@ -49,17 +53,18 @@
 
   <div id="hud-bottom-left" class="panel">
     <div class="label">THREATS</div>
-    <div><i style="background:#ce93d8"></i>FW Spotter &mdash; high, orbits, hard to jam, boosts strikes</div>
-    <div><i style="background:#a1887f"></i>FO Strike &mdash; slow FPV on fibre: no radio, no jam</div>
-    <div><i style="background:#ff8a65"></i>FPV Strike &mdash; fast, agile, jammable, emits RF</div>
-    <div><i style="background:#e57373"></i>FW Strike &mdash; fast, high, RF-silent, partly jammable</div>
+    <div><i style="background:#ffd600"></i>FW Spotter &mdash; high, orbits, hard to jam, boosts strikes</div>
+    <div><i style="background:#ff9100"></i>FO Strike &mdash; slow FPV on fibre: no radio, no jam</div>
+    <div><i style="background:#ff1744"></i>FPV Strike &mdash; fast, agile, jammable, emits RF</div>
+    <div><i style="background:#d500f9"></i>FW Strike &mdash; fast, high, RF-silent, partly jammable</div>
     <div><i style="background:#8a94a3"></i>Grey ghost &mdash; real drone no sensor has (truth overlay)</div>
-    <div><i style="background:#ffcc66"></i>Diamond &mdash; where fusion thinks a track is</div>
+    <div><i style="background:#ffffff"></i>Diamond &mdash; a track: white = unclassified, red = multirotor, magenta = fixed-wing, grey = tentative</div>
     <div class="hint">Drag to orbit &middot; right-drag to pan &middot; scroll to zoom</div>
   </div>
 
   <div id="toolbar" class="panel"></div>
   <div id="toast"></div>
+  <div id="approval" class="panel hidden"></div>
 
   <div id="overlay">
     <div class="card">

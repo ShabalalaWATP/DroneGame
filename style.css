@@ -9,6 +9,26 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1220; col
 
 #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .tlabel { position: absolute; transform: translate(10px, -50%); font: 11px/1.2 ui-monospace, Consolas, monospace; color: #ffcc66; text-shadow: 0 0 3px #000, 0 0 3px #000; white-space: nowrap; }
+#timeline { bottom: 118px; left: 50%; transform: translateX(-50%); width: min(760px, 92vw); padding: 6px 10px; }
+.tl-row { display: flex; align-items: center; gap: 6px; }
+.tl-row button { padding: 3px 9px; font-size: 12px; }
+.tl-track { position: relative; flex: 1; height: 24px; display: flex; align-items: center; }
+.tl-track input { width: 100%; margin: 0; position: relative; z-index: 2; background: transparent; }
+#tl-events { position: absolute; left: 0; right: 0; top: 2px; height: 20px; pointer-events: none; z-index: 1; }
+#tl-events i { position: absolute; top: 0; width: 3px; height: 20px; border-radius: 1px; opacity: 0.9; }
+#tl-time { font: 12px ui-monospace, Consolas, monospace; color: #9fb2cf; min-width: 38px; text-align: right; }
+#approval { top: 56px; left: 50%; transform: translateX(-50%); width: min(460px, 92vw); border-color: #ffb300; background: rgba(40, 28, 4, 0.94); z-index: 6; }
+#approval.hidden { display: none; }
+#approval .req { padding: 6px 0; }
+#approval .req + .req { border-top: 1px solid #5c4a1a; }
+#approval .req-h { color: #ffb300; font-weight: 700; letter-spacing: 0.1em; font-size: 11px; margin-bottom: 4px; }
+#approval .req-b { display: flex; gap: 8px; margin-top: 8px; }
+#review-banner { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5; padding: 6px 16px; border-radius: 6px; background: #b71c1c; color: #fff; font-size: 13px; letter-spacing: 0.05em; pointer-events: none; }
+#review-banner.hidden { display: none; }
+.slabel, .dlabel { position: absolute; transform: translate(-50%, -100%); font: 600 11px/1.2 system-ui, sans-serif; color: #fff; white-space: nowrap; pointer-events: none; border: 1px solid; border-radius: 3px; text-shadow: 0 0 2px #000; }
+.slabel { background: rgba(8, 14, 26, 0.85); padding: 1px 6px; }
+.dlabel { background: rgba(8, 14, 26, 0.55); padding: 0 4px; font-size: 10px; }
+#hud-top-right select { background: #1b2a45; color: #dbe4f0; border: 1px solid #2f4468; border-radius: 6px; padding: 2px 4px; font-size: 12px; max-width: 100%; }
 .seed-row { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
 .seed-row input { flex: 1; background: #0b1424; color: #fff; border: 1px solid #2f4468; border-radius: 4px; padding: 5px 8px; }
 .seed-note { margin: 4px 0 8px; font-size: 12px; }
@@ -73,6 +93,21 @@ button.speed.active { background: #2f4468; border-color: #5c7bb0; }
 .plan-note { margin-top: 6px; font-size: 11px; color: #7f93b2; }
 #systems { display: block; font-size: 12px; }
 #systems.hidden, #cost.hidden { display: none; }
+.src-h { margin: 10px 0 4px; color: #7f93b2; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+.src-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.src-tools input[type=number] { width: 70px; background: #0b1424; color: #fff; border: 1px solid #2f4468; border-radius: 4px; padding: 2px 4px; }
+.src-tools button { padding: 3px 10px; font-size: 12px; }
+.figs { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px; margin: 4px 0 8px; }
+label.fig { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 0; }
+label.fig .fl { flex: 1; color: #b8c7e0; }
+label.fig input { width: 86px; background: #0b1424; color: #fff; border: 1px solid #2f4468; border-radius: 4px; padding: 2px 4px; }
+label.fig .fu { width: 44px; color: #7f93b2; font-size: 11px; }
+label.fig .fb { font-size: 9px; padding: 1px 4px; border-radius: 3px; width: 66px; text-align: center; text-transform: uppercase; letter-spacing: 0.04em; }
+.fb.research, .fb.price { background: #12351f; color: #81c784; }
+.fb.assumption { background: #4a2f0a; color: #ffb74d; }
+.fb.rule { background: #1b2a45; color: #8fa6cc; }
+button.fr { padding: 0 5px; font-size: 12px; border: 0; background: transparent; color: #ffb74d; }
+button.fr.hidden { visibility: hidden; }
 #cost { display: block; font-size: 12px; }
 .budget-bar { display: flex; height: 12px; background: #1a2740; border-radius: 6px; overflow: hidden; margin: 6px 0; }
 .budget-bar .b-capex { background: #4fc3f7; }

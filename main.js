@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  WORLD, SITE, BUILD, TERRAIN, ECONOMY, STRUCTURES, DRONES, ADAPT,
+  WORLD, SITE, BUILD, TERRAIN, ECONOMY, FUSION, WAVES, STRUCTURES, DRONES, ADAPT,
   makeWave, applyRangeScale,
 } from './config.js';
 import { createNetwork } from './network.js';
@@ -9,6 +9,7 @@ import { initDock } from './sapient-ui.js';
 import { bus } from './sapient.js';
 import { view } from './view.js';
 import { seedAll, rand, waveStream } from './rng.js';
+import { createRecorder, createReplay, SNAPSHOT_EVERY } from './replay.js';
 import { generateTerrain, terrainState } from './terrain.js';
 import { buildWorldView, drapedRing, makeHillshade } from './terrain-view.js';
 
@@ -83,14 +84,26 @@ const ledger = {
   launched: {}, killed: {}, leaked: {}, escaped: {},   // drone type -> count
   killedBy: {},              // effector id (or 'jammer') -> { drone type -> count }
 };
+const rec = createRecorder(); // history for pause and rewind
+rec.now = () => state.time;
 const tally = (obj, key, n = 1) => { obj[key] = (obj[key] || 0) + n; };
 const enemyCost = (counts) => Object.entries(counts).reduce((sum, [type, n]) => sum + n * DRONES[type].cost, 0);
 const money = (v) => v >= 1e6 ? `$${(v / 1e6).toFixed(v >= 1e7 ? 1 : 2).replace(/\.?0+$/, '')}M` : v >= 1e4 ? `$${Math.round(v / 1e3)}k` : `$${Math.round(v).toLocaleString('en-US')}`;
 
 // ---------- SAPIENT network ----------
+let pausedForApproval = false;
 const net = createNetwork({
   drones,
   getTime: () => state.time,
+  // when the fusion node asks the operator to authorise an engagement, stop the clock so there is time to decide
+  onApprovalRequest() {
+    if (state.speed > 0) { pausedForApproval = true; setSpeed(0); }
+    toast('Engagement request: your decision is needed');
+  },
+  onApprovalDecided() {
+    if (pausedForApproval && !net.pendingRequests.length && !replay.active()) { pausedForApproval = false; setSpeed(state.lastSpeed || 1); }
+  },
+  onKillConfirmed(tr) { rec.event('confirmed', `Kill confirmed on ${tr.short}`); },
   // An effector decides whether it can take a task from the fusion node.
   acceptTask(s, d) {
     if (!d || d.dead) return { ok: false, reasons: ['target no longer exists'] };
@@ -214,11 +227,13 @@ function addStructure(id, x, z) {
   }
   structures.push(s);
   net.registerNode(s);
+  s.label = makeLabel(s.short, hexCss(def.color), 'slabel');
   return s;
 }
 
 function removeStructure(s) {
   net.deregisterNode(s);
+  s.label.remove();
   scene.remove(s.group);
   s.ringObj.dispose();
   if (s.beam) { scene.remove(s.beam); s.beam.geometry.dispose(); s.beam.material.dispose(); }
@@ -251,6 +266,13 @@ function refreshGhost() {
 // ---------- tools / input ----------
 let tool = null; // structure id | 'sell' | null
 const toolButtons = {};
+function rebuildToolbar() {
+  const keep = tool;
+  $('toolbar').innerHTML = '';
+  for (const k of Object.keys(toolButtons)) delete toolButtons[k];
+  buildToolbar();
+  if (keep) toolButtons[keep]?.classList.add('active');
+}
 function buildToolbar() {
   const bar = $('toolbar');
   for (const def of Object.values(STRUCTURES)) {
@@ -311,6 +333,7 @@ function placementProblem(x, z, def) {
   if (r < u(BUILD.minDist)) return `Too close to the station (minimum ${BUILD.minDist} m)`;
   if (r > u(BUILD.maxDist)) return `Outside the build zone (maximum ${BUILD.maxDist} m)`;
   if (terrainState.data.bldgAt(xm, zm)) return 'There is a building here';
+  if (terrainState.data.coverAt(xm, zm) === 4) return 'You cannot build in water';
   if (terrainState.data.slope(xm, zm) > 0.4) return 'The ground is too steep';
   if (structures.some((s) => hdist(s.pos, { x, z }) < u(BUILD.spacing))) return 'Too close to another structure';
   if (state.budget < def.cost) return `Not enough budget (${money(def.cost)} needed, ${money(state.budget)} left)`;
@@ -345,6 +368,7 @@ addEventListener('keydown', (e) => {
   if (e.key === ' ') { e.preventDefault(); setSpeed(state.speed === 0 ? state.lastSpeed || 1 : 0); return; }
   if (e.key === 'r' || e.key === 'R') { $('rings').click(); return; }
   if (e.key === 't' || e.key === 'T') { $('truth').click(); return; }
+  if (e.key === 'l' || e.key === 'L') { $('labels-toggle').click(); return; }
   if (e.key === 'x' || e.key === 'X') { setTool('sell'); return; }
   const def = Object.values(STRUCTURES).find((d) => d.key === e.key);
   if (def) setTool(def.id);
@@ -357,7 +381,7 @@ const unseenMat = new THREE.MeshBasicMaterial({ color: 0x8a94a3, transparent: tr
 const barGeo = new THREE.PlaneGeometry(2, 0.25).translate(1, 0, 0);
 const dropGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -1, 0)]);
 const _v = new THREE.Vector3();
-let droneCount = 0;
+let droneCount = 0, droneUid = 0;
 
 // One shared model per drone type, plus a grey copy for drones that no sensor has (shown when the truth overlay is on).
 const droneTemplates = {};
@@ -439,18 +463,23 @@ function spawnDrone(type, bearing, rolls = {}) {
     scene.add(fibre);
   }
 
-  drones.push({
+  const uid = ++droneUid;
+  const d = {
+    uid, label: makeLabel(DRONE_CODE[type], hexCss(def.color), 'dlabel'),
     def, type, pos, group, model, unseen, rotors, bar, fill, fillMat, drop, dropMat, fibre,
     hp: def.hp, evade, jamResist, jamT: 0, detected: false, dead: false, phase: (droneCount++ * 1.7) % 6,
     agl0: agl, h0: Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
     mode: 'approach', angle: 0, orbitT: 0, bank: 0,         // spotter state
     vel: new THREE.Vector3(), freq, track: null,
-  });
+  };
+  drones.push(d);
+  rec.event('launch', `${def.name} launched`, d.uid);
 }
 
 function removeDrone(d) {
   d.dead = true;
   net.onDroneRemoved(d);
+  d.label.remove();
   scene.remove(d.group);
   if (d.fibre) { scene.remove(d.fibre); d.fibre.geometry.dispose(); d.fibre.material.dispose(); }
   d.fillMat.dispose(); d.dropMat.dispose();
@@ -460,6 +489,7 @@ function removeDrone(d) {
 
 // `by` is the id of whatever did the damage ('laser', 'interceptor', 'missile', ...), for the cost ledger.
 function recordKill(d, by) {
+  rec.event('kill', `${d.def.name} destroyed by ${by}`, d.uid);
   state.kills++;
   tally(ledger.killed, d.type);
   ledger.killedBy[by] = ledger.killedBy[by] || {};
@@ -482,6 +512,7 @@ function damageDrone(d, amount, by) {
 const spotterBonus = () => drones.reduce((sum, d) => sum + (d.mode === 'orbit' ? d.def.spotBonus || 0 : 0), 0);
 
 function impact(d) {
+  rec.event('leak', `${d.def.name} hit the site`, d.uid);
   state.leaks++; tally(ledger.leaked, d.type);
   state.health = Math.max(state.health - d.def.damage * (1 + spotterBonus()), 0);
   state.flash = 0.4;
@@ -497,6 +528,7 @@ function moveSpotter(d, spd, dt) {
   if (d.mode === 'approach') {
     if (hdist(d.pos, SITE_POS) <= r) {
       d.mode = 'orbit'; d.angle = Math.atan2(d.pos.z, d.pos.x); d.orbitT = 0;
+      rec.event('spotter', `${d.def.name} on station`, d.uid);
       toast(`${d.def.name} on station: strikes +${Math.round(d.def.spotBonus * 100)}% damage`);
     } else {
       _v.set(-d.pos.x, 0, -d.pos.z).normalize().multiplyScalar(spd);
@@ -580,7 +612,42 @@ const beliefs = new Map(); // track id -> markers
 const rayPool = [];
 const labelLayer = $('labels');
 const _p = new THREE.Vector3();
-const STATUS_COLOUR = { tentative: 0x8a94a3, confirmed: 0xffcc66, coasting: 0xff9800 };
+// A track's diamond is coloured by what the fusion node thinks it is: white = unclassified, red = multirotor,
+// magenta = fixed-wing. Grey = tentative (might be a false alarm); coasting tracks are drawn dimmer.
+const CLASS_COLOUR = { Unknown: 0xffffff, Multirotor: 0xff5a3c, 'Fixed wing': 0xe040fb };
+const trackColour = (tr) => {
+  if (tr.status === 'tentative') return 0x8a94a3;
+  const c = new THREE.Color(CLASS_COLOUR[tr.airframe] ?? 0xffffff);
+  return tr.status === 'coasting' ? c.multiplyScalar(0.55).getHex() : c.getHex();
+};
+
+// ---------- name tags ----------
+const hexCss = (c) => '#' + c.toString(16).padStart(6, '0');
+const DRONE_CODE = { spotter: 'SPT', fo: 'FO', fpv: 'FPV', fw: 'FW' };
+function makeLabel(text, colour, cls) {
+  const el = document.createElement('div');
+  el.className = cls; el.textContent = text; el.style.borderColor = colour;
+  $('labels').appendChild(el);
+  return el;
+}
+function placeLabel(el, x, y, z, show) {
+  _p.set(x, y, z).project(camera);
+  if (!show || _p.z >= 1) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.style.left = ((_p.x + 1) / 2) * innerWidth + 'px';
+  el.style.top = ((1 - _p.y) / 2) * innerHeight + 'px';
+}
+function updateLabels() {
+  for (const s of structures) {
+    const target = s.task && net.tracks.get(s.task.trackId);
+    s.label.textContent = `${s.short} · ${s.mode}${target ? ' ▸ ' + (target.short || '?') : ''}`;
+    placeLabel(s.label, s.pos.x, s.pos.y + 9, s.pos.z, view.labels);
+  }
+  for (const d of drones) {
+    d.label.style.opacity = d.detected ? '1' : '0.5';
+    placeLabel(d.label, d.pos.x, d.pos.y + 4, d.pos.z, view.labels && view.truth && view.replayT == null);
+  }
+}
 
 function makeBelief() {
   const group = new THREE.Group();
@@ -612,7 +679,7 @@ function updateBeliefs() {
     if (!b) { b = makeBelief(); beliefs.set(tr.id, b); }
     _p.set(tr.est.east / m, tr.est.up / m, -tr.est.north / m);
     if (!b.placed) { b.pos.copy(_p); b.placed = true; } else b.pos.lerp(_p, 0.5);
-    const colour = STATUS_COLOUR[tr.status] ?? 0xffcc66;
+    const colour = trackColour(tr);
     b.diamond.material.color.setHex(colour); b.ring.material.color.setHex(colour);
     const size = Math.max(1.5, camera.position.distanceTo(b.pos) * (tr.status === 'tentative' ? 0.005 : 0.008));
     b.diamond.scale.setScalar(size);
@@ -881,6 +948,25 @@ $('btn-deploy').onclick = () => {
   $('overlay').classList.add('hidden');
 };
 $('truth').onchange = (e) => { view.truth = e.target.checked; };
+$('labels-toggle').onchange = (e) => { view.labels = e.target.checked; };
+$('authority').value = FUSION.authority;
+$('authority').onchange = (e) => { FUSION.authority = e.target.value; };
+
+// the operator's approval prompt: one card per pending engagement request
+let approvalKey = '';
+function renderApprovals() {
+  const el = $('approval'), list = net.pendingRequests;
+  const key = list.map((r) => r.id).join(',');
+  if (key === approvalKey) return;
+  approvalKey = key;
+  el.classList.toggle('hidden', !list.length);
+  el.innerHTML = list.map((r) => `<div class="req"><div class="req-h">AUTHORISE ENGAGEMENT?</div><div>${r.text}</div>` +
+    `<div class="req-b"><button class="primary" data-id="${r.id}" data-ok="1">Approve</button><button data-id="${r.id}" data-ok="0">Deny</button></div></div>`).join('');
+}
+$('approval').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (b) net.decide(b.dataset.id, b.dataset.ok === '1');
+});
 $('rings').onchange = (e) => { state.showRings = e.target.checked; structures.forEach((s) => { s.ring.visible = state.showRings; }); };
 $('btn-tuning').onclick = () => $('tuning').classList.toggle('hidden');
 
@@ -900,24 +986,12 @@ function buildTuning() {
   const el = $('tuning');
   el.innerHTML = '';
   const head = (t) => { const h = document.createElement('div'); h.className = 'label'; h.textContent = t; el.appendChild(h); };
-  const refresh = () => { structures.forEach(makeRing); refreshGhost(); };
   head('GAME');
   numberField(el, 'Time scale (x)', WORLD, 'timeScale', { step: 0.5, min: 0.5 });
-  numberField(el, 'Range scale (x published)', WORLD, 'rangeScale', { step: 0.1, min: 0.1, onChange: () => { applyRangeScale(); refresh(); buildTuning(); } });
-  head('STRUCTURES (range in m)');
-  for (const def of Object.values(STRUCTURES)) {
-    numberField(el, def.name + ' range', def, 'range', { step: 100, min: 10, onChange: refresh });
-    numberField(el, def.name + ' cost ($)', def, 'cost', { step: 1000 });
-    if (def.role === 'effector') numberField(el, def.name + ' per shot ($)', def, 'shotCost', { step: 1 });
-  }
-  head('DRONES');
-  for (const def of Object.values(DRONES)) {
-    numberField(el, def.name + ' cost to enemy ($)', def, 'cost', { step: 100 });
-    numberField(el, def.name + ' speed (m/s)', def, 'speed', { step: 5, min: 1 });
-    numberField(el, def.name + ' HP', def, 'hp', { step: 5, min: 1 });
-    numberField(el, def.name + ' evade', def, 'evade', { step: 0.05, min: 0.05 });
-    numberField(el, def.name + ' jam resist', def, 'jamResist', { step: 0.05 });
-  }
+  const note = document.createElement('div');
+  note.className = 'muted'; note.style.margin = '6px 0';
+  note.textContent = 'Ranges, prices and drone figures are in the SAPIENT panel, Sources tab.';
+  el.appendChild(note);
   head('ENEMY LEARNING (per wave)');
   numberField(el, 'Evade gain', ADAPT, 'evadePerWave', { step: 0.01 });
   numberField(el, 'Jam resist gain', ADAPT, 'jamResistPerWave', { step: 0.01 });
@@ -949,7 +1023,35 @@ function updateHud() {
   for (const def of Object.values(STRUCTURES)) toolButtons[def.id].classList.toggle('poor', state.budget < def.cost);
 }
 
+// ---------- history for pause and rewind ----------
+function takeSnapshot() {
+  const m = WORLD.metresPerUnit;
+  return {
+    t: state.time, wave: state.wave, budget: state.budget, kills: state.kills, leaks: state.leaks, health: state.health,
+    drones: drones.map((d) => ({ u: d.uid, type: d.type, x: d.pos.x, y: d.pos.y, z: d.pos.z, ry: d.group.rotation.y, tracked: !!d.track })),
+    tracks: [...net.tracks.values()].filter((tr) => tr.est).map((tr) => ({
+      id: tr.id, short: tr.short, status: tr.status, airframe: tr.airframe, x: tr.est.east / m, y: tr.est.up / m, z: -tr.est.north / m, kill: !!tr.killWatch,
+    })),
+    missiles: missiles.map((mi) => ({ x: mi.pos.x, y: mi.pos.y, z: mi.pos.z })),
+    structs: structures.map((s) => {
+      const tr = s.task && net.tracks.get(s.task.trackId);
+      return { id: s.nodeId, mode: s.mode, target: s.task ? s.task.drone.uid : null, trackShort: tr ? tr.short : null };
+    }),
+  };
+}
+
+// While rewinding, the live objects are hidden and the replay view is shown instead.
+function hideLive() {
+  for (const d of drones) { d.group.visible = false; if (d.fibre) d.fibre.visible = false; d.label.style.display = 'none'; }
+  for (const b of beliefs.values()) { b.group.visible = false; b.link.visible = false; b.label.style.display = 'none'; }
+  for (const r of rayPool) r.visible = false;
+  for (const mi of missiles) mi.mesh.visible = false;
+  for (const e of effects) e.mesh.visible = false;
+  for (const s of structures) if (s.beam) s.beam.visible = false;
+}
+
 // ---------- main loop ----------
+let stepCount = 0;
 function step(dt) {
   state.time += dt;
   updateWaves(dt);
@@ -957,6 +1059,7 @@ function step(dt) {
   updateStructures(dt);
   updateMissiles(dt);
   updateDrones(dt);
+  if (++stepCount % SNAPSHOT_EVERY === 0) rec.push(takeSnapshot());
 }
 
 const clock = new THREE.Clock();
@@ -987,6 +1090,9 @@ function frame() {
   }
   updateDroneVisuals(real);
   updateBeliefs();
+  updateLabels();
+  replay.update(real, camera);
+  renderApprovals();
 
   if (ghostRing || tool === 'sell') {
     ghost.visible = mouseOnGround && !!tool && state.started;
@@ -1016,7 +1122,16 @@ addEventListener('resize', resize);
 resize();
 buildToolbar();
 buildTuning();
-initDock({ net, structures, drones, ledger, state });
+const replay = createReplay({
+  scene, rec, droneTemplate, makeLabel, placeLabel, trackColour,
+  getStructures: () => structures, hideLive,
+  setSpeed: (s) => setSpeed(s), getLastSpeed: () => state.lastSpeed, setPaused: () => setSpeed(0),
+});
+initDock({
+  net, structures, drones, ledger, state,
+  // a figure was edited in the Sources tab: redraw anything built from it
+  onFiguresChanged() { structures.forEach(makeRing); refreshGhost(); rebuildToolbar(); buildTuning(); },
+});
 renderer.setAnimationLoop(frame);
 
 // Headless helpers for experiments and tests: step the sim without rendering, and fingerprint a run.
@@ -1033,4 +1148,4 @@ function digest() { // FNV-1a over every message sent, plus the headline numbers
 }
 
 // handy for poking at the game from the dev console
-window.game = { state, drones, structures, missiles, net, camera, controls, terrainState, addStructure, startWave, spawnDrone, runHeadless, digest, ledger, money, enemyCost, WORLD, STRUCTURES, DRONES };
+window.game = { state, drones, structures, missiles, net, camera, controls, terrainState, addStructure, startWave, spawnDrone, runHeadless, digest, ledger, money, enemyCost, rec, replay, FUSION, WORLD, STRUCTURES, DRONES };
