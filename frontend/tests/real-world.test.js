@@ -1,7 +1,7 @@
 // Real worlds in the rules: the grid arithmetic, checking and cutting a pack, and a full game on one.
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { gridRef, parseGridRef, wgs84ToBng } from '../src/sim/bng.js';
+import { gridRef, onGrid, parseGridRef, parsePosition, wgs84ToBng } from '../src/sim/bng.js';
 import { cutWorld, latLonOf, parsePack, parseWorldId, siteProblem, snap, worldId, worldLabel } from '../src/sim/world-pack.js';
 import { createSimulation } from '../src/sim/simulation.js';
 import { terrainState } from '../src/sim/terrain.js';
@@ -36,6 +36,37 @@ describe('grid references', () => {
   ])('turns GPS position %f, %f into the grid, within about 5 m', (lat, lon, e, n) => {
     const got = wgs84ToBng(lat, lon);
     expect(Math.hypot(got.e - e, got.n - n)).toBeLessThan(6);
+  });
+  it.each(['51.4, -1.72', '51.4 -1.72', '51.4N 1.72W', '51.4° N, 1.72° W', '51.4n,1.72w'])('reads latitude and longitude %s', (text) => {
+    const got = parsePosition(text);
+    expect(Math.hypot(got.e - 419574.5, got.n - 166811.6)).toBeLessThan(6); // the same pyproj figure as above
+  });
+  it('takes the other side of the equator and of Greenwich from the letters', () => {
+    expect(parsePosition('52.6576 1.7179 E')).toEqual(wgs84ToBng(52.6576, 1.7179));
+    expect(parsePosition('33.9 S, 18.4 E')).toEqual(wgs84ToBng(-33.9, 18.4));
+  });
+  it.each([
+    ['422000 166000', 422000, 166000], ['422000, 166000', 422000, 166000], ['E 422000 N 166000', 422000, 166000], ['422000E 166000N', 422000, 166000],
+    ['90000.5 7000.25', 90000.5, 7000.25], ['461000 1216000', 461000, 1216000],
+  ])('reads eastings and northings %s', (text, e, n) => { expect(parsePosition(text)).toEqual({ e, n }); });
+  it('still reads grid references', () => { expect(parsePosition('SU 220 660')).toEqual({ e: 422000, n: 166000 }); });
+  it.each([
+    '', null, 'hello', '51.4', '51.4, ', '220 660', // the last has no square letters, so it must not pass as metres
+    '51.4N 1.72W extra', '1.72W 51.4N', '166000N 422000E', '51,4 -1,72',
+    '-51.4 N, 1.72 W', '51.4, -1.72 W', // a sign and a letter together could mean either side
+    '95, -1.72', '51.4, 358', // out of range, though 358 would wrap round to Great Britain
+  ])('cannot read %s', (text) => { expect(parsePosition(text)).toBeNull(); });
+  it.each([
+    ['48.85, 2.35'], ['40, -100'], ['-1.72, 51.4'], ['33.9 S, 18.4 E'], ['90, 0'], // latitude and longitude elsewhere, or the wrong way round
+    ['700000 100000'], ['100000 1300000'], ['8000000 100000'],
+  ])('reads %s as off the grid', (text) => {
+    const { e, n } = parsePosition(text);
+    expect(onGrid(e, n)).toBe(false);
+  });
+  it('counts a point as on the grid only inside its limits', () => {
+    expect(onGrid(0, 0)).toBe(true);
+    expect(onGrid(699999, 1299999)).toBe(true);
+    for (const [e, n] of [[-1, 0], [0, -1], [700000, 0], [0, 1300000], [NaN, 0]]) expect(onGrid(e, n)).toBe(false);
   });
 });
 

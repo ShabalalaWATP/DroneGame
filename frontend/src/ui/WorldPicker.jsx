@@ -1,9 +1,10 @@
 // Choosing the world on the start screen: generated ground, or a real map with a start point. The start point can be clicked,
-// typed as a grid reference, or taken from this laptop's location. With no map pack there, one can be built.
+// typed as a grid reference, latitude and longitude, or eastings and northings, or taken from this laptop's location.
+// With no map pack there, one can be built.
 
 import { useEffect, useRef, useState } from 'react';
 import { WORLD } from '../sim/config/index.js';
-import { gridRef, parseGridRef } from '../sim/bng.js';
+import { gridRef, onGrid, parsePosition } from '../sim/bng.js';
 import { siteProblem, snap, worldId } from '../sim/world-pack.js';
 import { useGame } from './hooks.js';
 import { accuracyText, locateMe } from './locate.js';
@@ -141,14 +142,16 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
     setNote('Finding your location...');
     try {
       const fix = await locateMe();
-      if (!(fix.e >= 0 && fix.e < 700000 && fix.n >= 0 && fix.n < 1300000)) { setNote('You appear to be outside Great Britain, which these maps cover.'); return; }
+      if (!onGrid(fix.e, fix.n)) { setNote('You appear to be outside Great Britain, which these maps cover.'); return; }
       await goTo(fix, `Your location, ${accuracyText(fix.accuracy)}.`);
     } catch (e) { setNote(e.message); }
   };
   const goTyped = (e) => {
     e.preventDefault();
-    const point = parseGridRef(typed);
-    if (point) goTo(point); else setNote('That is not a grid reference, such as SU 220 660.');
+    const point = parsePosition(typed);
+    if (!point) setNote('That is not a position. Use a grid reference (SU 220 660), latitude and longitude (51.39, -1.68), or eastings and northings (422000, 166000).');
+    else if (!onGrid(point.e, point.n)) setNote('That is outside Great Britain, which these maps cover.');
+    else goTo(point);
   };
   const importPack = async (e) => {
     const chosen = e.target.files[0];
@@ -185,7 +188,7 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
           <div className="row">
             <button id="use-my-location" title="Asks this laptop where it is. It stays in this browser unless you deploy there." onClick={useMyLocation}>Use my location</button>
             <form className="row" onSubmit={goTyped}>
-              <input id="site-ref" type="text" spellCheck="false" maxLength={20} placeholder="Grid ref, e.g. SU 220 660" value={typed} onChange={(e) => setTyped(e.target.value)} />
+              <input id="site-ref" type="text" spellCheck="false" autoComplete="off" maxLength={60} placeholder="Grid ref, lat/long or E/N" title="For example SU 220 660, or 51.39, -1.68, or 422000 166000" value={typed} onChange={(e) => setTyped(e.target.value)} />
               <button type="submit" id="site-ref-go">Go</button>
             </form>
           </div>

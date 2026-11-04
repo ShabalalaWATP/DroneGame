@@ -243,7 +243,7 @@ There is no sign-in, so the service binds to this machine only, and refuses othe
 
 ## Real maps
 
-On the start screen, choose **Real map**. Pick a map, then set the start point: click the map, type a grid reference, or press **Use my location**. Most laptops have no GPS chip and estimate from Wi-Fi, so the app shows how good the position is. If there is no map there yet, the app offers to build one.
+On the start screen, choose **Real map**. Pick a map, then set the start point: click the map, type a grid reference, decimal latitude and longitude (51.39, -1.68), or eastings and northings (422000 166000), or press **Use my location**. Most laptops have no GPS chip and estimate from Wi-Fi, so the app shows how good the position is. If there is no map there yet, the app offers to build one.
 
 In the game, the panel on the right chooses the OS map, satellite, shaded relief or live OpenStreetMap, and turns on roads and names (with satellite, that is the hybrid view), the national grid and plan view. **My location** centres on you, and a typed grid reference moves there, or places the system you have picked.
 
