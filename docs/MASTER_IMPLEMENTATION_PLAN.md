@@ -96,7 +96,7 @@ SQLite file at `backend/data/siteguard.db`, which is git-ignored. JSON columns h
 CREATE TABLE laydowns (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
-  terrain_seed TEXT NOT NULL,
+  world TEXT NOT NULL,            -- the terrain seed today
   spec TEXT NOT NULL,            -- JSON: systems, positions, wiring, bands
   game_version TEXT NOT NULL,
   created_at TEXT NOT NULL,
@@ -106,7 +106,7 @@ CREATE TABLE laydowns (
 CREATE TABLE runs (
   id INTEGER PRIMARY KEY,
   scenario_seed TEXT NOT NULL,
-  terrain_seed TEXT NOT NULL,
+  world TEXT NOT NULL,            -- the terrain seed today
   spec TEXT NOT NULL,            -- a copy, so editing a laydown never rewrites history
   figures TEXT NOT NULL,         -- tuning in force, since it changes the result
   commands TEXT NOT NULL,        -- operator inputs by simulation step
@@ -248,11 +248,15 @@ This is the one phase that deliberately changes results, so it gets its own re-b
 
 ### Phase 6: Backend
 
-- [ ] Create the project with `uv` and Python 3.12 or later, adding FastAPI and Uvicorn only, with pytest and httpx for tests
-- [ ] Add the migration runner, the three tables, the Protocols and SQLite stores, services, routes and the security items above
-- [ ] Test against real SQLite in memory, including rejected input, oversized requests, wrong hosts, and migrations from empty and from the previous version
+- [x] Create the project with `uv` and Python 3.12 or later, adding FastAPI and Uvicorn only, with pytest and httpx for tests
+- [x] Add the migration runner, the three tables, the Protocols and SQLite stores, services, routes and the security items above
+- [x] Test against real SQLite, including rejected input, oversized requests, wrong hosts, and migrations from empty and from the previous version
 
 **Done when:** tests pass at 90% coverage or higher, and the API docs match the table above.
+
+**Result:** 106 tests pass at 98.9% coverage, against real SQLite files, and the API table is checked by a test. The protections were also checked against the real server over sockets. Interactive docs are off because they load scripts from a CDN, and the schema is at `/api/v1/openapi.json`. Packages are limited to releases at least two weeks old through `exclude-newer` in `pyproject.toml`.
+
+**Schema decisions:** the column is `world`, not `terrain_seed`, as the mapping plan asked, because renaming later would also change the API. The `munitions_bought` column is left for Feature B to add in its own migration, because nothing can fill it until then. Coordinates are checked against a fixed limit, which real-world packs will need to replace.
 
 ### Phase 7: Connect saving to the game
 

@@ -1,0 +1,29 @@
+[project]
+name = "site-guard-backend"
+version = "0.1.0"
+description = "Stores Site Guard's saved laydowns, run history and tuning. It takes no part in live play."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.156.4",
+    "uvicorn>=0.54.0",
+]
+
+[tool.uv]
+# only packages at least two weeks old, so a compromised release has time to be caught
+exclude-newer = "2026-10-21T00:00:00Z"
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov=app --cov-report=term-missing --cov-fail-under=90"
+
+[tool.coverage.run]
+branch = true
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+]
