@@ -18,16 +18,26 @@
   <canvas id="game"></canvas>
   <div id="labels"></div>
 
+  <div id="left-col">
   <div id="hud-top-left" class="panel">
     <div class="label">SITE INTEGRITY</div>
     <div class="bar"><div id="health-fill"></div></div>
+    <div class="label" style="margin-top:8px">BUDGET <b id="budget" class="budget-num">$0</b></div>
+    <div class="budget-bar" title="The whole budget: systems bought, shots fired, and what is left">
+      <span class="b-capex" id="bb-capex"></span><span class="b-shots" id="bb-shots"></span><span class="b-left" id="bb-left"></span>
+    </div>
+    <div class="bb-legend"><i class="d-capex"></i>systems <b id="bb-capex-t">$0</b> <i class="d-shots"></i>shots <b id="bb-shots-t">$0</b> <i class="d-left"></i>left <b id="bb-left-t">$0</b></div>
     <div class="stats">
-      <span>Budget <b id="budget">0</b></span>
       <span>Wave <b id="wave">0</b></span>
       <span>Kills <b id="kills">0</b></span>
       <span>Leaks <b id="leaks">0</b></span>
     </div>
     <div id="status" class="hint"></div>
+  </div>
+  <div id="toolbar" class="panel"></div>
+  </div>
+  <div id="minimap" class="panel" title="Top-down view. Click or drag to move the camera there; scroll to zoom the map.">
+    <canvas id="minimap-canvas" width="226" height="226"></canvas>
   </div>
 
   <div id="hud-top-right" class="panel">
@@ -42,27 +52,35 @@
     <label><input type="checkbox" id="rings" checked> Show ranges (R)</label>
     <label title="On: every drone is drawn where it really is (grey if no sensor has it). Off: you only see what the fusion node believes."><input type="checkbox" id="truth" checked> Truth overlay (T)</label>
     <label title="Name tags on every system and drone"><input type="checkbox" id="labels-toggle" checked> Labels (L)</label>
+    <label title="Tracks are drawn faint grey so they don't crowd the view. Tick to colour them by classification."><input type="checkbox" id="track-hi"> Highlight tracks</label>
     <label title="Who decides to engage. SAPIENT has no weapon-release message, so this is a C2 policy."> Engagement authority
       <select id="authority"><option value="auto">Automatic</option><option value="costly">Ask for costly shots</option><option value="all">Ask for every engagement</option></select>
     </label>
+    <button id="btn-sandbox" title="Try attacks against your laydown without risking the site">Sandbox</button>
+    <div class="row">
+      <button id="btn-reset" title="Start the run again with the same laydown, wiring and seed">Reset run</button>
+      <button id="btn-clear" title="Remove everything and start with an empty site">New laydown</button>
+    </div>
     <button id="btn-sapient">SAPIENT</button>
     <button id="btn-tuning">Tuning</button>
   </div>
   <div id="tuning" class="panel hidden"></div>
   <div id="dock" class="panel hidden"></div>
+  <div id="sandbox" class="panel hidden"></div>
+  <div id="sandbox-banner" class="hidden">SANDBOX &mdash; the site cannot be damaged. Exit sandbox to reset.</div>
 
-  <div id="hud-bottom-left" class="panel">
+  <details id="hud-bottom-left" class="panel">
+    <summary>Legend</summary>
     <div class="label">THREATS</div>
     <div><i style="background:#ffd600"></i>FW Spotter &mdash; high, orbits, hard to jam, boosts strikes</div>
     <div><i style="background:#ff9100"></i>FO Strike &mdash; slow FPV on fibre: no radio, no jam</div>
     <div><i style="background:#ff1744"></i>FPV Strike &mdash; fast, agile, jammable, emits RF</div>
     <div><i style="background:#d500f9"></i>FW Strike &mdash; fast, high, RF-silent, partly jammable</div>
     <div><i style="background:#8a94a3"></i>Grey ghost &mdash; real drone no sensor has (truth overlay)</div>
-    <div><i style="background:#ffffff"></i>Diamond &mdash; a track: white = unclassified, red = multirotor, magenta = fixed-wing, grey = tentative</div>
+    <div><i style="background:#ffffff"></i>Faint diamond &mdash; a fused track (tick Highlight tracks to colour it: white = unclassified, red = multirotor, magenta = fixed-wing)</div>
     <div class="hint">Drag to orbit &middot; right-drag to pan &middot; scroll to zoom</div>
-  </div>
+  </details>
 
-  <div id="toolbar" class="panel"></div>
   <div id="toast"></div>
   <div id="approval" class="panel hidden"></div>
 
@@ -73,9 +91,9 @@
          <b>defences</b> to stop them &mdash; undetected drones can't be targeted.</p>
       <ul>
         <li>Every system is a SAPIENT node: sensors send detection reports to a fusion node, which tasks the defences. Open the <b>SAPIENT</b> panel to watch the messages and see your laydown.</li>
-        <li>Pick a structure from the bottom bar (or press 1&ndash;8), then click the ground to place it.</li>
+        <li>Pick a system from the bar on the left (or press 1&ndash;8), then click the ground to place it.</li>
         <li>You have one fixed budget of <b>$15M</b> for the whole run. Buying systems and every shot fired both come out of it, and nothing is earned back. The <b>Cost</b> tab compares what you spend with what the attack costs the enemy.</li>
-        <li>Press <b>Start wave</b> when you're ready. The laydown locks once the first wave starts, so runs are comparable.</li>
+        <li>Try attacks in the <b>Sandbox</b> first: the site cannot be damaged there. Press <b>Start wave</b> when you're ready. The laydown locks once the first wave starts, so runs are comparable.</li>
         <li>Mix it up: no single defence handles every drone type, and the enemy gets harder to hit and jam every wave.</li>
       </ul>
       <div class="seed-row">

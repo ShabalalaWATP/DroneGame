@@ -209,5 +209,13 @@ export function createReplay(deps) {
     show(f, camera);
   }
 
-  return { review, update, enter, exit, hide, active: () => review.active };
+  // forget the cached replay drones (uids restart from 1 after a reset, so they must not be reused)
+  function reset() {
+    exit();
+    for (const o of droneObjs.values()) { group.remove(o.group); o.label.remove(); }
+    droneObjs.clear();
+    tickCount = -1;
+  }
+
+  return { review, update, enter, exit, hide, reset, active: () => review.active };
 }
