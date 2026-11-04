@@ -3,12 +3,13 @@
 //  - state and collections: read by the rendering and the UI, which never change them
 //  - on(event, fn): moments the rendering and UI need to hear about (explosion, toast, siteHit, gameOver, reset, terrain, sandbox...)
 
-import { SITE, ECONOMY, FUSION } from './config/index.js';
+import { ADAPT, ECONOMY, FUSION, RESEARCHED, SITE, WAVES, WORLD, applyRangeScale, exportFigures, importFigures, resetAllFigures, resetFigure, setFigure } from './config/index.js';
 import { seedAll } from './rng.js';
 import { generateTerrain, terrainState } from './terrain.js';
 import { bus } from './sapient.js';
 import { createNetwork } from './network/index.js';
 import { createRecorder, takeSnapshot, SNAPSHOT_EVERY } from './recorder.js';
+import { runRecord } from './run-record.js';
 import { u } from './units.js';
 import { affordable, createLedger, resetLedger } from './economy.js';
 import * as laydown from './laydown.js';
@@ -24,6 +25,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   const listeners = new Map();
   const emit = (event, payload) => { for (const fn of listeners.get(event) || []) fn(payload); };
   const on = (event, fn) => { if (!listeners.has(event)) listeners.set(event, new Set()); listeners.get(event).add(fn); };
+  const off = (event, fn) => { listeners.get(event)?.delete(fn); };
 
   seedAll(seed);
   terrainState.data = generateTerrain(terrainSeed);
@@ -34,7 +36,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     waveActive: false, queue: [], waveTime: 0, autoTimer: -1,
     sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, // sandbox: attacks without consequences, before the first wave
   };
-  const w = { state, drones: [], structures: [], missiles: [], ledger: createLedger(), emit, droneUid: 0, startLaydown: null };
+  const w = { state, drones: [], structures: [], missiles: [], ledger: createLedger(), emit, droneUid: 0, startLaydown: null, startFigures: null, runEnded: false };
   w.rec = createRecorder(() => state.time);
   w.net = createNetwork({
     drones: w.drones,
@@ -69,8 +71,9 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   // Start the run again from the beginning, on the same seed. 'keep' rebuilds the laydown the run started with (or the
   // current one, before any wave); 'clear' starts empty.
   function resetRun(mode = 'keep', begin = false) {
+    endRun();
     const spec = mode === 'keep' ? w.startLaydown || laydown.captureLaydown(w) : null;
-    w.startLaydown = null;
+    w.startLaydown = null; w.runEnded = false;
     for (const s of w.structures.slice()) laydown.removeStructure(w, s);
     for (const d of w.drones.slice()) removeDrone(w, d);
     w.missiles.length = 0;
@@ -93,16 +96,40 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     resetRun('keep', true);
     state.warnedWire = true;
     w.startLaydown = laydown.captureLaydown(w);
+    w.startFigures = exportFigures();
+    // settings from before the rebuild that still apply, so the log alone can reproduce the run
+    log.push({ step: 0, name: 'setAuthority', args: [FUSION.authority] }, { step: 0, name: 'setAutoStart', args: [state.autoStart] });
+  }
+
+  // A run that has started is reported once, however it ends.
+  function endRun() {
+    if (state.wave === 0 || w.runEnded) return;
+    w.runEnded = true;
+    emit('runEnded', runRecord(w, log, stepCount, digest()));
+  }
+  on('gameOver', endRun);
+
+  // Replace the current run with a saved laydown, on the ground it was made for. Returns the reason if it can't.
+  function loadLaydown(spec, world) {
+    const problem = laydown.costProblem(spec);
+    if (problem) return problem;
+    endRun();
+    setWorld(world);
+    resetRun('clear');
+    laydown.restoreLaydown(w, spec);
+    return null;
+  }
+  function setWorld(terrainSeed) {
+    if (terrainSeed === state.terrainSeed) return;
+    state.terrainSeed = terrainSeed;
+    terrainState.data = generateTerrain(terrainSeed);
+    emit('terrain');
   }
 
   // Nothing has happened yet, so re-seeding, restarting the network and rebuilding the ground are all safe.
   function deploy(newSeed, newTerrainSeed) {
     if (newSeed !== state.seed) { state.seed = newSeed; seedAll(newSeed); w.net.init(); }
-    if (newTerrainSeed !== state.terrainSeed) {
-      state.terrainSeed = newTerrainSeed;
-      terrainState.data = generateTerrain(newTerrainSeed);
-      emit('terrain');
-    }
+    setWorld(newTerrainSeed);
     state.started = true;
   }
 
@@ -137,6 +164,16 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     launchSandboxWave: () => launchSandboxWave(w),
     launchSandboxAttack: (attack) => launchSandboxAttack(w, attack),
     clearSandboxDrones: () => clearSandboxDrones(w),
+    loadLaydown,
+    // figures change results, so changing them is logged like any other input
+    setFigure: (kind, id, key, value) => setFigure(kind, id, key, value),
+    resetFigure: (kind, id, key) => resetFigure(kind, id, key),
+    resetAllFigures: () => resetAllFigures(),
+    applyFigures: (figures) => { resetAllFigures(); importFigures(figures); },
+    importFigures: (figures) => importFigures(figures),
+    setRangeScale: (v) => { WORLD.rangeScale = v; applyRangeScale(); },
+    setFpvGap: (v) => { WAVES.fpvGap = v; },
+    setAdapt: (key, v) => { if (key in RESEARCHED.adapt) ADAPT[key] = v; },
   });
 
   // FNV-1a over every message sent, plus the headline numbers: a fingerprint of a run.
@@ -150,7 +187,8 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
 
   return {
     state, drones: w.drones, structures: w.structures, missiles: w.missiles, ledger: w.ledger, net: w.net, rec: w.rec, bus,
-    commands, log, on, step, digest, stepCount: () => stepCount,
+    commands, log, on, off, step, digest, endRun, stepCount: () => stepCount,
+    currentLaydown: () => w.startLaydown || laydown.captureLaydown(w),
     run(steps) { state.started = true; for (let i = 0; i < steps && !state.over; i++) step(); },
     canPlace: (x, z, def) => !laydown.placementProblem(w, x, z, def),
     designLocked: () => laydown.designLocked(w),

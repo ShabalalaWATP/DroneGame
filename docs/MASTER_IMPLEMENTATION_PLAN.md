@@ -260,12 +260,16 @@ This is the one phase that deliberately changes results, so it gets its own re-b
 
 ### Phase 7: Connect saving to the game
 
-- [ ] Add a save and load laydown panel, a run history panel, and saved figure sets in the Sources tab
-- [ ] Record a run when it ends, however it ends
-- [ ] **Keep playing if the backend is down:** the game still runs and panels show a clear message. A run that fails to save is reported to the player and not silently lost.
-- [ ] Have the Vite dev server proxy `/api` to the backend, so no CORS is needed
+- [x] Add a save and load laydown panel, a run history panel, and saved figure sets in the Sources tab
+- [x] Record a run when it ends, however it ends
+- [x] **Keep playing if the backend is down:** the game still runs and panels show a clear message. A run that fails to save is reported to the player and not silently lost.
+- [x] Have the Vite dev server proxy `/api` to the backend, so no CORS is needed
 
 **Done when:** a laydown saved in one session loads in another and plays with the same digest, given the same inputs.
+
+**Result:** verified end to end against the real backend: a laydown saved in one page session, reloaded and played with the same inputs gave the same digest, kills, budget and health. With the backend stopped, panels say so, the game keeps playing and runs are kept in the browser, then saved when it returns.
+
+**Additions:** figure edits and enemy learning now go through logged commands, and enemy learning joined the figures, because both change results. The authority and auto-start settings in force are logged at the start of a run. A saved run replays to its own digest, tested with tuning, operator inputs, decisions and time between waves. Sample records in `backend/tests/fixtures/` are checked by both test suites, so a change of shape on either side fails.
 
 ### Phase 8: Cut-over and documentation
 

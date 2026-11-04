@@ -116,7 +116,7 @@ describe('the command log', () => {
     sim.commands.injectFault();
     sim.run(1500);
     const digest = sim.digest(), log = [...sim.log], steps = sim.stepCount();
-    expect(log.map((e) => e.name)).toEqual(['startWave', 'toggleJamBand', 'injectFault']);
+    expect(log.map((e) => e.name)).toEqual(['setAuthority', 'setAutoStart', 'startWave', 'toggleJamBand', 'injectFault']);
 
     fresh(MIXED);
     sim.state.warnedWire = true;

@@ -1,0 +1,30 @@
+{
+  "name": "Sample figures",
+  "figures": {
+    "structures": {
+      "radar": {
+        "published": 2500
+      }
+    },
+    "drones": {
+      "fpv": {
+        "hp": 25
+      }
+    },
+    "comms": {
+      "starlink": {
+        "loss": 0.01
+      }
+    },
+    "world": {
+      "rangeScale": 1.1
+    },
+    "waves": {
+      "fpvGap": 18
+    },
+    "adapt": {
+      "evadePerWave": 0.08
+    }
+  },
+  "game_version": "0.1.0"
+}

@@ -13,7 +13,7 @@ SPEC = {
     "fusionUplinks": ["starlink", "cellular"],
     "fusionCell": "B8",
 }
-FIGURES = {"structures": {"radar": {"published": 3000.0}}, "drones": {}, "comms": {}, "world": {"rangeScale": 2.0}, "waves": {}}
+FIGURES = {"structures": {"radar": {"published": 3000.0}}, "drones": {}, "comms": {}, "world": {"rangeScale": 2.0}, "waves": {}, "adapt": {}}
 
 
 def laydown(**over):

@@ -1,0 +1,193 @@
+{
+  "scenario_seed": "1",
+  "world": "1",
+  "spec": {
+    "structures": [
+      {
+        "id": "camera",
+        "x": -18.9,
+        "z": -29.45,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "camera",
+        "x": 18.9,
+        "z": 29.45,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "interceptor",
+        "x": -16.55,
+        "z": 18.7,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "interceptor",
+        "x": -7.9,
+        "z": -23.7,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "interceptor",
+        "x": 24.5,
+        "z": 4.95,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "jammer",
+        "x": -35.1,
+        "z": -19.2,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": [
+          "control24",
+          "video58"
+        ]
+      },
+      {
+        "id": "jammer",
+        "x": 35.1,
+        "z": 19.2,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": [
+          "control24",
+          "video58",
+          "gnss"
+        ]
+      },
+      {
+        "id": "missile",
+        "x": -20,
+        "z": 15,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "radar",
+        "x": 30,
+        "z": 0,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "rf",
+        "x": -45,
+        "z": 0,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "rf",
+        "x": 45,
+        "z": 0,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      }
+    ],
+    "fusionUplinks": [
+      "starlink",
+      "cellular"
+    ],
+    "fusionCell": "B8"
+  },
+  "figures": {
+    "structures": {
+      "radar": {
+        "published": 2500
+      }
+    },
+    "drones": {
+      "fpv": {
+        "hp": 25
+      }
+    },
+    "comms": {
+      "starlink": {
+        "loss": 0.01
+      }
+    },
+    "world": {
+      "rangeScale": 1.1
+    },
+    "waves": {
+      "fpvGap": 18
+    },
+    "adapt": {
+      "evadePerWave": 0.08
+    }
+  },
+  "commands": [
+    {
+      "step": 0,
+      "name": "setAuthority",
+      "args": [
+        "auto"
+      ]
+    },
+    {
+      "step": 0,
+      "name": "setAutoStart",
+      "args": [
+        false
+      ]
+    },
+    {
+      "step": 0,
+      "name": "startWave",
+      "args": []
+    },
+    {
+      "step": 200,
+      "name": "toggleJamBand",
+      "args": [
+        {
+          "node": "5aa5308c-bfcd-448b-844a-1f408f83bdbf"
+        },
+        "control900",
+        true
+      ]
+    },
+    {
+      "step": 200,
+      "name": "launchSandboxAttack",
+      "args": [
+        {
+          "type": "fpv",
+          "count": 1,
+          "bearingDeg": "rand",
+          "gap": 0
+        }
+      ]
+    },
+    {
+      "step": 200,
+      "name": "endRun",
+      "args": []
+    }
+  ],
+  "game_version": "0.1.0",
+  "digest": "b9192cf9",
+  "waves_completed": 0,
+  "kills": 0,
+  "leaks": 0,
+  "health": 100,
+  "budget_left": 12392451,
+  "capex": 2607549,
+  "consumables": 0,
+  "enemy_cost": 400
+}

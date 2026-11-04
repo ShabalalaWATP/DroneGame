@@ -1,4 +1,4 @@
-import { WORLD, WAVES } from './world.js';
+import { ADAPT, WORLD, WAVES } from './world.js';
 import { COMMS } from './comms.js';
 import { STRUCTURES, applyRangeScale } from './systems.js';
 import { DRONES } from './drones.js';
@@ -48,6 +48,7 @@ export const RESEARCHED = {
   },
   world: { rangeScale: WORLD.rangeScale },
   waves: { fpvGap: WAVES.fpvGap },
+  adapt: { evadePerWave: ADAPT.evadePerWave, jamResistPerWave: ADAPT.jamResistPerWave },
 };
 const STORE = { structures: STRUCTURES, drones: DRONES, comms: COMMS };
 const KINDS = ['structures', 'drones', 'comms'];
@@ -63,11 +64,12 @@ export function resetFigure(kind, id, key) {
 export function resetAllFigures() {
   for (const kind of KINDS) for (const [id, vals] of Object.entries(RESEARCHED[kind])) for (const [k, v] of Object.entries(vals)) setFigure(kind, id, k, v);
   WORLD.rangeScale = RESEARCHED.world.rangeScale; WAVES.fpvGap = RESEARCHED.waves.fpvGap;
+  Object.assign(ADAPT, RESEARCHED.adapt);
   applyRangeScale();
 }
 // Only the figures that differ from the researched values.
 export function exportFigures() {
-  const out = { structures: {}, drones: {}, comms: {}, world: {}, waves: {} };
+  const out = { structures: {}, drones: {}, comms: {}, world: {}, waves: {}, adapt: {} };
   for (const kind of KINDS) {
     for (const [id, vals] of Object.entries(RESEARCHED[kind])) {
       const src = STORE[kind][id];
@@ -76,6 +78,7 @@ export function exportFigures() {
   }
   if (WORLD.rangeScale !== RESEARCHED.world.rangeScale) out.world.rangeScale = WORLD.rangeScale;
   if (WAVES.fpvGap !== RESEARCHED.waves.fpvGap) out.waves.fpvGap = WAVES.fpvGap;
+  for (const [k, v] of Object.entries(RESEARCHED.adapt)) if (ADAPT[k] !== v) out.adapt[k] = ADAPT[k];
   return out;
 }
 export function importFigures(json) {
@@ -87,5 +90,6 @@ export function importFigures(json) {
   }
   if (json.world && Number.isFinite(json.world.rangeScale)) WORLD.rangeScale = json.world.rangeScale;
   if (json.waves && Number.isFinite(json.waves.fpvGap)) WAVES.fpvGap = json.waves.fpvGap;
+  for (const k of Object.keys(RESEARCHED.adapt)) if (json.adapt && Number.isFinite(json.adapt[k])) ADAPT[k] = json.adapt[k];
   applyRangeScale();
 }

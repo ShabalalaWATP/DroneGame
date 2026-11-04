@@ -67,6 +67,7 @@ class Figures(Strict):
     comms: FigureGroup = {}
     world: Annotated[dict[FigureKey, Figure], Field(max_length=4)] = {}
     waves: Annotated[dict[FigureKey, Figure], Field(max_length=4)] = {}
+    adapt: Annotated[dict[FigureKey, Figure], Field(max_length=4)] = {}
 
 
 class Command(Strict):

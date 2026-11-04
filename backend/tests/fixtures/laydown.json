@@ -1,0 +1,109 @@
+{
+  "name": "Sample laydown",
+  "world": "1",
+  "spec": {
+    "structures": [
+      {
+        "id": "camera",
+        "x": -18.9,
+        "z": -29.45,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "camera",
+        "x": 18.9,
+        "z": 29.45,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "interceptor",
+        "x": -16.55,
+        "z": 18.7,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "interceptor",
+        "x": -7.9,
+        "z": -23.7,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "interceptor",
+        "x": 24.5,
+        "z": 4.95,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "jammer",
+        "x": -35.1,
+        "z": -19.2,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": [
+          "control24",
+          "video58"
+        ]
+      },
+      {
+        "id": "jammer",
+        "x": 35.1,
+        "z": 19.2,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": [
+          "control24",
+          "video58",
+          "gnss"
+        ]
+      },
+      {
+        "id": "missile",
+        "x": -20,
+        "z": 15,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "radar",
+        "x": 30,
+        "z": 0,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "rf",
+        "x": -45,
+        "z": 0,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      },
+      {
+        "id": "rf",
+        "x": 45,
+        "z": 0,
+        "uplink": "cellular",
+        "cellBand": "B8",
+        "jam": null
+      }
+    ],
+    "fusionUplinks": [
+      "starlink",
+      "cellular"
+    ],
+    "fusionCell": "B8"
+  },
+  "game_version": "0.1.0"
+}

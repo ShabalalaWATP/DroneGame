@@ -188,7 +188,7 @@ describe('figures from the Sources tab', () => {
       structures: { radar: { published: 'x', constructor: 1, range: 5 }, nope: { published: 1 } },
       drones: { fpv: { hp: Infinity } }, world: { rangeScale: 'big' }, waves: { fpvGap: null }, __proto__: { polluted: true },
     });
-    expect(exportFigures()).toEqual({ structures: {}, drones: {}, comms: {}, world: {}, waves: {} });
+    expect(exportFigures()).toEqual({ structures: {}, drones: {}, comms: {}, world: {}, waves: {}, adapt: {} });
     expect({}.polluted).toBeUndefined();
     importFigures({ world: { rangeScale: 2 }, waves: { fpvGap: 5 } });
     expect(WORLD.rangeScale).toBe(2);

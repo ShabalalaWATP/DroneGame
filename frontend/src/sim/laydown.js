@@ -2,7 +2,7 @@
 // once the first wave starts, so runs are comparable.
 
 import { Vector3 } from 'three';
-import { WORLD, BUILD, COMMS, STRUCTURES } from './config/index.js';
+import { WORLD, BUILD, COMMS, ECONOMY, STRUCTURES } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { u, hdist, hereU } from './units.js';
 import { buyTerminal, money } from './economy.js';
@@ -65,6 +65,13 @@ export function captureLaydown(w) {
       .sort((a, b) => a.id.localeCompare(b.id) || a.x - b.x || a.z - b.z),
     fusionUplinks: [...w.net.fusion.uplinks], fusionCell: w.net.fusion.cellBand,
   };
+}
+
+// Why a saved laydown can't be afforded at today's prices, or null if it can.
+export function costProblem(spec) {
+  const terminals = [...spec.structures.map((l) => l.uplink), ...spec.fusionUplinks].filter(Boolean);
+  const total = spec.structures.reduce((sum, l) => sum + STRUCTURES[l.id].cost, 0) + terminals.reduce((sum, k) => sum + COMMS[k].cost, 0);
+  return total > ECONOMY.budget ? `That laydown costs ${money(total)}, more than the ${money(ECONOMY.budget)} budget at today's prices` : null;
 }
 
 // Rebuild the systems and their wiring, charging the budget as if they had just been bought.
