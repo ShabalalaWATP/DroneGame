@@ -66,7 +66,7 @@ Files stay under the 350-line target, with 400 as the exceptional limit. `config
 | `terrain-view.js` | 245 | `render/terrain-view.js`, unchanged |
 | `tracker.js`, `comms.js`, `terrain.js`, `sapient.js`, `rng.js`, `sapient-help.js` | | `sim/`, unchanged. These already have no browser dependencies, and `sapient-help.js` holds plain text. |
 | `style.css` | 224 | Kept and imported as it is |
-| `tools/` (regression checks and digests) | | `frontend/tools/`, moving into Vitest in Phase 3 |
+| `tools/` (regression checks and digests) | | `tests/` in Vitest, and `tools/balance.js` for balance runs |
 | `serve.py`, `vendor/` | | Deleted in Phase 2 |
 | `README.txt` | | Replaced at cut-over |
 
@@ -204,15 +204,17 @@ Every phase leaves the game working and ends with a commit or small series of co
 
 ### Phase 3: Separate the simulation
 
-- [ ] Add a command dispatcher: every action that changes state goes through `commands`, and is logged by simulation step
-- [ ] Move rules from `main.js` into `sim/`, one area at a time, replacing direct mesh creation with events
-- [ ] Replace `d.group.rotation.y` in snapshots with a heading stored in the simulation
-- [ ] Split `network.js` and `config.js`
-- [ ] Add a boundary test: `sim/` has no DOM or React, and takes only `Vector3` from `three`
-- [ ] Add Vitest and run reference digests in Node. If Node and Chromium disagree on floats, record that and baseline in Node, after proving the browser still matches its own fixtures.
-- [ ] Add a Node balance script that reproduces the laydown table from the review
+- [x] Add a command dispatcher: every action that changes state goes through `commands`, and is logged by simulation step
+- [x] Move rules from `main.js` into `sim/`, one area at a time, replacing direct mesh creation with events
+- [x] Replace `d.group.rotation.y` in snapshots with a heading stored in the simulation
+- [x] Split `network.js` and `config.js`
+- [x] Add a boundary test: `sim/` has no DOM or React, and takes only `Vector3` from `three`
+- [x] Add Vitest and run reference digests in Node. If Node and Chromium disagree on floats, record that and baseline in Node, after proving the browser still matches its own fixtures.
+- [x] Add a Node balance script that reproduces the laydown table from the review
 
-**Done when:** a full game runs in Node with no browser, digests match, and every source file meets the size target.
+**Done when:** a full game runs in Node with no browser, digests match, and every source file meets the size target. `ui/sapient-ui.js` and `ui/network-ui.js` stay over it until Phase 5 replaces them, and a test holds everything else to the limit.
+
+**Result:** Node and Chromium agree on every digest, so no re-baselining was needed. 201 tests pass, with 98.8% statement and 93.2% branch coverage of `sim/`. `main.js` went from 1,469 lines to about 100.
 
 **Accepted limit:** `bus`, `clock`, `terrainState` and the random number streams stay as module-level singletons, because two simulations never run at once. Record it as a `shortcut:` comment. Upgrade if parallel runs are ever needed.
 
