@@ -3,7 +3,6 @@
 // through sapient.js so it can be inspected in the dock.
 //
 // Simplifications:
-//  - Messages are delivered instantly. There is no latency, loss or bandwidth model yet.
 //  - Detections come with Gaussian noise and a detection probability; the fusion node associates them to tracks by
 //    gating (it does not know which drone a detection came from, so it can make mistakes). The simulation does keep
 //    the true drone alongside each track, only so the displays and the effectors can use it; it is never put in a message.
@@ -11,7 +10,7 @@
 
 import * as S from './sapient.js';
 import { WORLD, TERRAIN, FUSION, SENSING, PERIMETER, FUSION_DEF, DRONES } from './config.js';
-import { rand, gauss, EPOCH_MS } from './rng.js';
+import { rand, gauss, idRand, EPOCH_MS } from './rng.js';
 import { terrainState } from './terrain.js';
 import { createTracker } from './tracker.js';
 import { createComms } from './comms.js';
@@ -670,7 +669,7 @@ export function createNetwork(ctx) {
   // Demo of the middleware error path: a detection report missing its mandatory report_id.
   function injectFault() {
     const sensors = [...nodes.values()].filter((s) => s.def.role === 'sensor');
-    const s = sensors[Math.floor(Math.random() * sensors.length)];
+    const s = sensors[Math.floor(idRand() * sensors.length)];
     if (!s) return;
     const bad = { object_id: S.ulid(), range_bearing: { azimuth: 0, coordinate_system: RB_UNITS, datum: RB_DATUM } };
     send(S.envelope(s.nodeId, 'detection_report', bad), s.nodeId, fusion.nodeId);

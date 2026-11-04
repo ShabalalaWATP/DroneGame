@@ -22,6 +22,7 @@ seedAll(seedParam);
 const u = (metres) => metres / WORLD.metresPerUnit;           // metres -> scene units
 const hdist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const STRUCT_SCALE = 3;                                       // structures are drawn larger than true size
 
 // ---------- scene ----------
@@ -295,7 +296,7 @@ function buildToolbar() {
   }
   const sell = document.createElement('button');
   sell.className = 'tool';
-  sell.title = 'Click a structure to sell it for a partial refund';
+  sell.title = 'Click a structure to sell it for a refund';
   sell.innerHTML = `<div class="n">Sell</div><div class="c">${Math.round(BUILD.sellRefund * 100)}%</div><div class="k">[X]</div>`;
   sell.onclick = () => setTool('sell');
   bar.appendChild(sell);
@@ -635,6 +636,7 @@ function updateDrones(dt) {
     if (d.def.role === 'spotter') {
       if (!moveSpotter(d, spd, dt)) continue;
     } else {
+      if (hdist(d.pos, SITE_POS) > u(WORLD.radius)) { tally(ledger.escaped, d.type); rec.event('escaped', `${d.def.name} left the area`, d.uid); removeDrone(d); continue; } // GNSS drift can turn it away for good
       const tgt = pickTarget(d);
       const hrem = Math.hypot(tgt.x - d.pos.x, tgt.z - d.pos.z);
       if (tgt.structure ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(d, tgt.structure); else impact(d); continue; }
@@ -917,13 +919,7 @@ function addExplosion(pos, r, color) {
   const mesh = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.8 }));
   mesh.position.copy(pos); mesh.scale.setScalar(r * 0.3);
   scene.add(mesh);
-  effects.push({ kind: 'boom', mesh, r, age: 0, life: 0.5 });
-}
-function addTracer(a, b, color) {
-  const mesh = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color, transparent: true }));
-  mesh.frustumCulled = false;
-  scene.add(mesh);
-  effects.push({ kind: 'tracer', mesh, age: 0, life: 0.1 });
+  effects.push({ mesh, r, age: 0, life: 0.5 });
 }
 function updateEffects(dt) {
   for (let i = effects.length - 1; i >= 0; i--) {
@@ -932,12 +928,11 @@ function updateEffects(dt) {
     const k = e.age / e.life;
     if (k >= 1) {
       scene.remove(e.mesh); e.mesh.material.dispose();
-      if (e.kind !== 'boom') e.mesh.geometry.dispose();
       effects.splice(i, 1);
       continue;
     }
-    if (e.kind === 'boom') { e.mesh.scale.setScalar(e.r * (0.3 + 0.7 * k)); e.mesh.material.opacity = 0.8 * (1 - k); }
-    else e.mesh.material.opacity = 1 - k;
+    e.mesh.scale.setScalar(e.r * (0.3 + 0.7 * k));
+    e.mesh.material.opacity = 0.8 * (1 - k);
   }
 }
 
@@ -951,6 +946,7 @@ function startWave() {
     toast(loose ? `${loose} system${loose > 1 ? 's have' : ' has'} no network link and will be offline. Open SAPIENT > Network (Auto-wire), or press Start wave again to go anyway` : 'The fusion node has no network terminal, so it will hear nothing. Open SAPIENT > Network, or press Start wave again to go anyway');
     return;
   }
+  if (state.wave === 0) beginRun();
   state.wave++;
   state.queue = makeWave(state.wave, waveStream(state.seed, state.wave));
   state.waveTime = 0;
@@ -1098,7 +1094,7 @@ function updateHud() {
   hud.status.innerHTML = (spot > 0 ? `<span class="warn">FW Spotter on station: strikes +${Math.round(spot * 100)}%</span><br>` : '')
     + `Enemy attack cost ${money(enemyCost(ledger.launched))} &middot; shots fired ${money(ledger.consumables)}`
     + `${ledger.consumables && enemyCost(ledger.killed) ? ` &middot; $${(ledger.consumables / enemyCost(ledger.killed)).toFixed(2)} per $1 destroyed` : ''}<br>`
-    + `Enemy evasion (1.00 = easy to hit): FPV ${adapted('fpv').toFixed(2)} &middot; FW ${adapted('fw').toFixed(2)}<br>Seed ${state.seed} &middot; Terrain ${state.terrainSeed}`;
+    + `Enemy evasion (1.00 = easy to hit): FPV ${adapted('fpv').toFixed(2)} &middot; FW ${adapted('fw').toFixed(2)}<br>Seed ${esc(state.seed)} &middot; Terrain ${esc(state.terrainSeed)}`;
   hud.btn.disabled = state.waveActive || state.over || state.sandbox;
   hud.btn.textContent = state.sandbox ? 'Exit sandbox to start' : state.waveActive ? `Wave ${state.wave} in progress` : `Start wave ${state.wave + 1}`;
   const sbInfo = $('sb-info');
@@ -1261,9 +1257,12 @@ function resetLedger() {
     terminals: { starlink: 0, cellular: 0 }, lost: {}, lostValue: 0,
   });
 }
+let startLaydown = null; // what the current run started with, so a reset can bring back systems the enemy destroyed
 function captureLaydown() {
   return {
-    structures: structures.map((s) => ({ id: s.def.id, x: s.pos.x, z: s.pos.z, uplink: s.uplink || null, cellBand: s.cellBand, jam: s.jamBands ? [...s.jamBands] : null })),
+    // sorted, so the order systems were placed in cannot change the run
+    structures: structures.map((s) => ({ id: s.def.id, x: s.pos.x, z: s.pos.z, uplink: s.uplink || null, cellBand: s.cellBand, jam: s.jamBands ? [...s.jamBands] : null }))
+      .sort((a, b) => a.id.localeCompare(b.id) || a.x - b.x || a.z - b.z),
     fusionUplinks: [...net.fusion.uplinks], fusionCell: net.fusion.cellBand,
   };
 }
@@ -1281,12 +1280,13 @@ function restoreLaydown(spec) { // rebuild the systems and their wiring, chargin
 }
 // Start the run again from the beginning, on the same seed. 'keep' rebuilds the current laydown and wiring; 'clear' starts empty.
 function resetRun(mode = 'keep') {
-  const spec = mode === 'keep' ? captureLaydown() : null;
+  const spec = mode === 'keep' ? startLaydown || captureLaydown() : null;
+  startLaydown = null;
   replay.reset();
   for (const s of structures.slice()) removeStructure(s);
   for (const d of drones.slice()) removeDrone(d);
   for (let i = missiles.length - 1; i >= 0; i--) endMissile(missiles[i], i);
-  for (const e of effects) { scene.remove(e.mesh); e.mesh.material.dispose(); if (e.kind !== 'boom') e.mesh.geometry.dispose(); }
+  for (const e of effects) { scene.remove(e.mesh); e.mesh.material.dispose(); }
   effects.length = 0;
   for (const b of beliefs.values()) disposeBelief(b);
   beliefs.clear();
@@ -1304,6 +1304,14 @@ function resetRun(mode = 'keep') {
   $('btn-sandbox').textContent = 'Sandbox';
   $('overlay').classList.add('hidden');
   toast(spec ? 'Run reset: same laydown and seed' : 'New laydown: the site is empty');
+}
+// The first wave starts from a clean rebuild, so time spent building (sensor sweeps, random draws, messages) cannot affect the run.
+// shortcut: time between later waves still changes the run's noise, recorded as an operator input in the command log (Phase 3).
+function beginRun() {
+  const { speed, lastSpeed } = state;
+  resetRun('keep');
+  setSpeed(speed); state.lastSpeed = lastSpeed; state.warnedWire = true;
+  startLaydown = captureLaydown();
 }
 $('btn-reset').onclick = () => { if (state.started) resetRun('keep'); };
 let clearArmed = 0;
