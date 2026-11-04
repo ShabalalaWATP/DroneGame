@@ -1,4 +1,54 @@
+// Building each wave's attack and launching it on schedule.
+
 import { WAVES } from './config/index.js';
+import { waveStream } from './rng.js';
+import { spawnDrone } from './drones.js';
+import { money } from './economy.js';
+import { unwired } from './laydown.js';
+
+// beginRun rebuilds the run when the first wave starts, so nothing from the build phase can affect it.
+export function startWave(w, beginRun) {
+  const { state, net } = w;
+  if (state.waveActive || state.over || !state.started) return;
+  if (state.sandbox) { w.emit('toast', 'Exit the sandbox first: it resets the run and keeps your laydown'); return; }
+  const loose = unwired(w).length;
+  if ((loose || !net.fusion.uplinks.size) && !state.warnedWire) { // nodes with no link are offline: warn once
+    state.warnedWire = true;
+    w.emit('toast', loose ? `${loose} system${loose > 1 ? 's have' : ' has'} no network link and will be offline. Open SAPIENT > Network (Auto-wire), or press Start wave again to go anyway` : 'The fusion node has no network terminal, so it will hear nothing. Open SAPIENT > Network, or press Start wave again to go anyway');
+    return;
+  }
+  if (state.wave === 0) beginRun();
+  state.wave++;
+  state.queue = makeWave(state.wave, waveStream(state.seed, state.wave));
+  state.waveTime = 0;
+  state.waveActive = true;
+  state.autoTimer = -1;
+  w.emit('toast', state.wave > 1 ? `Wave ${state.wave} inbound: the enemy has adapted` : `Wave ${state.wave} inbound`);
+}
+
+export function updateWaves(w, dt, beginRun) {
+  const { state, drones } = w;
+  if (state.sandbox) {
+    state.sbTime += dt;
+    while (state.sbQueue.length && state.sbQueue[0].t <= state.sbTime) { const q = state.sbQueue.shift(); spawnDrone(w, q.type, q.bearing, q); }
+  }
+  if (state.waveActive) {
+    state.waveTime += dt;
+    while (state.queue.length && state.queue[0].t <= state.waveTime) {
+      const q = state.queue.shift();
+      spawnDrone(w, q.type, q.bearing, q);
+    }
+    if (!state.queue.length && !drones.some((d) => d.def.role !== 'spotter')) {
+      for (const d of drones) d.mode = 'egress'; // spotters withdraw once the strike is over
+      state.waveActive = false;
+      w.emit('toast', `Wave ${state.wave} cleared. Budget left ${money(state.budget)}`);
+      if (state.autoStart) state.autoTimer = 6;
+    }
+  } else if (state.autoTimer >= 0) {
+    state.autoTimer -= dt;
+    if (state.autoTimer < 0) startWave(w, beginRun);
+  }
+}
 
 // Returns [{ t, type, bearing, jitter, altFrac, freq }] sorted by spawn time (seconds into the wave).
 // `rng` is the wave's own seeded stream (rng.js waveStream), so a wave looks the same however it is reached.

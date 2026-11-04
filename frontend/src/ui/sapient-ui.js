@@ -108,7 +108,7 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged, network
   $('#node-filter').onchange = (e) => { nodeFilter = e.target.value; renderMessages(true); };
   $('#log-freeze').onclick = (e) => { frozen = !frozen; e.target.classList.toggle('active', frozen); e.target.textContent = frozen ? 'Resume' : 'Freeze'; };
   $('#log-clear').onclick = () => { bus.entries.length = 0; selected = null; $('#msg-detail').textContent = 'Select a message to see its JSON.'; renderMessages(true); };
-  $('#log-fault').onclick = () => net.injectFault();
+  $('#log-fault').onclick = () => network.injectFault();
   $('#log-export').onclick = () => {
     const blob = new Blob([bus.entries.map((e) => JSON.stringify(e.msg)).join('\n')], { type: 'application/x-ndjson' });
     const a = document.createElement('a');

@@ -1,29 +1,14 @@
-// Pause and rewind. The recorder keeps a snapshot of the run every half second of game time (what every drone, track,
-// missile and system was doing), plus a list of events (launches, kills, leaks). The replay view redraws a snapshot in
-// the scene, and the timeline scrubs through them. Rewinding is for looking: the live simulation is not rolled back, so
+// Pause and rewind. The replay view redraws a snapshot from the recorder (sim/recorder.js) in the scene, and the timeline
+// scrubs through them. Rewinding is for looking: the live simulation is not rolled back, so
 // "Live" returns to where the run had got to.
 
 import * as THREE from 'three';
 import { WORLD, DRONES, STRUCTURES } from '../sim/config/index.js';
 import { view } from './view.js';
 
-export const SNAPSHOT_EVERY = 10; // simulation steps per snapshot (10 x 0.05 s = 0.5 s)
-const MAX_FRAMES = 7200;          // one hour of game time
-
-export function createRecorder() {
-  const frames = [], events = [];
-  return {
-    frames, events,
-    push(f) { frames.push(f); if (frames.length > MAX_FRAMES) frames.splice(0, frames.length - MAX_FRAMES); },
-    event(type, text, uid) { events.push({ t: this.now ? this.now() : 0, type, text, uid }); },
-    now: null, // set by the game: () => current game time
-    clear() { frames.length = 0; events.length = 0; },
-  };
-}
-
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
-// deps: { scene, rec, droneTemplate, makeLabel, trackColour, getStructures, hideLive, setSpeed, getLastSpeed, setPaused }
+// deps: { scene, rec, droneTemplate, makeLabel, placeLabel, trackColour, getStructures, labelOf, hideLive, setSpeed, getLastSpeed, setPaused }
 export function createReplay(deps) {
   const { scene, rec } = deps;
   const review = { active: false, idx: 0, playing: false };
@@ -100,9 +85,10 @@ export function createReplay(deps) {
     let li = 0;
     for (const s of deps.getStructures()) {
       const st = f.structs.find((x) => x.id === s.nodeId);
-      if (!st) { s.label.style.display = 'none'; continue; }
-      s.label.textContent = `${s.short} · ${st.mode}${st.trackShort ? ' ▸ ' + st.trackShort : ''}`;
-      deps.placeLabel(s.label, s.pos.x, s.pos.y + 9, s.pos.z, view.labels);
+      const label = deps.labelOf(s);
+      if (!st) { label.style.display = 'none'; continue; }
+      label.textContent = `${s.short} · ${st.mode}${st.trackShort ? ' ▸ ' + st.trackShort : ''}`;
+      deps.placeLabel(label, s.pos.x, s.pos.y + 9, s.pos.z, view.labels);
       const tgt = st.target != null ? byUid.get(st.target) : null;
       if (tgt) {
         const line = pool(lineObjs, () => {
