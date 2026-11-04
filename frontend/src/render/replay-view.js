@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { WORLD, DRONES, STRUCTURES } from '../sim/config/index.js';
 import { view } from './view.js';
 
-// deps: { scene, rec, droneTemplate, makeLabel, placeLabel, trackColour, getStructures, labelOf, hideLive, setSpeed, getLastSpeed, setPaused }
+// deps: { scene, rec, droneTemplate, makeLabel, placeLabel, trackColour, getStructures, labelOf, hideLive, getLastSpeed, setPaused, resume }
 export function createReplay(deps) {
   const { scene, rec } = deps;
   const review = { active: false, idx: 0, playing: false };
@@ -119,7 +119,7 @@ export function createReplay(deps) {
     if (!review.active) return;
     review.active = false; review.playing = false; view.replayT = null;
     hide();
-    deps.setSpeed(deps.getLastSpeed() || 1);
+    deps.resume();
   }
   const stepBy = (d) => { review.playing = false; enter((review.active ? review.idx : rec.frames.length - 1) + d); };
   function togglePlay() {

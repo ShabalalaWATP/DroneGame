@@ -1,7 +1,7 @@
 // Saving finished runs without ever silently losing one. Every run is copied to this browser before it is sent, and the copy
 // goes once the server has answered, so closing the page at any moment loses nothing. A run the server refuses outright is
 // reported and dropped, because retrying would never help.
-// shortcut: if the page closes after the server stored a run but before its answer arrived, or two tabs flush together, the run is saved twice. That is a duplicate row the player can delete, never a lost run. Send an id the server deduplicates on if it matters.
+// shortcut: if the page closes or the connection drops after the server stored a run but before its answer arrived, or two tabs flush together, the run is saved twice. That is a duplicate row the player can delete, never a lost run. Send an id the server deduplicates on if it matters.
 
 const KEY = 'site-guard.unsaved-runs';
 const MAX_KEPT = 50;

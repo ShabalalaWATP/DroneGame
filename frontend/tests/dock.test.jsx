@@ -12,6 +12,7 @@ import { summary } from '../src/ui/dock/MessagesTab.jsx';
 import { createPlanCanvas } from '../src/ui/dock/plan-canvas.js';
 import { createNetworkCanvas, pointAlong, linkColour, nodeList } from '../src/ui/dock/network-canvas.js';
 import { terrainState } from '../src/sim/terrain.js';
+import { bus, emit } from '../src/sim/sapient.js';
 import { MIXED, setUp } from './support/scenarios.js';
 import { createFakeApi, createFakeStorage } from './support/fake-api.js';
 
@@ -57,6 +58,16 @@ describe('dock', () => {
 });
 
 describe('messages tab', () => {
+  it('says when older messages are no longer kept, and does not claim to export them', () => {
+    openDock();
+    expect($('#log-kept')).toBeNull();
+    expect($('#log-export').title).not.toMatch(/every message/);
+    const msg = { timestamp: 't', node_id: 'n', registration_ack: { acceptance: true } };
+    for (let i = 0; i <= bus.max; i++) emit(msg, 'a', 'b');
+    refresh();
+    expect(bus.entries.length).toBeLessThan(bus.seq);
+    expect($('#log-kept').textContent).toContain(`${bus.entries.length.toLocaleString('en-US')} of ${bus.seq.toLocaleString('en-US')}`);
+  }, 30000);
   it('lists messages, filters them, and shows one in detail', () => {
     running();
     openDock('messages');
@@ -137,6 +148,28 @@ describe('plan tab', () => {
     fireEvent.change($('#cov-threat'), { target: { value: 'fw' } });
     expect($('#cov-threat').value).toBe('fw');
   });
+  it('works the coverage out again when the laydown, ground or figures change, and only then', () => {
+    const spec = (x) => ({ structures: [{ id: 'radar', x, z: 0, uplink: null, cellBand: 'B8', jam: null }], fusionUplinks: [], fusionCell: 'B8' });
+    const { net, commands } = game.sim;
+    const plan = createPlanCanvas(newCanvas(), game.sim);
+    const worked = vi.spyOn(net, 'coverageAt');
+    const redone = () => { worked.mockClear(); plan.draw('fpv'); return worked.mock.calls.length > 0; };
+
+    commands.loadLaydown(spec(30), '1');
+    const ids = [...net.nodes.keys()];
+    expect(redone()).toBe(true);
+    expect(redone()).toBe(false);
+
+    commands.loadLaydown(spec(120), '1');
+    expect([...net.nodes.keys()]).toEqual(ids); // a reload repeats the node ids, so they cannot tell two laydowns apart
+    expect(redone()).toBe(true);
+
+    commands.loadLaydown(spec(120), 'other-ground');
+    expect(redone()).toBe(true);
+
+    commands.setFigure('drones', 'fpv', 'rcs', 0.5);
+    expect(redone()).toBe(true);
+  }, 30000);
   it('draws a running game, with and without coverage', () => {
     running();
     terrainState.hillshade = document.createElement('canvas');

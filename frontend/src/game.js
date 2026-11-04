@@ -71,8 +71,21 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   let pausedForApproval = false, simAcc = 0;
   sim.on('approvalRequest', () => { if (clock.speed > 0) { pausedForApproval = true; setSpeed(0); } });
   sim.on('approvalDecided', () => {
-    if (pausedForApproval && !net.pendingRequests.length && !(replay && replay.active())) { pausedForApproval = false; setSpeed(clock.lastSpeed || 1); }
+    if (pausedForApproval && !net.pendingRequests.length && !reviewing) { pausedForApproval = false; setSpeed(clock.lastSpeed || 1); }
   });
+
+  // Reviewing stops the clock, and going back to live puts it back as it was. It never runs past a decision still waiting,
+  // and a decision made during the review lets it run again.
+  let reviewing = false, speedBeforeReview = 1;
+  const reviewClock = {
+    setPaused() { reviewing = true; speedBeforeReview = clock.speed; setSpeed(0); },
+    resume() {
+      reviewing = false;
+      if (clock.speed > 0 || net.pendingRequests.length) return; // the player chose a speed during the review, or a decision is waiting
+      setSpeed(pausedForApproval ? clock.lastSpeed || 1 : speedBeforeReview);
+      pausedForApproval = false;
+    },
+  };
   sim.on('reset', ({ kept, begin, loading }) => {
     if (replay) replay.reset();
     if (gameView) gameView.clear();
@@ -113,14 +126,14 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     replay = createReplay({
       scene: gameView.scene, rec: sim.rec, droneTemplate, makeLabel: gameView.labels.make, placeLabel: gameView.labels.place, trackColour,
       getStructures: () => sim.structures, labelOf: gameView.structures.labelOf, hideLive: gameView.hideLive,
-      setSpeed, getLastSpeed: () => clock.lastSpeed, setPaused: () => setSpeed(0),
+      getLastSpeed: () => clock.lastSpeed, ...reviewClock,
     });
     gameView.start(frame);
     bump();
   }
 
   return {
-    sim, commands, clock, setSpeed, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
+    sim, commands, clock, setSpeed, reviewClock, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
     getTool: () => tool, setTool,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },

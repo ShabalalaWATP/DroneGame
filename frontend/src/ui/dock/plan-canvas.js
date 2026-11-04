@@ -1,6 +1,6 @@
 // Draws the plan view of the laydown. Returns { draw, dispose }.
 
-import { BUILD, DRONES, SITE, WORLD } from '../../sim/config/index.js';
+import { BUILD, DRONES, SITE, WORLD, exportFigures } from '../../sim/config/index.js';
 import { bus } from '../../sim/sapient.js';
 import { terrainState } from '../../sim/terrain.js';
 import { view } from '../../render/view.js';
@@ -24,7 +24,8 @@ export function createPlanCanvas(cv, sim) {
   function coverageGrid(threat) {
     const def = DRONES[threat];
     const agl = (def.alt[0] + def.alt[1]) / 2;
-    const key = threat + '|' + [...net.nodes.values()].map((n) => `${n.nodeId}:${n.def.range}`).join(',');
+    // everything the answer depends on: node ids repeat after a reload, so they cannot tell two laydowns apart
+    const key = [threat, sim.state.terrainSeed, JSON.stringify(exportFigures()), ...[...net.nodes.values()].map((n) => `${n.nodeId}:${n.pos.x}:${n.pos.z}`)].join('|');
     if (covCache.key === key) return covCache;
     const cell = 250, half = Math.min(terrainState.data.R - 200, 6000), n = Math.round((2 * half) / cell);
     const counts = new Uint8Array(n * n);
