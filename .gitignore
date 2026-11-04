@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+backend/data/
+.claude/
