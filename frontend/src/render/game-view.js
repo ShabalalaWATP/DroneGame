@@ -11,6 +11,9 @@ import { createStructureViews } from './structure-view.js';
 import { createDroneViews } from './drone-view.js';
 import { createBeliefViews } from './belief-view.js';
 import { createEffects } from './effects.js';
+import { createZoneView } from './zone-view.js';
+import { createOsmMap } from './osm-map.js';
+import { view } from './view.js';
 
 export function createGameView(canvas, labelLayer, sim) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -36,11 +39,18 @@ export function createGameView(canvas, labelLayer, sim) {
   const siteRing = drapedRing(u(SITE.radius), 0.5, 0xff5252, 0.6);
   const buildRing = drapedRing(u(BUILD.maxDist), 0.8, 0x5c7bb0, 0.4);
   scene.add(siteRing.mesh, buildRing.mesh);
-  let worldView = null, flash = 0;
+  let worldView = null, flash = 0, ownMaterial = null, relief = null;
+  const osmMap = createOsmMap(renderer);
+  function showOsm() { // the picture on the ground, and on the 2D maps
+    worldView.mesh.material = view.osm ? osmMap.material : ownMaterial;
+    terrainState.hillshade = view.osm ? osmMap.canvas : relief;
+  }
   function loadWorld() {
-    if (worldView) worldView.dispose();
-    terrainState.hillshade = makeHillshade(terrainState.data);
+    if (worldView) { worldView.mesh.material = ownMaterial; worldView.dispose(); }
+    relief = makeHillshade(terrainState.data);
     worldView = buildWorldView(scene, terrainState.data, siteMat);
+    ownMaterial = worldView.mesh.material;
+    showOsm();
     siteRing.update(0, 0);
     buildRing.update(0, 0);
   }
@@ -53,6 +63,8 @@ export function createGameView(canvas, labelLayer, sim) {
   const drones = createDroneViews(scene, sim, labels, camera);
   const beliefs = createBeliefViews(scene, sim.net, camera, labelLayer);
   const effects = createEffects(scene, sim);
+  const zone = createZoneView(scene);
+  sim.on('terrain', zone.redraw);
 
   // Show the live state of the simulation. Replay runs after this and hides what it replaces.
   function update(real) {
@@ -62,6 +74,7 @@ export function createGameView(canvas, labelLayer, sim) {
     beliefs.update();
     structures.updateLabels(sim.net);
     drones.updateLabels();
+    zone.sync();
     flash = Math.max(0, flash - real);
     siteMat.emissiveIntensity = flash > 0 ? flash * 1.5 : 0;
   }
@@ -75,7 +88,7 @@ export function createGameView(canvas, labelLayer, sim) {
   resize();
 
   return {
-    scene, camera, controls, labels, structures, update,
+    scene, camera, controls, labels, structures, update, showOsm, loadOsm: () => osmMap.load(),
     getWorldMesh: () => worldView && worldView.mesh,
     draw() { controls.update(); renderer.render(scene, camera); },
     start(frame) { renderer.setAnimationLoop(frame); },

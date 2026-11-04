@@ -131,11 +131,14 @@ describe('each unit\'s own definition', () => {
 
   it('an edit to one unit moves neither another unit nor the catalogue', () => {
     const [a, b] = two();
-    a.def.cost = 1;
-    a.def.sapient.interval = 5;
+    game.commands.configureUnit(a, 'mount', 35);
+    game.commands.configureUnit(a, 'scan', 0.5);
     a.def.sapient.noise.az = 9;
+    expect(a.def.cost).toBeGreaterThan(900000);
+    expect(a.def.sapient.interval).toBe(0.5);
     for (const other of [b.def, STRUCTURES.radar]) {
       expect(other.cost).toBe(900000);
+      expect(other.mount).toBe(25);
       expect(other.sapient.interval).toBe(1);
       expect(other.sapient.noise.az).toBe(0.6);
     }
@@ -152,12 +155,10 @@ describe('each unit\'s own definition', () => {
 
   it('refunds and counts use the unit\'s own price', () => {
     const [a] = two();
-    a.def.cost = 1000;
-    const budget = game.sim.state.budget;
     game.commands.wireNode(a, null);
+    game.commands.configureUnit(a, 'mount', 35);
     const unwired = game.sim.state.budget;
-    expect(unwired).toBeGreaterThanOrEqual(budget);
     game.commands.sell(a.pos.x, a.pos.z);
-    expect(game.sim.state.budget).toBe(unwired + 1000);
+    expect(game.sim.state.budget).toBe(unwired + 900000 + 135000);
   });
 });

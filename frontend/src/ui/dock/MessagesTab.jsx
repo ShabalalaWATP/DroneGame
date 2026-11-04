@@ -11,6 +11,7 @@ const TYPES = [
   ['task', 'Task'], ['task_ack', 'TaskAck'], ['alert', 'Alert'], ['alert_ack', 'AlertAck'], ['error', 'Error'],
 ];
 const MAX_ROWS = 150;
+const count = (n) => n.toLocaleString('en-US');
 
 export function summary(e) {
   const c = e.msg[e.type];
@@ -80,10 +81,11 @@ export function MessagesTab({ active }) {
           </select>
           <button id="log-freeze" className={frozen ? 'active' : ''} onClick={() => setFrozen((f) => !f)}>{frozen ? 'Resume' : 'Freeze'}</button>
           <button id="log-clear" onClick={() => { commands.clearMessages(); setSelected(null); shown.current = []; }}>Clear</button>
-          <button id="log-export" title="Download every message as newline-delimited JSON" onClick={() => download('sapient-log.ndjson', bus.entries.map((e) => JSON.stringify(e.msg)).join('\n'), 'application/x-ndjson')}>Export</button>
+          <button id="log-export" title={`Download the messages still kept (the newest ${count(bus.max)} at most) as newline-delimited JSON`} onClick={() => download('sapient-log.ndjson', bus.entries.map((e) => JSON.stringify(e.msg)).join('\n'), 'application/x-ndjson')}>Export</button>
           <button id="log-fault" title="Send a malformed report to see the middleware's Error reply" onClick={() => commands.injectFault()}>Inject fault</button>
           <label className="muted" title="Show a plain-English note beside each field"><input type="checkbox" id="log-explain" checked={explain} onChange={(e) => setExplain(e.target.checked)} /> Explain</label>
         </div>
+        {bus.entries.length < bus.seq && <div id="log-kept" className="muted">Keeping {count(bus.entries.length)} of {count(bus.seq)} messages. Older ones can no longer be listed, rewound to or exported.</div>}
       </div>
       <div id="msg-list" ref={list} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 30; }}>
         {shown.current.map((e) => (

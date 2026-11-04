@@ -36,7 +36,7 @@ describe('timeline', () => {
       scene: new THREE.Scene(), rec: game.sim.rec, droneTemplate: () => new THREE.Group(),
       makeLabel: () => document.createElement('div'), placeLabel: () => {}, trackColour: () => 0xffffff,
       getStructures: () => game.sim.structures, labelOf: () => document.createElement('div'), hideLive: () => {},
-      setSpeed: game.setSpeed, getLastSpeed: () => speed.last, setPaused: () => game.setSpeed(0),
+      getLastSpeed: () => speed.last, ...game.reviewClock,
     });
     game.getReplay = () => replay;
     return replay;
@@ -70,6 +70,46 @@ describe('timeline', () => {
     fireEvent.click($('#tl-play'));
     expect(replay.review.playing).toBe(false);
     replay.reset();
+  }, 30000);
+  it('going back to live restores the clock, and never runs it past a decision still waiting', () => {
+    armed();
+    const replay = withReplay();
+    const { sim, clock } = game;
+    sim.state.warnedWire = true;
+    sim.commands.startWave();
+    sim.run(20);
+
+    game.setSpeed(2); // running: it carries on at the same speed
+    replay.enter(0);
+    expect(clock.speed).toBe(0);
+    replay.exit();
+    expect(clock.speed).toBe(2);
+
+    game.setSpeed(0); // paused by the player: it stays paused
+    replay.enter(0);
+    replay.exit();
+    expect(clock.speed).toBe(0);
+
+    replay.enter(0); // a speed chosen during the review is kept
+    game.setSpeed(3);
+    replay.exit();
+    expect(clock.speed).toBe(3);
+
+    FUSION.authority = 'all'; // paused for a decision
+    game.setSpeed(2);
+    for (let i = 0; i < 20000 && !sim.net.pendingRequests.length; i++) sim.step();
+    expect(sim.net.pendingRequests.length).toBeGreaterThan(0);
+    expect(clock.speed).toBe(0);
+    replay.enter(0);
+    replay.exit();
+    expect(clock.speed).toBe(0);
+    expect(sim.net.pendingRequests.length).toBeGreaterThan(0);
+
+    replay.enter(0); // decided during the review: the clock runs again on going back to live, not before
+    for (const req of [...sim.net.pendingRequests]) sim.commands.decide(req.id, false);
+    expect(clock.speed).toBe(0);
+    replay.exit();
+    expect(clock.speed).toBe(2);
   }, 30000);
   it('does nothing without a replay or history', () => {
     show(<Timeline />);

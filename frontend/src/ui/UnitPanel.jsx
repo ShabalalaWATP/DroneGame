@@ -1,11 +1,13 @@
-// What the selected system is and what it is doing. Click one on the map, or use its button in the Nodes tab. Read-only:
-// every figure comes from the code the simulation runs, so the panel cannot disagree with it.
+// What the selected system is and what it is doing, with a Configure side to change it. Click one on the map, or use its
+// button in the Nodes tab. Every figure comes from the code the simulation runs, so the panel cannot disagree with it.
 
+import { useState } from 'react';
 import { COMMS, DRONES, SENSING, SPECTRUM, WORLD } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
 import { reachFor } from '../sim/network/sensors.js';
 import { fmtTime, hex, useGame, useTick } from './hooks.js';
 import { stateWord } from './dock/NetworkSide.jsx';
+import { UnitEditor } from './UnitEditor.jsx';
 
 const km = (metres) => `${(metres / 1000).toFixed(1)} km`;
 const plural = (n, word) => `${n.toLocaleString('en-US')} ${word}${n === 1 ? '' : 's'}`;
@@ -148,14 +150,23 @@ function UnitCard({ s, game }) {
   const limits = limitsOf(def);
   const health = moment ? moment.health : s.health;
   const status = statusText(s, sim, moment);
+  const [side, setSide] = useState('details');
+  const editing = side === 'configure' && !frame;
   return (
     <div id="unit-panel" className="panel" role="region" aria-label={`Selected system: ${s.short}`}>
       <div className="up-head" style={{ borderLeftColor: hex(def.color) }}>
-        <b>{s.short} · {def.name}</b>
+        <b>{s.short} · {s.custom?.name || def.name}</b>
         <button id="unit-close" aria-label="Close the Unit panel" title="Close (Esc)" onClick={() => game.select(null)}>×</button>
       </div>
       {frame && <div className="up-review">Reviewing {fmtTime(frame.t)}. Network and totals are hidden, because they are not recorded.</div>}
-      <p className="up-desc">{def.desc}</p>
+      {!frame && (
+        <div className="up-sides" role="group" aria-label="Panel view">
+          <button id="unit-details" aria-pressed={!editing} onClick={() => setSide('details')}>Details</button>
+          <button id="unit-configure" aria-pressed={editing} onClick={() => setSide('configure')}>Configure</button>
+        </div>
+      )}
+      {editing ? <UnitEditor s={s} game={game} /> : <>
+      <p className="up-desc">{s.custom?.name ? `${def.name}. ` : ''}{def.desc}</p>
       <Row label="Status">{status}</Row>
       <Row label="Health">{Math.max(Math.ceil(health), 0)} / {def.health}</Row>
       {isEffector && <Row label="Ammunition"><Ammunition s={s} state={state} frame={frame} /></Row>}
@@ -168,6 +179,7 @@ function UnitCard({ s, game }) {
       <Row label="Cost">{money(def.cost)}{def.shotCost ? ` · ${money(def.shotCost)} ${def.fire === 'beam' ? 'a second' : 'a shot'}` : ''}</Row>
       {isEffector && !frame && <Totals def={def} ledger={ledger} />}
       <Row label="Modelled on">{def.ref.analogues.join(', ')}<span className="muted">{def.ref.confidence}</span></Row>
+      </>}
     </div>
   );
 }

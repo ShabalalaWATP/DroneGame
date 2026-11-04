@@ -1,9 +1,10 @@
 // Draws the plan view of the laydown. Returns { draw, dispose }.
 
-import { BUILD, DRONES, SITE, WORLD } from '../../sim/config/index.js';
+import { BUILD, SITE, WORLD } from '../../sim/config/index.js';
 import { bus } from '../../sim/sapient.js';
 import { terrainState } from '../../sim/terrain.js';
 import { view } from '../../render/view.js';
+import { coverageGrid } from '../coverage.js';
 import { hex } from '../hooks.js';
 
 const TR_COL = { tentative: '#8a94a3', confirmed: '#ffcc66', coasting: '#ff9800' };
@@ -18,20 +19,6 @@ export function createPlanCanvas(cv, sim) {
   bus.listeners.add(onMessage);
   const onWheel = (e) => { e.preventDefault(); viewR = Math.min(14000, Math.max(800, viewR * (e.deltaY > 0 ? 1.15 : 1 / 1.15))); };
   cv.addEventListener('wheel', onWheel, { passive: false });
-
-  // coverage: for each cell, how many sensors would see a drone of the chosen type there (it flies at that type's usual height)
-  let covCache = { key: '', n: 0, cell: 250, half: 6000, counts: null };
-  function coverageGrid(threat) {
-    const def = DRONES[threat];
-    const agl = (def.alt[0] + def.alt[1]) / 2;
-    const key = threat + '|' + [...net.nodes.values()].map((n) => `${n.nodeId}:${n.def.range}`).join(',');
-    if (covCache.key === key) return covCache;
-    const cell = 250, half = Math.min(terrainState.data.R - 200, 6000), n = Math.round((2 * half) / cell);
-    const counts = new Uint8Array(n * n);
-    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) counts[j * n + i] = net.coverageAt(-half + (i + 0.5) * cell, -half + (j + 0.5) * cell, agl, def);
-    covCache = { key, n, cell, half, counts };
-    return covCache;
-  }
 
   // coverage: the drone type to map, or null for none
   function draw(coverage) {
@@ -48,7 +35,7 @@ export function createPlanCanvas(cv, sim) {
       g.drawImage(terrainState.hillshade, X(-Rt), Y(Rt), 2 * Rt * k, 2 * Rt * k);
     }
     if (coverage) {
-      const c = coverageGrid(coverage);
+      const c = coverageGrid(sim, coverage);
       for (let j = 0; j < c.n; j++) for (let i = 0; i < c.n; i++) {
         const cnt = c.counts[j * c.n + i];
         g.fillStyle = cnt === 0 ? 'rgba(229,57,53,0.22)' : cnt === 1 ? 'rgba(102,187,106,0.30)' : cnt === 2 ? 'rgba(129,212,250,0.42)' : 'rgba(255,255,255,0.55)';
@@ -63,6 +50,12 @@ export function createPlanCanvas(cv, sim) {
     }
     g.setLineDash([4, 4]); g.strokeStyle = '#3a527e';
     g.beginPath(); g.arc(w / 2, h / 2, BUILD.maxDist * k, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+    if (view.zone) { // the area to defend
+      g.beginPath();
+      view.zone.points.forEach(([x, z]) => g.lineTo(X(x * mpu()), Y(-z * mpu())));
+      if (view.zone.closed) g.closePath();
+      g.strokeStyle = '#c6ff00'; g.lineWidth = 2; g.setLineDash([8, 6]); g.stroke(); g.setLineDash([]); g.lineWidth = 1;
+    }
 
     const nodes = [...net.nodes.values()].filter((n) => (n.def.role === 'sensor' || n.def.role === 'effector') && n.def.id !== 'perimeter');
     for (const n of nodes) { // coverage

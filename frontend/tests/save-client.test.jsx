@@ -53,6 +53,13 @@ describe('API client', () => {
     stub(async () => reply(502));
     await expect(createApi().runs.list()).rejects.toMatchObject({ retryable: true });
   });
+  it('keeps a run when the connection drops while its answer is arriving', async () => {
+    stub(async () => ({ status: 201, ok: true, json: async () => { throw new TypeError('network'); } }));
+    await expect(createApi().runs.create({})).rejects.toMatchObject({ retryable: true });
+    const saver = createRunSaver({ api: createApi(), storage, notify: () => {}, onChange: () => {} });
+    await saver.save({ digest: 'abc' });
+    expect(saver.pending()).toBe(1);
+  });
   it('says when a request is refused, which retrying will not help', async () => {
     for (const [status, msg] of [[404, /no longer exists/], [413, /too large/], [422, /invalid/], [415, /415/]]) {
       stub(async () => reply(status));

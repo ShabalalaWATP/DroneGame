@@ -1,5 +1,8 @@
 """What the API does, through real HTTP handling and a real SQLite file."""
 
+import copy
+
+import pytest
 from conftest import FIGURES, SPEC, figure_set, laydown, run
 
 API = "/api/v1"
@@ -60,6 +63,31 @@ class TestLaydowns:
     def test_an_empty_laydown_is_allowed(self, client):
         empty = {"structures": [], "fusionUplinks": [], "fusionCell": "B8"}
         assert client.post(f"{API}/laydowns", json=laydown(spec=empty)).status_code == 201
+
+    def test_a_zone_is_kept_with_the_laydown(self, client):
+        zone = [[0, 0], [50, 0], [50, 50]]
+        made = client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "zone": zone}))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["zone"] == zone
+
+    def test_a_laydown_with_no_zone_comes_back_as_it_was_sent(self, client):
+        made = client.post(f"{API}/laydowns", json=laydown()).json()
+        assert "zone" not in client.get(f"{API}/laydowns/{made['id']}").json()["spec"]
+
+    @pytest.mark.parametrize(
+        "zone",
+        [
+            [[0, 0], [1, 1]],  # too few to enclose anything
+            [[i, i] for i in range(33)],  # too many
+            [[0, 0], [1, 1], [351, 0]],  # outside the world
+            [[0, 0], [1, 1], [2]],  # not a point
+            [[0, 0], [1, 1], [2, 2, 2]],  # not a point
+            [[0, 0], [1, 1], ["a", 0]],  # not numbers
+            "here",
+        ],
+    )
+    def test_a_bad_zone_is_refused(self, client, zone):
+        assert client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "zone": zone})).status_code == 422
 
 
 class TestRuns:
@@ -122,3 +150,42 @@ def test_saved_data_survives_a_restart(db_path):
         c.post(f"{API}/laydowns", json=laydown())
     with TestClient(create_app(db_path), base_url="http://localhost") as c:
         assert c.get(f"{API}/laydowns/1").json()["name"] == "Ring of radars"
+
+
+def _system(**more):
+    return {"id": "radar", "x": 10, "z": 0, "uplink": None, "cellBand": "B8", "jam": None, **more}
+
+
+def _laydown_with(**more):
+    spec = copy.deepcopy(SPEC)
+    spec["structures"] = [_system(**more)]
+    return laydown(spec=spec)
+
+
+class TestUnitSettings:
+    def test_keeps_a_units_settings_and_names(self, client):
+        made = client.post(f"{API}/laydowns", json=_laydown_with(settings={"mount": 35, "threshold": "low"}, name="North mast", callsign="NORTH-1"))
+        assert made.status_code == 201
+        system = client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]
+        assert system["settings"] == {"mount": 35, "threshold": "low"}
+        assert (system["name"], system["callsign"]) == ("North mast", "NORTH-1")
+
+    def test_a_laydown_saved_before_these_fields_still_loads(self, client):
+        made = client.post(f"{API}/laydowns", json=_laydown_with())
+        assert made.status_code == 201
+        system = client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]
+        assert not {"settings", "name", "callsign"} & set(system)
+
+    @pytest.mark.parametrize("bad", [
+        {"settings": {"mount": -1}},
+        {"settings": {"mount": 1e13}},
+        {"settings": {"bad key": 1}},
+        {"settings": {"threshold": "<script>"}},
+        {"settings": {f"k{i}": 1 for i in range(17)}},
+        {"name": "x" * 41},
+        {"name": "two\nlines"},
+        {"callsign": "<b>"},
+        {"callsign": "x" * 13},
+    ])
+    def test_refuses_bad_settings_and_names(self, client, bad):
+        assert client.post(f"{API}/laydowns", json=_laydown_with(**bad)).status_code == 422

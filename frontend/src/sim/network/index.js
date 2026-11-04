@@ -93,7 +93,7 @@ export function createNetwork(ctx) {
   }
 
   return {
-    init, registerNode: registration.registerNode, deregisterNode: registration.deregisterNode, update, isTracked, onDroneRemoved, raiseAlert, injectFault,
+    init, registerNode: registration.registerNode, renameNode: registration.renameNode, deregisterNode: registration.deregisterNode, update, isTracked, onDroneRemoved, raiseAlert, injectFault,
     comms, decide: authority.decide, pendingRequests: authority.pending, coverageAt: sensors.coverageAt, nameOf, nodes, tracks: tracker.tracks, bearingCandidates: () => tracker.candidates, fusion, gui, distToTrack: core.distToTrack,
   };
 }

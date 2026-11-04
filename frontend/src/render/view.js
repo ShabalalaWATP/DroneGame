@@ -6,4 +6,10 @@ export const view = {
   trackHi: false, // colour tracks by classification instead of drawing them faint and grey
   replayT: null, // simulated time being reviewed while rewinding, or null when live
   selected: null, // the system the Unit panel is showing
+  osm: false, // demo: OpenStreetMap tiles as the picture on the ground
+  zone: null, // the area to defend, a planning aid outside the simulation: { points: [[x, z]...], closed }
+  spot: null, // a spot the wizard is suggesting: { x, z }
+  wizard: 'closed', // 'open', 'collapsed' or 'closed'
+  coverageOn: false, // the plan map shows sensor coverage
+  coverageThreat: null, // for this drone type, or the first one
 };

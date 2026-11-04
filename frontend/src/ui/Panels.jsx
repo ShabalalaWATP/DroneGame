@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ADAPT, WORLD } from '../sim/config/index.js';
 import { useGame, useTick } from './hooks.js';
 import { NumberInput } from './NumberInput.jsx';
+import { useMovable } from './useMovable.js';
 
 export function Tuning({ open }) {
   const { commands } = useGame();
@@ -57,11 +58,12 @@ export function Approvals() {
   useTick();
   const { sim, commands } = useGame();
   const list = sim.net.pendingRequests;
+  const { style, handle } = useMovable();
   return (
-    <div id="approval" className={`panel${list.length ? '' : ' hidden'}`}>
+    <div id="approval" className={`panel${list.length ? '' : ' hidden'}`} data-movable style={style} {...handle}>
       {list.map((r) => (
         <div className="req" key={r.id}>
-          <div className="req-h">AUTHORISE ENGAGEMENT?</div>
+          <div className="req-h" title="Drag to move. Double-click to put it back.">AUTHORISE ENGAGEMENT?</div>
           <div>{r.text}</div>
           <div className="req-b">
             <button className="primary" onClick={() => commands.decide(r.id, true)}>Approve</button>

@@ -4,13 +4,14 @@ import * as THREE from 'three';
 import { STRUCTURES, WORLD, firstClass } from './sim/config/index.js';
 import { createSimulation, SIM_STEP } from './sim/simulation.js';
 import { createGameView } from './render/game-view.js';
-import { createPlacement, pickStructure, selectionFrom } from './render/placement.js';
+import { PLACING_PICK_PX, createPlacement, pickStructure, selectionFrom } from './render/placement.js';
 import { createReplay } from './render/replay-view.js';
 import { droneTemplate } from './render/models.js';
 import { trackColour } from './render/belief-view.js';
 import { view } from './render/view.js';
 import { createApi } from './api/client.js';
 import { createRunSaver } from './api/run-saver.js';
+import { addZonePoint } from './zone.js';
 
 const PANEL_INTERVAL = 100; // ms between panel refreshes: panels never update per frame
 
@@ -52,7 +53,8 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   // ---------- filled in once the canvas exists ----------
   let gameView = null, placement = null, replay = null;
   const frameListeners = new Set();
-  let tool = null; // structure id | 'sell' | null
+  let tool = null; // structure id | 'sell' | 'zone' | null
+  let refusal = null; // why the last placement was refused
   let selectHinted = false; // the first placement says that systems can be clicked
 
   const sizes = {}; // kind -> the size last picked, which the toolbar offers next
@@ -74,9 +76,14 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   function groundClick(x, z) {
     if (!tool || state.over || !state.started) return;
     if (tool === 'sell') { commands.sell(x, z); return; }
-    const problem = commands.place(tool, x, z);
-    if (problem) toast(problem);
-    else if (!selectHinted) { selectHinted = true; toast('Placed. Click a name tag for details, or press Esc to stop placing'); }
+    if (tool === 'zone') { // a planning aid: it stays out of the simulation and its log
+      view.zone = addZonePoint(view.zone, x, z);
+      if (view.zone && view.zone.closed) setTool('zone'); else bump();
+      return;
+    }
+    refusal = commands.place(tool, x, z);
+    if (refusal) toast(refusal);
+    else if (!selectHinted) { selectHinted = true; toast('Placed. Click a system for details, or press Esc to stop placing'); }
   }
 
   // The system the Unit panel shows. It is view state, not a command, so it is not logged and cannot change a run.
@@ -95,7 +102,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
       if (s) commands.sell(s.pos.x, s.pos.z);
       return !!s;
     }
-    const chosen = selectionFrom(tool, tagged, pick);
+    const chosen = selectionFrom(tool, tagged, tool ? () => pickStructure(sim.structures, gameView.camera, x, y, innerWidth, innerHeight, PLACING_PICK_PX) : pick);
     if (chosen === undefined) return false;
     selectHinted = true;
     select(chosen);
@@ -111,13 +118,27 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   let pausedForApproval = false, simAcc = 0;
   sim.on('approvalRequest', () => { if (clock.speed > 0) { pausedForApproval = true; setSpeed(0); } });
   sim.on('approvalDecided', () => {
-    if (pausedForApproval && !net.pendingRequests.length && !(replay && replay.active())) { pausedForApproval = false; setSpeed(clock.lastSpeed || 1); }
+    if (pausedForApproval && !net.pendingRequests.length && !reviewing) { pausedForApproval = false; setSpeed(clock.lastSpeed || 1); }
   });
+
+  // Reviewing stops the clock, and going back to live puts it back as it was. It never runs past a decision still waiting,
+  // and a decision made during the review lets it run again.
+  let reviewing = false, speedBeforeReview = 1;
+  const reviewClock = {
+    setPaused() { reviewing = true; speedBeforeReview = clock.speed; setSpeed(0); },
+    resume() {
+      reviewing = false;
+      if (clock.speed > 0 || net.pendingRequests.length) return; // the player chose a speed during the review, or a decision is waiting
+      setSpeed(pausedForApproval ? clock.lastSpeed || 1 : speedBeforeReview);
+      pausedForApproval = false;
+    },
+  };
   sim.on('reset', ({ kept, begin, loading }) => {
     if (replay) replay.reset();
     if (gameView) gameView.clear();
     simAcc = 0; pausedForApproval = false;
     if (!begin) setSpeed(1);
+    if (!kept && !loading) view.zone = null;
     if (!begin && !loading) toast(kept ? 'Run reset: same laydown and seed' : 'New laydown: the site is empty');
     bump();
   });
@@ -153,15 +174,15 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     replay = createReplay({
       scene: gameView.scene, rec: sim.rec, droneTemplate, makeLabel: gameView.labels.make, placeLabel: gameView.labels.place, trackColour,
       getStructures: () => sim.structures, labelOf: gameView.structures.labelOf, hideLive: gameView.hideLive,
-      setSpeed, getLastSpeed: () => clock.lastSpeed, setPaused: () => setSpeed(0),
+      getLastSpeed: () => clock.lastSpeed, ...reviewClock,
     });
     gameView.start(frame);
     bump();
   }
 
   return {
-    sim, commands, clock, setSpeed, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
-    getTool: () => tool, setTool, toolChoice, cycleTool, select, getSelected,
+    sim, commands, clock, setSpeed, reviewClock, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
+    getTool: () => tool, setTool, toolChoice, cycleTool, lastRefusal: () => refusal, select, getSelected,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },
     getReplay: () => replay,
@@ -170,6 +191,15 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     setViewOption(key, value) {
       view[key] = value;
       if (key === 'rings' && gameView) gameView.structures.setRingsVisible(value);
+      if (key === 'osm' && gameView) {
+        gameView.showOsm();
+        if (value) {
+          gameView.loadOsm().then(({ failed, total }) => {
+            if (failed === total) { view.osm = false; gameView.showOsm(); toast('The map could not load: it needs an internet connection'); bump(); }
+            else if (failed) toast(`${failed} of ${total} map tiles could not load`);
+          });
+        }
+      }
       bump();
     },
     // a figure was edited in the Sources tab: redraw anything built from it

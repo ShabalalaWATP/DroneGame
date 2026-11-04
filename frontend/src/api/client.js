@@ -22,7 +22,9 @@ async function request(method, path, body) {
   }
   if (res.status >= 500) throw new ApiError(OFFLINE, true); // the dev proxy answers with a 5xx when the backend is down
   if (!res.ok) throw new ApiError(REFUSED[res.status] || `The server refused that (${res.status}).`, false);
-  return res.status === 204 ? null : res.json();
+  if (res.status === 204) return null;
+  // the connection can still drop while the answer arrives, and then nobody knows whether the request worked
+  try { return await res.json(); } catch { throw new ApiError(OFFLINE, true); }
 }
 
 const resource = (path) => ({

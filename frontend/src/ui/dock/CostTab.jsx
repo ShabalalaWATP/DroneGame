@@ -10,7 +10,7 @@ const pct = (v) => ((100 * v) / ECONOMY.budget).toFixed(1) + '%';
 
 function LaydownTable({ net, ledger }) {
   const owned = {};
-  for (const s of net.nodes.values()) if ((s.def.role === 'sensor' || s.def.role === 'effector') && s.def.id !== 'perimeter') owned[s.def.id] = (owned[s.def.id] || 0) + 1;
+  for (const s of net.nodes.values()) if ((s.def.role === 'sensor' || s.def.role === 'effector') && s.def.id !== 'perimeter') (owned[s.def.id] = owned[s.def.id] || []).push(s.def.cost);
   const terminals = ['starlink', 'cellular'].filter((k) => ledger.terminals[k] > 0);
   const lost = sum(ledger.lost);
   const empty = !Object.keys(owned).length && !terminals.length && !lost;
@@ -18,7 +18,7 @@ function LaydownTable({ net, ledger }) {
     <table className="mini">
       <thead><tr><th>System</th><th>Count</th><th>Each</th><th>Total</th></tr></thead>
       <tbody>
-        {Object.entries(owned).map(([id, n]) => <tr key={id}><td>{STRUCTURES[id].name}</td><td>{n}</td><td>{usd(STRUCTURES[id].cost)}</td><td>{usd(n * STRUCTURES[id].cost)}</td></tr>)}
+        {Object.entries(owned).map(([id, costs]) => <tr key={id}><td>{STRUCTURES[id].name}</td><td>{costs.length}</td><td>{new Set(costs).size > 1 ? 'varies' : usd(costs[0])}</td><td>{usd(sum(costs))}</td></tr>)}
         {terminals.map((k) => <tr key={k}><td>{COMMS[k].name} terminal</td><td>{ledger.terminals[k]}</td><td>{usd(COMMS[k].cost)}</td><td>{usd(ledger.terminals[k] * COMMS[k].cost)}</td></tr>)}
         {lost > 0 && <tr><td colSpan="4" className="muted" style={{ color: '#ff8a80' }}>Lost to enemy strikes: {lost} system{lost > 1 ? 's' : ''} worth {usd(ledger.lostValue)} ({Object.entries(ledger.lost).map(([id, n]) => n + ' ' + STRUCTURES[id].name).join(', ')})</td></tr>}
         {empty && <tr><td colSpan="4" className="muted">Nothing placed yet</td></tr>}

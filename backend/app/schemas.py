@@ -17,7 +17,9 @@ JamBand = Literal["control900", "control24", "video58", "gnss"]
 WORLD_LIMIT = 350  # scene units: the ground reaches 7 km from the site, at 20 m a unit
 MAX_SYSTEMS = 200
 MAX_COMMANDS = 20_000
+MAX_UNIT_SETTINGS = 16
 MAX_FIGURES_PER_ITEM = 40
+MAX_ZONE_POINTS = 32
 
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
@@ -36,6 +38,13 @@ Count = Annotated[int, Field(ge=0, le=1_000_000_000)]
 Money = Annotated[float, Field(ge=-1e10, le=1e10)]
 
 
+FigureKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_]{1,32}$")]
+Figure = Annotated[float, Field(ge=0, le=1e12)]
+SettingChoice = Annotated[str, StringConstraints(pattern=r"^[a-z]{1,16}$")]
+UnitName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40), AfterValidator(_no_control_characters)]
+Callsign = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9 -]{0,11}$")]
+
+
 class Strict(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
@@ -47,18 +56,21 @@ class PlacedSystem(Strict):
     uplink: Uplink | None
     cellBand: CellBand
     jam: list[JamBand] | None = Field(max_length=4)
+    # Shape and coarse bounds only: class limits belong to the game, which clamps to them when it loads a laydown.
+    settings: dict[FigureKey, Figure | SettingChoice] | None = Field(default=None, max_length=MAX_UNIT_SETTINGS, exclude_if=lambda v: v is None)
+    name: UnitName | None = Field(default=None, exclude_if=lambda v: v is None)
+    callsign: Callsign | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class LaydownSpec(Strict):
-    """The shape of captureLaydown() in frontend/src/sim/laydown.js."""
+    """The shape of captureLaydown() in frontend/src/sim/laydown.js, plus the area to defend, which the simulation never reads."""
 
     structures: list[PlacedSystem] = Field(max_length=MAX_SYSTEMS)
     fusionUplinks: list[Uplink] = Field(max_length=2)
     fusionCell: CellBand
+    zone: list[Annotated[list[Coordinate], Field(min_length=2, max_length=2)]] | None = Field(default=None, min_length=3, max_length=MAX_ZONE_POINTS, exclude_if=lambda zone: zone is None)
 
 
-FigureKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_]{1,32}$")]
-Figure = Annotated[float, Field(ge=0, le=1e12)]
 FigureGroup = Annotated[dict[FigureKey, Annotated[dict[FigureKey, Figure], Field(max_length=MAX_FIGURES_PER_ITEM)]], Field(max_length=MAX_FIGURES_PER_ITEM)]
 
 

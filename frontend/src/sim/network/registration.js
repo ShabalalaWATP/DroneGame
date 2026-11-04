@@ -70,12 +70,18 @@ export function createRegistration(core, raiseAlert) {
   }
 
   // A newly built structure joins the network.
-  function registerNode(s) {
+  // reserved: callsigns that units still to join have saved, so automatic numbering must not take them.
+  function registerNode(s, reserved) {
     const def = s.def;
-    counters[def.id] = (counters[def.id] || 0) + 1;
+    const inUse = (short) => reserved?.has(short) || [...nodes.values()].some((n) => n.short === short);
+    do {
+      counters[def.id] = (counters[def.id] || 0) + 1;
+      s.autoShort = `${def.short}-${String(counters[def.id]).padStart(2, '0')}`;
+    } while (inUse(s.autoShort));
+    s.autoName = `${def.name} ${String(counters[def.id]).padStart(2, '0')}`;
     s.nodeId = S.uuid();
-    s.short = `${def.short}-${String(counters[def.id]).padStart(2, '0')}`;
-    s.name = `${def.name} ${String(counters[def.id]).padStart(2, '0')}`;
+    if (s.custom?.callsign && [...nodes.values()].some((n) => n.short === s.custom.callsign)) s.custom.callsign = ''; // a save cannot make two the same
+    nameNode(s);
     s.mode = def.sapient.modes ? def.sapient.modes[0] : def.role === 'sensor' ? 'Detect' : 'Ready';
     s.reportT = rand() * (def.sapient.interval || 1);
     s.objIds = new Map();
@@ -83,9 +89,14 @@ export function createRegistration(core, raiseAlert) {
     s.task = null; s.rejected = new Map(); s.denied = new Set();
     s.uplink = null; s.cellBand = 'B8'; s.offline = false; s.lastHeard = T(); s.modePending = null; // no terminal wired yet
     if (def.bands) s.jamBands = new Set(def.bands);
-    names.set(s.nodeId, s.name);
     register(s);
     return s;
+  }
+
+  function nameNode(s) {
+    s.name = s.custom?.name || s.autoName;
+    s.short = s.custom?.callsign || s.autoShort;
+    names.set(s.nodeId, s.name);
   }
 
   function deregisterNode(s) {
@@ -133,5 +144,5 @@ export function createRegistration(core, raiseAlert) {
 
   const reset = () => { for (const k of Object.keys(counters)) delete counters[k]; };
 
-  return { register, registerNode, deregisterNode, sendStatus, checkContact, reset };
+  return { register, registerNode, renameNode: nameNode, deregisterNode, sendStatus, checkContact, reset };
 }

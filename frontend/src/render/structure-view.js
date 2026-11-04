@@ -24,6 +24,7 @@ export function createStructureViews(scene, sim, labels) {
     v.ringObj = drapedRing(r, ringThickness(r), s.def.color, RING_OPACITY);
     v.ringObj.update(s.pos.x, s.pos.z);
     v.ringObj.mesh.visible = view.rings;
+    v.ringRange = s.def.range;
     v.holder.add(v.ringObj.mesh);
   }
 
@@ -64,6 +65,7 @@ export function createStructureViews(scene, sim, labels) {
     for (const [s, v] of views) if (!live.has(s)) dispose(s, v);
     for (const s of sim.structures) {
       const v = views.get(s) || create(s);
+      if (v.ringRange !== s.def.range) makeRing(s, v); // this unit was reconfigured
       const selected = s === view.selected;
       v.ringObj.mesh.visible = view.rings || selected;
       v.ringObj.mesh.material.opacity = selected ? SELECTED_RING_OPACITY : RING_OPACITY;

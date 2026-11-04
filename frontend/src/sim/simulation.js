@@ -156,6 +156,8 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     setCellBand: (s, band) => laydown.setCellBand(w, s, band),
     setFusionCellBand: (band) => laydown.setFusionCellBand(w, band),
     toggleJamBand: (s, band, on) => laydown.toggleJamBand(w, s, band, on),
+    configureUnit: (s, key, value) => laydown.configureUnit(w, s, key, value),
+    renameUnit: (s, name, callsign) => laydown.renameUnit(w, s, name, callsign),
     autoWire: () => laydown.autoWire(w),
     clearAll: () => laydown.clearWires(w),
     enterSandbox: () => enterSandbox(w),
@@ -176,7 +178,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     setAdapt: (key, v) => { if (Object.hasOwn(RESEARCHED.adapt, key)) ADAPT[key] = v; },
   });
 
-  // FNV-1a over every message sent, plus the headline numbers: a fingerprint of a run.
+  // FNV-1a over the messages still kept (the newest bus.max at most), plus the headline numbers: a fingerprint of a run.
   function digest() {
     let h = 0x811c9dc5;
     const feed = (s) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } };

@@ -7,12 +7,13 @@ import { drapedRing } from './terrain-view.js';
 import { LABEL_LIFT, ringThickness } from './structure-view.js';
 
 const PICK_PX = 16;
+export const PLACING_PICK_PX = 8; // tighter while placing, so a click near a system can still place beside it
 const _base = new THREE.Vector3(), _top = new THREE.Vector3();
 
 // The system nearest a point on the screen, measured to the line from its base up to its name tag, or null if none is close.
 // Measured on the screen, because at a low camera angle a ground point lands well behind a tall model.
-export function pickStructure(structures, camera, px, py, width = innerWidth, height = innerHeight) {
-  let best = null, bd = PICK_PX;
+export function pickStructure(structures, camera, px, py, width = innerWidth, height = innerHeight, tolerance = PICK_PX) {
+  let best = null, bd = tolerance;
   for (const s of structures) {
     _base.copy(s.pos).project(camera);
     _top.copy(s.pos).setY(s.pos.y + LABEL_LIFT).project(camera);
@@ -26,11 +27,11 @@ export function pickStructure(structures, camera, px, py, width = innerWidth, he
   return best;
 }
 
-// What a left click selects, with null clearing the selection, or undefined if the click belongs to the tool. A name tag beats a
-// placement tool, because nothing can be placed on a system. A click never selects with the Sell or zone tool.
+// What a left click selects, with null clearing the selection, or undefined if the click belongs to the tool. A system beats a
+// placement tool: the ground behind a model can be far enough away to buy a second one. A click never selects with the Sell or zone tool.
 export function selectionFrom(tool, tagged, pick) {
   if (!tool) return tagged || pick();
-  return STRUCTURES[tool] && tagged ? tagged : undefined;
+  return (STRUCTURES[tool] && (tagged || pick())) || undefined;
 }
 
 // getTool() is a structure id, 'sell', 'zone' or null. A left click first calls onSelect(screenX, screenY), which returns true if

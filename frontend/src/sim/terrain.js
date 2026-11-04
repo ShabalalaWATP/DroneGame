@@ -1,15 +1,15 @@
-// Procedural terrain for the simulation: heights, forest canopy, buildings, power lines, and line-of-sight tests.
+// Procedural terrain for the simulation: heights, forest canopy, buildings and power lines, handed to world.js as grids.
 // No rendering here (see terrain-view.js), so it can run headless. Coordinates are metres in scene axes:
 // x is east, z is south (north is -z), y is height above the station base.
 
-import { WORLD, TERRAIN, COMMS } from './config/index.js';
+import { WORLD, TERRAIN } from './config/index.js';
 import { mulberry32, hashSeed } from './rng.js';
+import { clamp, makeWorld, pickMasts, rasterBox } from './world.js';
 
 // The terrain currently in use. Other modules read it through the helpers below.
 export const terrainState = { data: null, hillshade: null };
 export const terrain = () => terrainState.data;
 
-const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
 
 // Seeded 2D value noise, 0..1
@@ -59,6 +59,7 @@ export function generateTerrain(seed) {
   const canopy = new Uint8Array(N * N); // tree height (m), 0 = none
   const bldg = new Uint8Array(N * N);   // building height (m), 0 = none
   const cover = new Uint8Array(N * N);  // 0 open, 1 forest, 2 built, 3 power-line corridor, 4 water
+  const grids = { N, cell, R, ground, canopy, bldg, cover };
   const at = (i, j) => j * N + i;
   const wc = (i) => -R + i * cell;
 
@@ -112,20 +113,9 @@ export function generateTerrain(seed) {
 
   // buildings
   const buildings = [];
-  function rasterBox(b) {
-    const i0 = Math.floor((b.x - b.w / 2 + R) / cell), i1 = Math.ceil((b.x + b.w / 2 + R) / cell);
-    const j0 = Math.floor((b.z - b.d / 2 + R) / cell), j1 = Math.ceil((b.z + b.d / 2 + R) / cell);
-    for (let j = clamp(j0, 0, N - 1); j <= clamp(j1, 0, N - 1); j++) {
-      for (let i = clamp(i0, 0, N - 1); i <= clamp(i1, 0, N - 1); i++) {
-        const k = at(i, j);
-        bldg[k] = Math.max(bldg[k], Math.min(255, Math.round(b.h)));
-        canopy[k] = 0; cover[k] = 2;
-      }
-    }
-  }
   for (const s of STATION) {
-    if (s.kind === 'box') rasterBox(s);
-    else if (s.kind === 'cyl' || s.kind === 'tower') rasterBox({ x: s.x, z: s.z, w: 2 * s.r, d: 2 * s.r, h: s.h });
+    if (s.kind === 'box') rasterBox(grids, s);
+    else if (s.kind === 'cyl' || s.kind === 'tower') rasterBox(grids, { x: s.x, z: s.z, w: 2 * s.r, d: 2 * s.r, h: s.h });
   }
   for (let h = 0; h < TERRAIN.hamlets; h++) {
     for (let attempt = 0; attempt < 60; attempt++) {
@@ -137,7 +127,7 @@ export function generateTerrain(seed) {
       for (let b = 0; b < n; b++) {
         const bd = { x: x + (rng() - 0.5) * 260, z: z + (rng() - 0.5) * 260, w: 10 + rng() * 8, d: 8 + rng() * 6, h: 5 + rng() * 5 };
         buildings.push(bd);
-        rasterBox(bd);
+        rasterBox(grids, bd);
       }
       break;
     }
@@ -173,55 +163,5 @@ export function generateTerrain(seed) {
     }
   }
 
-  // cell towers: a few masts on high ground, spread out around the station, picked from random candidates
-  const towers = [];
-  const candidates = Array.from({ length: 60 }, () => {
-    const a = rng() * Math.PI * 2, d = 3500 + rng() * 3500;
-    const x = Math.cos(a) * d, z = Math.sin(a) * d;
-    return { x, z, h: ground[at(clamp(Math.round((x + R) / cell), 0, N - 1), clamp(Math.round((z + R) / cell), 0, N - 1))] };
-  }).filter((c) => c.h > waterLevel + 2).sort((a, b) => b.h - a.h);
-  for (const c of candidates) {
-    if (towers.length >= COMMS.towers) break;
-    if (towers.every((t) => Math.hypot(t.x - c.x, t.z - c.z) > 3000)) towers.push({ x: c.x, z: c.z, ground: c.h });
-  }
-
-  // ---------- queries ----------
-  function groundAt(x, z) { // bilinear
-    const fx = clamp((x + R) / cell, 0, N - 1.001), fz = clamp((z + R) / cell, 0, N - 1.001);
-    const i = Math.floor(fx), j = Math.floor(fz), tx = fx - i, tz = fz - j;
-    const a = ground[at(i, j)], b = ground[at(i + 1, j)], c = ground[at(i, j + 1)], d = ground[at(i + 1, j + 1)];
-    return (a + (b - a) * tx) * (1 - tz) + (c + (d - c) * tx) * tz;
-  }
-  const cellOf = (x, z) => at(clamp(Math.round((x + R) / cell), 0, N - 1), clamp(Math.round((z + R) / cell), 0, N - 1));
-
-  // Line of sight between two points (metres). Returns { clear, blocker, canopy } where canopy is the metres of the
-  // path inside tree canopy. Trees close to the start (a sensor or weapon) are assumed cleared.
-  function los(ax, ay, az, bx, by, bz, endClear = TERRAIN.endClear) {
-    const dx = bx - ax, dy = by - ay, dz = bz - az;
-    const lenH = Math.hypot(dx, dz);
-    const n = Math.max(2, Math.ceil(lenH / cell));
-    const step = lenH / n;
-    let canopyLen = 0;
-    for (let s = 1; s < n; s++) {
-      const t = s / n;
-      const x = ax + dx * t, z = az + dz * t, y = ay + dy * t;
-      const g = groundAt(x, z), k = cellOf(x, z);
-      if (y < g + bldg[k]) return { clear: false, blocker: bldg[k] ? 'building' : 'terrain', canopy: canopyLen };
-      const c = canopy[k];
-      if (c && y < g + c && t * lenH > endClear) canopyLen += step;
-    }
-    return { clear: true, blocker: null, canopy: canopyLen };
-  }
-
-  return {
-    seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, station: STATION,
-    groundAt, cellOf, los,
-    coverAt: (x, z) => cover[cellOf(x, z)],
-    canopyAt: (x, z) => canopy[cellOf(x, z)],
-    bldgAt: (x, z) => bldg[cellOf(x, z)],
-    slope: (x, z) => {
-      const e = cell;
-      return Math.hypot(groundAt(x + e, z) - groundAt(x - e, z), groundAt(x, z + e) - groundAt(x, z - e)) / (2 * e);
-    },
-  };
+  return makeWorld({ seed, ...grids, buildings, lines, towers: pickMasts(grids, rng, waterLevel + 2), station: STATION });
 }

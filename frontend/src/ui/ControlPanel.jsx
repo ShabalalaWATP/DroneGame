@@ -32,6 +32,8 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
         ))}
       </div>
       <label><input type="checkbox" id="auto" checked={state.autoStart} onChange={(e) => commands.setAutoStart(e.target.checked)} /> Auto-start next wave</label>
+      {toggle('osm-toggle', 'osm', 'OpenStreetMap (demo)', 'Live map tiles on the ground, around Marlborough. A picture only: the hills, trees and rules stay as generated. Needs internet, and tells OpenStreetMap you are viewing this area.')}
+      {view.osm && <div id="osm-credit" className="muted">Map © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors</div>}
       {toggle('rings', 'rings', 'Show ranges (R)')}
       {toggle('truth', 'truth', 'Truth overlay (T)', "On: every drone is drawn where it really is (grey if no sensor has it). Off: you only see what the fusion node believes.")}
       {toggle('labels-toggle', 'labels', 'Labels (L)', 'Name tags on every system and drone')}

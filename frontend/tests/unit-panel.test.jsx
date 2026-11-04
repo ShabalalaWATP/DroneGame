@@ -52,6 +52,13 @@ describe('picking a system on the screen', () => {
     expect(pickStructure([s], cam, ...screen(s, cam, 9), W, H)).toBe(s);
   });
 
+  it('takes a tighter tolerance while placing', () => {
+    const cam = camera(), s = at(0, 0);
+    const [x, y] = screen(s, cam);
+    expect(pickStructure([s], cam, x + 12, y, W, H)).toBe(s);
+    expect(pickStructure([s], cam, x + 12, y, W, H, 8)).toBe(null);
+  });
+
   it('finds nothing away from any system', () => {
     const cam = camera(), s = at(0, 0);
     const [x, y] = screen(s, cam);
@@ -78,9 +85,10 @@ describe('what a click selects', () => {
     expect(selectionFrom(null, null, () => model)).toBe(model);
     expect(selectionFrom(null, null, () => null)).toBe(null);
   });
-  it('with a placement tool: a name tag selects, and anywhere else places', () => {
+  it('with a placement tool: a system selects, and anywhere else places', () => {
     expect(selectionFrom('radar', tag, () => model)).toBe(tag);
-    expect(selectionFrom('radar', null, () => model)).toBe(undefined);
+    expect(selectionFrom('radar', null, () => model)).toBe(model);
+    expect(selectionFrom('radar', null, () => null)).toBe(undefined);
   });
   it('with the Sell or zone tool: the click always belongs to the tool', () => {
     expect(selectionFrom('sell', tag, () => model)).toBe(undefined);

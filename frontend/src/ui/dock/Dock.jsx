@@ -18,8 +18,10 @@ const TABS = [
   ['saved', 'Saved', SavedTab], ['runs', 'Runs', RunsTab],
 ];
 
-export function Dock({ open, onClose }) {
-  const [tab, setTab] = useState('messages');
+// tab and onTab let the wizard open a tab. Without them the dock keeps its own.
+export function Dock({ open, onClose, tab: shown, onTab }) {
+  const [own, setOwn] = useState('messages');
+  const tab = shown ?? own, setTab = onTab ?? setOwn;
   const [max, setMax] = useState(false);
   return (
     <div id="dock" className={`panel${open ? '' : ' hidden'}${max ? ' max' : ''}`}>

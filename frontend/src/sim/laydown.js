@@ -6,21 +6,17 @@ import { WORLD, BUILD, COMMS, ECONOMY, STRUCTURES } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { u, hdist, hereU } from './units.js';
 import { buyTerminal, money } from './economy.js';
+import { cleanCallsign, cleanName, cleanSettings, fieldsFor, setSetting, unitCost, unitDef } from './unit-config.js';
 
-// A unit's own definition sits over the catalogue's, so figure edits still reach it and one unit can change alone.
-function unitDef(catalogue) {
-  const def = Object.create(catalogue);
-  def.sapient = { ...catalogue.sapient };
-  if (catalogue.sapient.noise) def.sapient.noise = { ...catalogue.sapient.noise };
-  return def;
-}
-
-export function addStructure(w, id, x, z) {
-  const def = unitDef(STRUCTURES[id]);
+// saved holds a unit's settings and custom names, and reserved the callsigns other saved units will need.
+export function addStructure(w, id, x, z, saved = {}, reserved) {
+  const def = unitDef(id, cleanSettings(id, saved.settings));
   const y = hereU(x, z);
   const s = { def, health: def.health || 30, pos: new Vector3(x, y, z), cd: 0, aim: 0, beamTarget: null };
+  const name = cleanName(saved.name), callsign = cleanCallsign(saved.callsign);
+  if (name || callsign) s.custom = { name, callsign };
   w.structures.push(s);
-  w.net.registerNode(s);
+  w.net.registerNode(s, reserved);
   return s;
 }
 
@@ -69,7 +65,12 @@ export function sell(w, x, z) {
 export function captureLaydown(w) {
   return {
     // sorted, so the order systems were placed in cannot change the run
-    structures: w.structures.map((s) => ({ id: s.def.id, x: s.pos.x, z: s.pos.z, uplink: s.uplink || null, cellBand: s.cellBand, jam: s.jamBands ? [...s.jamBands] : null }))
+    structures: w.structures.map((s) => ({
+      id: s.def.id, x: s.pos.x, z: s.pos.z, uplink: s.uplink || null, cellBand: s.cellBand, jam: s.jamBands ? [...s.jamBands] : null,
+      ...(Object.keys(s.def.settings).length ? { settings: { ...s.def.settings } } : {}),
+      ...(s.custom?.name ? { name: s.custom.name } : {}),
+      ...(s.custom?.callsign ? { callsign: s.custom.callsign } : {}),
+    }))
       .sort((a, b) => a.id.localeCompare(b.id) || a.x - b.x || a.z - b.z),
     fusionUplinks: [...w.net.fusion.uplinks], fusionCell: w.net.fusion.cellBand,
   };
@@ -78,15 +79,16 @@ export function captureLaydown(w) {
 // Why a saved laydown can't be afforded at today's prices, or null if it can.
 export function costProblem(spec) {
   const terminals = [...spec.structures.map((l) => l.uplink), ...spec.fusionUplinks].filter(Boolean);
-  const total = spec.structures.reduce((sum, l) => sum + STRUCTURES[l.id].cost, 0) + terminals.reduce((sum, k) => sum + COMMS[k].cost, 0);
+  const total = spec.structures.reduce((sum, l) => sum + unitCost(l.id, cleanSettings(l.id, l.settings)), 0) + terminals.reduce((sum, k) => sum + COMMS[k].cost, 0);
   return total > ECONOMY.budget ? `That laydown costs ${money(total)}, more than the ${money(ECONOMY.budget)} budget at today's prices` : null;
 }
 
 // Rebuild the systems and their wiring, charging the budget as if they had just been bought.
 export function restoreLaydown(w, spec) {
   const charge = (v) => { w.state.budget -= v; w.ledger.capex += v; };
+  const reserved = new Set(spec.structures.map((l) => cleanCallsign(l.callsign)).filter(Boolean));
   for (const l of spec.structures) {
-    const s = addStructure(w, l.id, l.x, l.z);
+    const s = addStructure(w, l.id, l.x, l.z, l, reserved);
     charge(s.def.cost);
     if (l.uplink) { s.uplink = l.uplink; w.ledger.terminals[l.uplink]++; charge(COMMS[l.uplink].cost); }
     s.cellBand = l.cellBand;
@@ -94,6 +96,35 @@ export function restoreLaydown(w, spec) {
   }
   for (const k of spec.fusionUplinks) { w.net.fusion.uplinks.add(k); w.ledger.terminals[k]++; charge(COMMS[k].cost); }
   w.net.fusion.cellBand = spec.fusionCell;
+}
+
+// Change one field on one unit, paying or being refunded the difference. A null value goes back to the standard one. Returns why not, or null.
+export function configureUnit(w, s, key, value) {
+  if (designLocked(w)) return 'The laydown is locked once the first wave starts';
+  const field = fieldsFor(s.def.id).find((f) => f.key === key);
+  if (!field) return 'That cannot be changed on this system';
+  const before = s.def.cost, was = s.def.settings[key];
+  if (!setSetting(s.def.settings, field, s.def.id, value)) return `Not a valid ${field.label.toLowerCase()}`;
+  const delta = s.def.cost - before;
+  if (delta > w.state.budget) {
+    if (was == null) delete s.def.settings[key]; else s.def.settings[key] = was;
+    return `Not enough budget (${money(delta)} more needed, ${money(w.state.budget)} left)`;
+  }
+  w.state.budget -= delta; w.ledger.capex += delta;
+  return null;
+}
+
+// Give a unit its own name and callsign. An empty one goes back to the automatic one. Returns why not, or null.
+export function renameUnit(w, s, name, callsign) {
+  if (designLocked(w)) return 'The laydown is locked once the first wave starts';
+  const cleanN = cleanName(name), cleanC = cleanCallsign(callsign);
+  if (callsign && !cleanC) return 'A callsign is up to 12 letters, numbers, spaces or dashes';
+  const short = cleanC || s.autoShort;
+  const taken = [...w.net.nodes.values(), w.net.gui].some((o) => o !== s && o.short?.toLowerCase() === short.toLowerCase());
+  if (taken) return `${short} is already in use`;
+  s.custom = cleanN || cleanC ? { name: cleanN, callsign: cleanC } : undefined;
+  w.net.renameNode(s);
+  return null;
 }
 
 // ---------- the network design: terminals, wires and settings ----------

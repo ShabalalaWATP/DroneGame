@@ -5,6 +5,7 @@ import { DRONES } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
 import { clamp } from '../sim/units.js';
 import { useGame, useTick } from './hooks.js';
+import { useMovable } from './useMovable.js';
 
 const COMPASS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
 const LEVELS = [1, 2, 3, 4, 5, 6, 8, 10];
@@ -13,6 +14,7 @@ export function Sandbox() {
   useTick();
   const { sim, commands } = useGame();
   const { state, drones } = sim;
+  const { style, handle } = useMovable();
   const [form, setForm] = useState({ type: Object.keys(DRONES)[0], count: '3', dir: '0', gap: '4' });
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const launch = () => commands.launchSandboxAttack({
@@ -21,8 +23,8 @@ export function Sandbox() {
   });
   return (
     <>
-      <div id="sandbox" className={`panel${state.sandbox ? '' : ' hidden'}`}>
-        <h3>SANDBOX</h3>
+      <div id="sandbox" className={`panel${state.sandbox ? '' : ' hidden'}`} data-movable style={style}>
+        <h3 title="Drag to move. Double-click to put it back." {...handle}>SANDBOX</h3>
         <div className="note">Attack your laydown without consequences: the site and your systems cannot be damaged and shots are free. Leaving resets the run and keeps your laydown, so you can still place and wire systems here.</div>
         <label>Enemy has adapted to wave{' '}
           <select id="sb-level" value={state.sbLevel} onChange={(e) => commands.setSandboxLevel(Number(e.target.value))}>
