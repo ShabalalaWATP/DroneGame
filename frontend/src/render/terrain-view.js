@@ -7,6 +7,7 @@ import { terrainState } from '../sim/terrain.js';
 import { mulberry32, hashSeed } from '../sim/rng.js';
 
 const MPU = () => WORLD.metresPerUnit;
+const UP = new THREE.Vector3(0, 1, 0);
 const u = (m) => m / MPU();
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 
@@ -17,10 +18,10 @@ export function buildWorldView(scene, data, siteMat) {
   const group = new THREE.Group();
   scene.add(group);
   const R = data.R;
-  const vs = TERRAIN.visualScale;
+  const vs = data.geo ? 1 : TERRAIN.visualScale; // on a real map, models are true to its scale
 
   // ---------- ground ----------
-  const stride = Math.max(1, TERRAIN.meshStride); // mesh vertex every few grid cells; the sim grid is finer
+  const stride = data.geo ? 2 : Math.max(1, TERRAIN.meshStride); // mesh vertex every few grid cells; the sim grid is finer
   const seg = Math.floor((data.N - 1) / stride);
   const geo = new THREE.PlaneGeometry(u(2 * R), u(2 * R), seg, seg).rotateX(-Math.PI / 2);
   const pos = geo.attributes.position;
@@ -116,6 +117,7 @@ export function buildWorldView(scene, data, siteMat) {
     data.buildings.forEach((b, n) => {
       p.set(u(b.x), u(data.groundAt(b.x, b.z)), u(b.z));
       sc.set(u(b.w * vs), u(b.h * vs), u(b.d * vs));
+      q.setFromAxisAngle(UP, b.angle || 0);
       m4.compose(p, q, sc);
       houses.setMatrixAt(n, m4);
       houses.setColorAt(n, col.setHex(palette[n % palette.length]));

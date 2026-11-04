@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { FUSION } from '../sim/config/index.js';
 import { view } from '../render/view.js';
 import { useArmed, useGame, useTick } from './hooks.js';
+import { MapControls } from './MapControls.jsx';
 
 const SPEEDS = [[0, '❚❚', 'Pause (Space)'], [1, '1x'], [2, '2x'], [3, '3x']];
 
@@ -32,6 +33,7 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
         ))}
       </div>
       <label><input type="checkbox" id="auto" checked={state.autoStart} onChange={(e) => commands.setAutoStart(e.target.checked)} /> Auto-start next wave</label>
+      <MapControls />
       {toggle('rings', 'rings', 'Show ranges (R)')}
       {toggle('truth', 'truth', 'Truth overlay (T)', "On: every drone is drawn where it really is (grey if no sensor has it). Off: you only see what the fusion node believes.")}
       {toggle('labels-toggle', 'labels', 'Labels (L)', 'Name tags on every system and drone')}

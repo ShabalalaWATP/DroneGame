@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { money } from '../../sim/economy.js';
+import { worldLabel } from '../../sim/world-pack.js';
 import { useArmed, useGame, useLoad, useTick } from '../hooks.js';
 
 const PAGE = 20;
@@ -45,7 +46,7 @@ export function RunsTab({ active }) {
             <tbody>
               {data.items.map((r) => (
                 <tr key={r.id}>
-                  <td>{when(r.finished_at)}</td><td>{r.scenario_seed}</td><td>{r.world}</td><td>{r.waves_completed}</td><td>{r.kills}</td><td>{r.leaks}</td>
+                  <td>{when(r.finished_at)}</td><td>{r.scenario_seed}</td><td>{worldLabel(r.world)}</td><td>{r.waves_completed}</td><td>{r.kills}</td><td>{r.leaks}</td>
                   <td>{Math.round(r.health)}%</td><td>{money(r.capex + r.consumables)}</td><td>{money(r.budget_left)}</td><td>{money(r.enemy_cost)}</td>
                   <td><button className="mini" onClick={remove.confirm(r.id, () => deleteRun(r.id))}>{remove.armed === r.id ? 'Sure?' : 'Delete'}</button></td>
                 </tr>

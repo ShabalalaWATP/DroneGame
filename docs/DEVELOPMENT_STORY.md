@@ -54,6 +54,10 @@ A review found these bugs by running the game:
 - An early test for prototype pollution used an object literal, where `__proto__` sets the prototype instead of adding a key, so it passed on vulnerable code. `JSON.parse` is what real input goes through, and it reproduced the bug.
 - A test in Phase 5 looped forever waiting for a spotter that had been shot down, which hung the run for over eight minutes.
 
+## Real maps
+
+Started with measurements rather than code. Two test areas showed lidar works and is worth having, that a third of tall cover sits outside OS woodland outlines, and that a whole pack is about a third of the size first estimated. The design held: Three.js stays the only renderer, the rules read the same grids, and generated worlds still give the same digests. A hand test also caught what unit tests had not: the server lists a pack's full fingerprint, and the store compared it with the short form.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

@@ -1,6 +1,32 @@
 # Site Guard: real-world mapping plan
 
-Status: **in progress, and nothing is visible in the game yet.** M0 and M1 are done, so M2 is next. M0 drew two real test areas with the game's own terrain code, in a throwaway page. See [When to start](#when-to-start).
+Status: **working in the game, on branch `feature/real-mapping`.** M0 to M4 are done, and most of M5. See [What is built](#what-is-built) for what is left.
+
+## What is built
+
+| Part | State |
+|---|---|
+| Pack builder, `tools/mapbuild/` | Done, with lidar, satellite, roads and names. Downloads the OS files it needs, and checks their checksums. |
+| Loading packs into the rules | Done, with grid bearings and real positions in SAPIENT messages |
+| Map on the ground | OS map, satellite, shaded relief and live OpenStreetMap. Roads and names (hybrid), national grid, plan view. |
+| Start screen | Generated ground or a real map. The start point can be clicked on a map, typed as a grid reference, or taken from the laptop's location. |
+| No map at that spot | The app offers to build one, as a background job with progress |
+| In the game | "My location" centres on the laptop and marks it, "The site" returns, and a typed grid reference moves there or places the chosen system |
+| Saving | Saved laydowns reload their map pack, or say which is missing |
+
+**Left to do:**
+
+- **Model site:** stamping the power station onto real ground. Real sites only for now, so the world string only accepts `real`.
+- **Live OS map and place search:** both need an OS API key and the proxy below, and you have no key set up. OpenStreetMap does the live layer instead.
+- **Wales and Scotland lidar:** the England services are used, and elsewhere the ground is Terrain 50.
+- **Sharper aerial photos,** once the Environment Agency confirms the licence.
+- **A dense city:** not tried, so a building cap may be needed.
+
+**Changes from the design below:**
+
+- The site's position in a pack comes from a pack fit, but a laptop's position has no pack yet, so `sim/bng.js` converts GPS to the grid with the published Helmert shift. Checked against pyproj with OSTN15 at five sites: within about 5 m, which is finer than a laptop's location.
+- Packs live in `~/site-guard-maps/packs` (or `SITE_GUARD_MAPS`), and the local server lists them. A pack imported from a file is kept in the browser, so it still works with the server stopped.
+- Live OpenStreetMap replaces the earlier decision to reject OSM. Bulk download is still ruled out: tiles are only fetched live, for the area in view, and never put in a pack. Each tile is stretched by its own corners, as OSM's squares sit at an angle to the national grid.
 
 Code is referenced by function and file name, not line number, because the refactor keeps moving lines.
 

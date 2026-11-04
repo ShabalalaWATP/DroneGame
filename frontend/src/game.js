@@ -11,6 +11,8 @@ import { trackColour } from './render/belief-view.js';
 import { view } from './render/view.js';
 import { createApi } from './api/client.js';
 import { createRunSaver } from './api/run-saver.js';
+import { createPackStore } from './api/pack-store.js';
+import { parseWorldId } from './sim/world-pack.js';
 
 const PANEL_INTERVAL = 100; // ms between panel refreshes: panels never update per frame
 
@@ -48,6 +50,29 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   // shortcut: a page restored from the back/forward cache keeps playing, but that run was already recorded when it closed. Clear runEnded on pageshow if that ever matters.
   const pageClosing = () => { closing = true; sim.endRun(); closing = false; };
   sim.on('sandbox', bump);
+
+  // ---------- real map packs ----------
+  const packs = createPackStore({ api });
+  const usePack = ({ pack }) => sim.registerPack({ hash: pack.hash, header: pack.header, grids: pack.grids, features: pack.features });
+  async function loadPack(entry) {
+    const decoded = await packs.load(entry);
+    usePack(decoded);
+    return decoded;
+  }
+  // Make sure a saved world's pack is loaded. Returns why not, or null.
+  async function ensureWorld(world) {
+    const id = parseWorldId(world);
+    if (!id || packs.get(id.hash)) return null;
+    const { packs: all } = await packs.list();
+    const entry = all.find((p) => p.hash.startsWith(id.hash));
+    if (!entry) return 'The map pack for this laydown is not available here. Import or build it first.';
+    await loadPack(entry);
+    return null;
+  }
+  const mapSource = (world) => {
+    const id = parseWorldId(world), found = id && packs.get(id.hash);
+    return found ? { pictures: found.pictures, features: found.pack.features, credits: found.pack.header.credits } : null;
+  };
 
   // ---------- filled in once the canvas exists ----------
   let gameView = null, placement = null, replay = null;
@@ -118,7 +143,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
 
   // Called once, when the canvas and label layer are in the page.
   function attach(canvas, labelLayer) {
-    gameView = createGameView(canvas, labelLayer, sim);
+    gameView = createGameView(canvas, labelLayer, sim, mapSource);
     placement = createPlacement({
       scene: gameView.scene, camera: gameView.camera, canvas, getWorldMesh: gameView.getWorldMesh, sim,
       getTool: () => tool, onGroundClick: groundClick,
@@ -133,6 +158,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   }
 
   return {
+    packs, loadPack, ensureWorld, mapSource, cursor: () => placement?.cursor() ?? null,
     sim, commands, clock, setSpeed, reviewClock, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
     getTool: () => tool, setTool,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
@@ -143,6 +169,13 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     setViewOption(key, value) {
       view[key] = value;
       if (key === 'rings' && gameView) gameView.structures.setRingsVisible(value);
+      if (key === 'planView' && gameView) gameView.viewFromAbove(value);
+      if (['baseMap', 'mapRoads', 'mapGrid'].includes(key) && gameView) {
+        gameView.refreshMap().then((live) => {
+          if (live?.total && live.failed === live.total) { view.baseMap = 'os'; toast('The live map could not load: it needs an internet connection'); gameView.refreshMap(); bump(); }
+          else if (live?.failed) toast(`${live.failed} of ${live.total} map tiles could not load`);
+        });
+      }
       bump();
     },
     // a figure was edited in the Sources tab: redraw anything built from it

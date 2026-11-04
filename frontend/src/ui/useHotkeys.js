@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { STRUCTURES } from '../sim/config/index.js';
 import { view } from '../render/view.js';
+import { nextBaseMap } from './MapControls.jsx';
 import { useGame } from './hooks.js';
 
 export function useHotkeys() {
@@ -25,6 +26,11 @@ export function useHotkeys() {
       if (e.key === 't' || e.key === 'T') { game.setViewOption('truth', !view.truth); return; }
       if (e.key === 'l' || e.key === 'L') { game.setViewOption('labels', !view.labels); return; }
       if (e.key === 'x' || e.key === 'X') { game.setTool('sell'); return; }
+      if (e.key === 'p' || e.key === 'P') { game.setViewOption('planView', !view.planView); return; }
+      if (game.sim.state.terrainSeed.startsWith('pack:')) {
+        if (e.key === 'g' || e.key === 'G') { game.setViewOption('mapGrid', !view.mapGrid); return; }
+        if (e.key === 'm' || e.key === 'M') { game.setViewOption('baseMap', nextBaseMap(view.baseMap)); return; }
+      }
       const def = Object.values(STRUCTURES).find((d) => d.key === e.key);
       if (def) game.setTool(def.id);
     };

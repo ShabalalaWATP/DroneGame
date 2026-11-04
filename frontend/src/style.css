@@ -234,3 +234,20 @@ body.track-hi .tlabel { color: #ffcc66; font-size: 11px; opacity: 1; }
 .runs-paging { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; font-size: 12px; }
 .runs-paging button.mini { margin: 0; }
 .figset-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; }
+
+/* real maps */
+.map-note { font-size: 11px; line-height: 1.35; margin-top: 2px; }
+#map-controls > * { margin-top: 4px; }
+#map-controls > summary { cursor: pointer; font-weight: 600; }
+#map-controls label { display: block; }
+#map-credit { position: fixed; left: 50%; transform: translateX(-50%); bottom: 52px; margin: 0; padding: 2px 8px; background: rgba(11, 18, 32, 0.8); border-radius: 4px; max-width: 60vw; text-align: center; pointer-events: none; }
+#hud-top-right { max-height: calc(100vh - 60px); overflow-y: auto; }
+#map-controls select, #map-goto input { max-width: 150px; min-width: 0; }
+#map-goto { display: flex; gap: 4px; }
+#map-goto input { flex: 1; }
+#world-picker { margin: 10px 0; }
+#world-picker .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+#world-real-panel select { flex: 1; min-width: 160px; }
+#site-ref { width: 170px; }
+#site-map { display: block; width: 100%; max-width: 420px; cursor: crosshair; border: 1px solid #2f4468; border-radius: 6px; margin-top: 6px; }
+.card { max-height: 92vh; overflow-y: auto; }

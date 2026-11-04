@@ -228,8 +228,23 @@ Everything is under `/api/v1`, with the schema at `/api/v1/openapi.json`.
 | `/laydowns` | `GET`, `POST`, and `GET`, `PUT`, `DELETE` by ID |
 | `/runs` | `GET`, `POST`, and `GET`, `DELETE` by ID |
 | `/figure-sets` | `GET`, `POST`, and `GET`, `DELETE` by ID |
+| `/packs` | `GET` the list, `GET` a pack file by name, and `GET`, `POST` `/packs/build` |
 
 There is no sign-in, so the service binds to this machine only, and refuses other hosts and cross-site writes. See the [security notes](docs/SECURITY_NOTES.md), which also say what would be needed before hosting it.
+
+## Real maps
+
+On the start screen, choose **Real map**. Pick a map, then set the start point: click the map, type a grid reference, or press **Use my location**. Most laptops have no GPS chip and estimate from Wi-Fi, so the app shows how good the position is. If there is no map there yet, the app offers to build one.
+
+In the game, the panel on the right chooses the OS map, satellite, shaded relief or live OpenStreetMap, and turns on roads and names (with satellite, that is the hybrid view), the national grid and plan view. **My location** centres on you, and a typed grid reference moves there, or places the system you have picked.
+
+Maps live in `~/site-guard-maps` (set `SITE_GUARD_MAPS` to move them), which holds the OS downloads and the finished packs. To build one by hand:
+
+```bash
+uv --directory tools/mapbuild run python -m mapbuild --centre "SU 22 66" --name "Savernake" --data ~/site-guard-maps/os --out ~/site-guard-maps/packs/savernake.sgmap --fetch
+```
+
+Real ground plays differently from generated ground. Lidar covers England only, and elsewhere the ground uses OS Terrain 50 with assumed tree and building heights. Map data is under the Open Government Licence, satellite pictures contain modified Copernicus Sentinel data, and live tiles are © OpenStreetMap contributors.
 
 ## Saved data
 
