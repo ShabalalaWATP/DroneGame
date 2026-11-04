@@ -178,15 +178,15 @@ Every phase leaves the game working and ends with a commit or small series of co
 
 ### Phase 1: Fix the small bugs and make runs repeatable
 
-- [ ] `serve.py`: use `ThreadingHTTPServer` and bind to `127.0.0.1`
-- [ ] Stop the seed in the URL being injected as HTML at `main.js:1101`
-- [ ] Remember the laydown at the first wave, so Reset and Retry restore destroyed systems
-- [ ] Remove strike drones that leave the world, so a wave cannot stay open for ever
-- [ ] Rebuild the run from its laydown when the first wave starts, so build time and placement order cannot affect it. Time between later waves remains an operator input, recorded in Phase 3.
-- [ ] Replace `Math.random` in `injectFault` at `network.js:673` with a seeded draw that cannot shift the simulation stream. The two UI uses, the seed button and the packet pulses, can stay.
-- [ ] Correct the Sell tooltip, the stale comment at `network.js:5` and the variance formula at `tracker.js:236`
-- [ ] Remove `addTracer` and `FUSION.trackTimeout`
-- [ ] Record reference runs: several seeds and laydowns, scripted through `window.game`, saved as digest fixtures
+- [x] `serve.py`: use `ThreadingHTTPServer` and bind to `127.0.0.1`
+- [x] Stop the seed in the URL being injected as HTML at `main.js:1101`
+- [x] Remember the laydown at the first wave, so Reset and Retry restore destroyed systems
+- [x] Remove strike drones that leave the world, so a wave cannot stay open for ever
+- [x] Rebuild the run from its laydown when the first wave starts, so build time and placement order cannot affect it. Time between later waves remains an operator input, recorded in Phase 3.
+- [x] Replace `Math.random` in `injectFault` at `network.js:673` with a seeded draw that cannot shift the simulation stream. The two UI uses, the seed button and the packet pulses, can stay.
+- [x] Correct the Sell tooltip, the stale comment at `network.js:5` and the variance formula at `tracker.js:236`
+- [x] Remove `addTracer` and `FUSION.trackTimeout`
+- [x] Record reference runs: several seeds and laydowns, scripted through `window.game`, saved as digest fixtures
 
 **Done when:** a run's digest no longer depends on idle time, and each bug has a check that failed before its fix.
 
