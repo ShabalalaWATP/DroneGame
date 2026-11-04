@@ -97,7 +97,7 @@ CREATE TABLE laydowns (
   id INTEGER PRIMARY KEY,
   name TEXT NOT NULL,
   world TEXT NOT NULL,            -- the terrain seed today
-  spec TEXT NOT NULL,            -- JSON: systems, positions, wiring, bands
+  spec TEXT NOT NULL,            -- JSON: systems, positions, wiring, bands, names, unit settings, rounds loaded
   game_version TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -118,7 +118,8 @@ CREATE TABLE runs (
   health REAL NOT NULL,
   budget_left REAL NOT NULL,
   capex REAL NOT NULL,
-  consumables REAL NOT NULL,
+  munitions_bought REAL NOT NULL,
+  consumables REAL NOT NULL,     -- value of rounds fired and laser energy used
   enemy_cost REAL NOT NULL,
   finished_at TEXT NOT NULL
 );
@@ -158,7 +159,7 @@ Runs locally with no sign-in, which is the main thing to design around.
 
 - **Bind to `127.0.0.1` only.** This also fixes the `serve.py` issue of exposing the folder to the LAN.
 - **Block attacks from web pages you visit:** `TrustedHostMiddleware` limited to `localhost` and `127.0.0.1` stops DNS rebinding. With no CORS and JSON-only writes, other sites cannot post to the API.
-- **Validate all input with Pydantic:** known system IDs only, coordinates inside the world, finite numbers, name length limits, a capped number of systems and a request size limit. Seeds are length-limited.
+- **Validate all input with Pydantic:** known system IDs only, coordinates inside the world, finite numbers, name length limits, a capped number of systems and a request size limit. Seeds are length-limited. Unit settings and rounds loaded are checked for shape and coarse bounds here. Class limits belong to the game, so `restoreLaydown` clamps to its field table on load and the backend holds no game rules. Only keys in that table are read, because the API's key pattern allows `__proto__` and `constructor`.
 - **SQL uses bound parameters only.**
 - **No raw HTML from data in React:** `dangerouslySetInnerHTML` is banned. Source links in the Sources tab allow `https:` only.
 - **Content Security Policy** on served pages, with no inline scripts and same-origin connections only.
@@ -220,7 +221,7 @@ Every phase leaves the game working and ends with a commit or small series of co
 
 ### Phase 4: Fix ghost-track engagement and check balance
 
-This is the one phase that deliberately changes results, so it gets its own re-baselined digests.
+This is the one restructure phase that deliberately changes results, so it gets its own re-baselined digests. The planned gameplay features also change results, and record their own re-baselines.
 
 - [x] An effector only acquires a real drone close to the track's estimated position, not any drone the track was tied to
 - [x] Display and behaviour text must come from the track, not from the true drone
@@ -281,12 +282,398 @@ This is the one phase that deliberately changes results, so it gets its own re-b
 
 **Done when:** a clean clone can be installed and played by following only the README.
 
+## Planned gameplay features
+
+Status: agreed 2026-11-04, and rechecked the same day against the refactored code. Stage C1 is built; everything else is not started. These change game rules, so they are separate from the behaviour-preserving restructure.
+
+**When they land:** the restructure phases are complete, so nothing here is waiting on them. Each stage gets its own branch from `main`. The order is C1, A1, B1 with C2, B2, B3, A2, A3, A4, A5, A6, A7. C1 comes first because it changes no rules and A3 builds on it. A1 comes before B1 because magazines need per-unit state. Raise `GAME_VERSION` at every stage that re-baselines digests, so the Saved tab warns about older laydowns.
+
+**Evidence:** vendor figures are marketing claims. They came from search summaries, because the vendor PDFs could not be opened, so check each one against its source when it enters the code. Every figure gets a `ref` entry with its confidence, and anything unsourced is labelled ASSUMPTION in the Sources tab.
+
+### Checks against the refactored code
+
+The design still holds. File references were out of date and some assumptions were wrong, so the tables below are corrected. These were tried on a throwaway copy of the last commit, using the frontend tests:
+
+| Claim | Result |
+|---|---|
+| A1: `Object.create` per unit leaves digests unchanged | Holds, as a one-line change with no editing. Results matched the unchanged copy. Two contract tests failed in both, because that copy had no backend fixtures. |
+| A2: adding catalogue entries leaves digests unchanged | Holds |
+| A2: renaming Compact radar leaves digests unchanged | **Wrong.** It changes `lasers-seed42` and `jammers-seed1`, because names are in registration messages. The stage is now two commits. |
+| Starting wave 1 keeps the same unit objects | **Wrong.** All are replaced, node ids change, and default callsigns renumber: INT-01 became INT-03. Saved settings and the Unit panel both have to allow for this. |
+| Magazine wave table | Still right: recalculated from `makeWave` |
+
+The other corrections came from reading the code and have not been run. No feature code has been written.
+
+### Feature A: configurable sensors and jammers
+
+Radar, RF detector, EO/IR camera and RF jammer each get Small, Medium and Large classes. Compact radar becomes Small radar. Any placed unit can be renamed and edited when selected.
+
+**Design rules**
+
+1. Every editable field changes the simulation. If it does not, it is a read-out or it is left out.
+2. The class sets the hardware limits and base price.
+3. Every gain has a cost: price, slower scans, a louder signature or more false alarms.
+4. Range is computed, not edited: `published range x physics ratio`, where the ratio is 1 at the class default. An absolute calculation would need vendor losses that are not published. The base figure stays editable in the Sources tab.
+5. Hardware fields change the price and settings are free. Both lock at the first wave, except active jam bands, which stay live as they are today.
+
+**Every system has:** name, callsign, class, price, and a live read-out of predicted range against each drone type.
+
+**Sensors also have** a mast height, as hardware with a class limit and a price. Phase 4 found that trees caused 80-86% of radar misses inside range, so a free mast would always be set to the maximum. Effectors have no mast field: `opticalLos` uses a fixed 4 m, and effector range ignores `def.mount`.
+
+#### Radar
+
+| | Small | Medium | Large |
+|---|---|---|---|
+| Based on | Today's Compact radar (EchoGuard) | Today's Radar (IRIS) | Spexer 2000 3D MkIII class |
+| Build | Fixed panel | Rotating | Multi-panel AESA |
+| Default band | K, 24.45–24.65 GHz | X, about 9 GHz | X |
+| Coverage per unit or panel | 120° x 80° | 360° x 60° | 120° x 60° (elevation is an assumption) |
+| Scan period | 1 s (the real radar updates at 10 Hz; capped to limit message volume) | 1 s | 1 s (assumption) |
+| Range, small quadcopter | 1 km | 2 km | 5 km (assumption) |
+| Price | $45k per panel | $900k | $2.5M (assumption) |
+
+| Field | Kind | Effect |
+|---|---|---|
+| 3D or 2D (2D on Medium and Large only) | Hardware | 2D is cheaper but gives no height, so cameras must search vertically and altitude estimates are poor |
+| Panels, 1–4 (Small and Large) | Hardware | Each adds an arc and its price |
+| Band | Hardware | Sets angular accuracy, rain loss, small-target performance and the Spectrum tab entry |
+| Micro-Doppler classifier | Hardware | Identifies fixed wing or multirotor at closer ranges |
+| Boresight and azimuth arc | Setting | Where it looks. A narrower panel arc gains range; a rotating radar does not gain from it |
+| Elevation low and high edge | Setting | Too high leaves low flyers unseen, too low adds clutter, and a low top edge leaves a gap overhead |
+| Blanking arcs, up to 3 | Setting | Removes false alarms from those directions, but it sees nothing there |
+| Scan period, 0.5–5 s | Setting | Slower gives more range but older data |
+| Transmit power, 10–100% of rated | Setting | More range, but louder to emitter-seeking drones |
+| Clutter filter, low, medium or high | Setting | Trades low-flyer range against false alarms, and can miss slow or crossing targets |
+| Detection threshold | Setting | Trades detection chance against false alarms |
+
+Range follows the search radar equation: `range ∝ (power x aperture x scan time x RCS / volume searched)^¼`. Doubling power gains 19%, and halving scan time loses 16%. Aperture is fixed by class and shown as a read-out, along with beamwidth and range resolution.
+
+#### Electro-optical camera
+
+| | Small | Medium | Large |
+|---|---|---|---|
+| Based on | Boson-class thermal core | Today's EO/IR camera | Cooled MWIR long-zoom turret |
+| Sensor | LWIR 640 x 512, 12 µm | HD visible plus LWIR | MWIR 640 x 512, 15 µm |
+| Lens and view | 36 mm, 12° | 10° search, 2.5° track (assumption) | 80–1200 mm, 7.1° to 0.5° |
+| Range, small quadcopter | About 260 m | 1 km in search | About 470 m in search, 7 km in track |
+| Price | $25k (assumption) | $100k | $500k (assumption) |
+
+| Field | Kind | Effect |
+|---|---|---|
+| Channels: visible, thermal or both | Hardware | Visible fades at night; thermal works day and night |
+| Resolution and wide and narrow focal length | Hardware | Together set the field of view and pixels on target |
+| F-number (aperture) | Hardware | Sets low-light performance and the diffraction limit on thermal |
+| Laser rangefinder | Hardware | Adds range, so a cued camera can create a track by itself |
+| Search arc, sweep rate, slew rate, dwell | Setting | How well it finds targets alone, and how quickly it can switch between them |
+| Detection threshold | Setting | Trades detection chance against false alarms |
+
+Pixels on target are `drone size / (pixel pitch / focal length x range)`. Detection needs about 4 pixels, an assumption that reproduces today's 1 km. Recognition needs 8, the first point at which it can name the airframe type. Identification needs about 13, shown as a higher-confidence type. A narrow view can miss the target if the track estimate is poor, so a good radar cue succeeds where a vague RF bearing may not.
+
+#### RF detector
+
+| | Small | Medium | Large |
+|---|---|---|---|
+| Based on | Wingman-class detector | Today's RF detector (Dedrone class) | AARTOS class |
+| Coverage | 900 MHz, 2.4 and 5.8 GHz | 70 MHz–6 GHz | 20 MHz–8 GHz |
+| Sensitivity (all assumptions) | -90 dBm | -100 dBm | -110 dBm |
+| Bearing error | ±30° | 3° (assumption; an older Dedrone lists ±5°) | 2° (assumption) |
+| Range, small FPV | 1 km | 3.5 km | 8 km (assumption; vendor claims conflict) |
+| Price | $10k (assumption) | $40k (today's placeholder) | $400k (assumption) |
+
+| Field | Kind | Effect |
+|---|---|---|
+| Bands monitored | Setting, within class limits | More bands means a slower revisit |
+| Receiver sensitivity | Hardware | Every 6 dB doubles free-space range |
+| Instantaneous bandwidth | Hardware | Sets the revisit time and the chance of catching a hopping link |
+| Direction finding: sector or angle-of-arrival | Hardware | Sets bearing accuracy, and so whether triangulation is usable |
+| Classifier library | Hardware | See below |
+| Detection threshold | Setting | Trades detection chance against false alarms |
+
+**Classifier libraries, shared with the jammer:**
+
+| Library | Recognises | Result |
+|---|---|---|
+| None | Energy in the band only | Type unknown, double false alarms |
+| FPV and hobby | ELRS, Crossfire, analogue video | Identifies the FPV |
+| Tactical | Long-range control and digital video | Identifies the spotter |
+| Full | Both | Costs the most |
+
+FO Strike and FW Strike emit nothing, so no library helps against them. There is no DJI-style commercial library, because nothing in the drone roster would trigger it.
+
+#### RF jammer
+
+| | Small | Medium | Large |
+|---|---|---|---|
+| Based on | DroneGun MkIII | Today's jammer (DroneGun Tactical) | Fixed multi-band site system |
+| Power per band (assumption) | 10 W | 40 W | 100 W |
+| Range | 500 m | 1 km | 1.6 km omni, 5 km with a 10 dB sector antenna |
+| Price | $40k | $60k | $350k (assumption) |
+
+| Field | Kind | Effect |
+|---|---|---|
+| Bands fitted | Hardware | Each band is a paid module |
+| Power per band | Hardware | Range scales with √power |
+| Antenna: omni or sector, plus boresight and arc | Both | A sector reaches further but only in that arc |
+| Receiver: none, or fitted with a sensitivity | Hardware | Lets it hear threats itself; sensitivity sets how far |
+| Classifier library | Hardware | Needed for reactive jamming |
+| Active bands | Live setting | Only fitted bands can be active. More active bands means a louder signature and more risk to your own links |
+| Technique: barrage or reactive | Setting | Barrage hits anything in band. Reactive is stronger and quieter, but only against library matches |
+| Trigger: fusion track, own receiver or manual | Setting | Own receiver keeps working if comms fail, but cannot hear silent drones |
+
+Three new effects:
+
+- **Distance from the operator:** a control link is easier to jam the further the drone is from its operator, so that distance scales the jam range. The launch point stands in for the operator's position. GNSS is unaffected.
+- **Self-interference:** an active jammer deafens your own RF detectors in the same band, as it already degrades your comms in `sim/comms.js`.
+- **Receiver blanking:** a receiver cannot listen while its jammer transmits, so reactive mode needs short listening gaps.
+
+**Known simplification:** a video receiver sits with the operator, not on the drone, so jamming it at the drone in `sim/drones.js` is not accurate. It stays for readability, marked with a `shortcut:` comment.
+
+#### Environment
+
+Add one scenario setting on the start screen and in the sandbox: clear day (default), dusk, night, or rain and haze. It changes the scene lighting and the performance of each camera channel and radar band. The factors are assumptions. The setting is an input to the run, so it is stored and logged with the seed. SAPIENT reports it through `STATUS_TYPE_ILLUMINATION` and `STATUS_TYPE_WEATHER`.
+
+#### Code issues to handle
+
+| Issue | Where | Fix |
+|---|---|---|
+| All units of a type share one `def`, so edits would change all of them. `Object.create` is shallow, so writing to a nested object such as `def.sapient.interval` or `def.sapient.noise` would still change every unit, and scan period and accuracy live there. | `addStructure` in `sim/laydown.js` | `s.def = Object.create(catalogDef)`, with the unit's own copy of `sapient` and any other nested value it changes. A test edits one unit and checks that another unit and the catalogue did not move. |
+| A unit's own derived value will not follow a figure edit, because `setFigure` only changes the catalogue | `setFigure`, `resetFigure`, `resetAllFigures`, `applyFigures`, `importFigures` and `setRangeScale` in `commands` | Recalculate units after these commands |
+| Tracks cannot confirm if the scan period is over 2.5 s, and flicker to coasting over 1.6 s. Bearings expire after 3 s, so a slow RF revisit could never triangulate, and sources older than 3 s drop out of fused reports. | `TRACKER` in `sim/tracker.js`, `confirmedTracks` and `fusedReport` in `sim/network/fusion.js` | Scale timeouts and `candidateLife` to the sensor's update interval |
+| A 2D radar would be placed at antenna height with false precision. Since Phase 4, an effector only finds a drone within 300 m of the track in 3D, so a track with the wrong height could miss a spotter at 400-500 m or a FW Strike at 150-300 m. | `asMeasurement` in `sim/tracker.js`, `droneAt` in `sim/network/fusion.js`, `distToTrack` in `sim/network/core.js` | Treat height as unknown when there is no elevation, and compare horizontal distance only for those tracks |
+| `def.fov` is used to mean "this is a camera", and the view is square. False alarms use it too, and would appear inside blanked radar arcs. | `sim/network/sensors.js` including `falseGeometry`, `registration.js`, `index.js`, `tasking.js`, `ui/dock/plan-canvas.js` | Check `kind`, use separate names for radar arcs, and use separate horizontal and vertical values |
+| The RF model never checks frequency, and a drone's reported frequency is random rather than taken from its links. The Spectrum tab shows one fixed detector range. | `pd` in `sim/network/sensors.js`, `sim/waves.js`, `sim/sandbox.js`, `SPECTRUM.detectorListens` in `ui/dock/spectrum-canvas.js` | Derive frequencies from `links`, test them against monitored bands, and show each unit's own bands |
+| The Cost tab multiplies catalogue price by count, and its "Each" column assumes one price per type. Refunds and the saved-laydown price check use the catalogue price. | `LaydownTable` in `ui/dock/CostTab.jsx`, `sell`, `restoreLaydown` and `costProblem` in `sim/laydown.js` | Use each unit's own price, and show totals where units of a type differ |
+| Custom names are new untrusted text | Registration, alerts, labels and panels | Trim, limit length and require unique callsigns, including against later automatic numbering. React and `textContent` already escape them on output. |
+| The coverage map will not refresh on edits, and rings are always full circles | `coverageGrid` and the drawing in `ui/dock/plan-canvas.js`, `render/structure-view.js`, `render/placement.js`, `ui/minimap.js` | Include unit settings in the cache key, and draw arcs in all four views |
+| Laydowns only save position, wiring and bands. Edits made before the first wave are not in the command log, because starting wave 1 clears it and rebuilds from the saved laydown. | `captureLaydown` and `restoreLaydown` in `sim/laydown.js` | Add name, callsign and settings. Pass them to `addStructure` before `registerNode`, because the registration message carries the name and range. Then charge the budget. |
+| Default callsigns renumber when wave 1 starts | `captureLaydown` sorts, `registerNode` counts | Save custom names from A1. Saving default callsigns too changes digests, so do it at the first re-baseline. |
+| The API refuses the new data: `PlacedSystem` forbids unknown fields, and `SystemId` is a fixed list | `backend/app/schemas.py`, `backend/tests/fixtures/` | Add optional fields, so older saves still load, and extend `SystemId`. Regenerate fixtures with `tests/support/write-fixtures.js`. |
+| Unit types are hard-coded by id. `buildModel` has no default case, so a new id would draw a bare base. | `def.id === 'jammer'` and similar in `sim/drones.js`, `sim/targeting.js`, `sim/network/core.js`, `sim/network/tasking.js`, `ui/dock/spectrum-canvas.js`, `ui/dock/plan-canvas.js`, `STRUCTURES.jammer.slow` in `sim/drones.js`, `render/models.js`, `render/structure-view.js` | Use `kind`, and a `model` field for drawing. Keep ids `radar`, `radar_s`, `rf`, `camera` and `jammer`, so figure exports and test scenarios still load |
+| The catalogue will pass the 350-line limit that `frontend/tests/boundary.test.js` enforces | `sim/config/systems.js` | Split sensors from effectors. `test_the_names_the_api_accepts_match_the_game` in `backend/tests/test_security.py` reads `systems.js` by name, so it must read both files. |
+| Edits must be reproducible | `commands` in `sim/simulation.js` | Add `configureUnit` and `renameUnit` as logged commands, for edits after wave 1 starts. Only keys in the field table are written, because `s.def[key]` with `__proto__` would change the unit's prototype. `configureUnit` re-sends registration, since capabilities include range. |
+
+#### Stages
+
+| Stage | Work | Done when |
+|---|---|---|
+| A1 | Per-unit `def`, `kind` in place of id checks, per-unit laydown data, optional API fields, and each unit's own price in the ledger | Reference digests are unchanged, and a laydown saved before this stage still loads |
+| A2 | Two commits. First: S, M and L catalogue entries, the API's `SystemId`, models, and the toolbar: 7 systems, with a repeat hotkey press cycling the class. Second: the renames. | The first leaves digests unchanged. The second re-baselines them with the reason recorded. |
+| A3 | Editing in the Unit panel (Feature C): rename, Sell, and fields from one table that drives the UI, limits and price changes. Refuse edits you cannot afford. | Tests cover limits, pricing, rename, reset and sell |
+| A4 | Radar physics in a new `sim/sensor-model.js`, arcs, tracker fixes and map drawing. Small radars drop from 360° to 120°, a deliberate balance change. | Digests are re-baselined with the reason recorded |
+| A5 | Environment and EO physics | Tests confirm the pixel maths and night behaviour |
+| A6 | RF, libraries and jammer physics | Tests confirm band matching, jam range and self-interference |
+| A7 | Balance using `tools/balance.js`. Optionally, later waves move to non-standard bands such as 3.3 GHz, as reported in Ukraine. | Results are recorded and the game is playable |
+
+**Left out:** track capacity limits, GNSS spoofing and protocol takeover, operator geolocation, separating drones that are very close together, reusable custom presets, and changing hardware during a run.
+
+### Feature B: Magazine depth
+
+The Cost tab becomes **Magazine depth** and keeps all its cost information. Launchers have unlimited rounds today, so this adds a new game rule as well as a new name.
+
+#### Tab layout
+
+```text
+MAGAZINE DEPTH                    37 of 44 rounds · $1.36M in stock
+▾ Interceptor drones    31 / 36    $155k left
+     INT-01 North rack  10 / 12    Ready      [Refill $10k]
+     INT-02             12 / 12    Ready
+     INT-03              9 / 12    Engaging   [Refill $15k]
+▸ Missile                6 / 8     $1.2M left
+▸ Laser                 Stored beam 82%, recharging
+  RF jammer             No rounds, unlimited while powered
+                                   [Resupply all $425k]
+
+BUDGET  $15M for the whole run
+[ systems ▓▓▓▓▓ | munitions ▓▓ | left ░░░░░░░░ ]
+Sensors $1.04M · Effectors $4.3M · Network $4k
+Munitions bought $1.78M · Laser energy $1k · Left $7.88M
+```
+
+- Clicking an effector row expands it to show each launcher.
+- A row turns amber at 25% of rounds left and red when empty.
+- Launcher labels in the 3D view show rounds, for example `INT-01 · 10/12`, in `updateLabels` in `render/structure-view.js` and in `render/replay-view.js`.
+- Cost exchange, Laydown, Shots fired, Enemy attack and cost sources stay below the budget. Laydown splits into sensors and effectors, and launcher prices no longer include rounds.
+
+#### Magazines
+
+| Effector | Magazine | Basis |
+|---|---|---|
+| Missile | 4 rounds | FS-LIDS has a four-round Coyote launcher |
+| Interceptor drones | 12 rounds | ASSUMPTION: no published launcher capacity was found |
+| Laser | 300 s of stored beam, recharging only while not firing | EOS claims 200+ stored engagements for its Apollo laser. The conversion at about 1.5 s per kill is an assumption. |
+| RF jammer | None | Shown as unlimited while powered |
+
+The laser limit will rarely run out at its default, because a laser's real limit is engaging one target at a time. It can be lowered in the Sources tab to test a weaker system.
+
+#### Rules
+
+1. **Buying:** rounds are paid for when loaded. A launcher comes fully loaded, and its price and refund include the rounds. The Unit panel (A3) can load fewer to save money. If the budget cannot cover a full load, it buys what it can and says so, so `placementProblem` only requires the launcher price.
+2. **Firing:** each guided shot uses one round and costs nothing more, so a launcher with rounds can still fire on an empty budget. The laser still pays $13 per second of beam, because it uses energy.
+3. **Running empty:** the launcher reports empty, fails any task it holds, and the fusion node passes the target to another launcher. An alert and a timeline marker record it.
+4. **Resupply:** allowed only between waves, even though the laydown is locked. Rounds arrive instantly, up to launcher capacity. If the budget is short, it buys what it can, filling the emptiest launcher first.
+5. **Losing a launcher:** its remaining rounds are lost and added to the lost-value figure.
+6. **Sandbox:** rounds deplete so depth can be tested, with a free Refill button. Leaving the sandbox restores the original load.
+7. **Exchange ratio:** "shots per $1 destroyed" counts only rounds fired, and a second figure covers all defence spend, including unfired stock.
+
+Total spend stays about the same as today, because each kill still uses a round at the same price. The new pressure comes from launcher capacity during a wave, and from choosing between more launchers and keeping cash for resupply.
+
+| Wave | Interceptor targets | Missile targets | Launchers needed at 100% hit rate |
+|---|---|---|---|
+| 1 | 5 | 0 | 1 rack |
+| 6 | 17 | 4 | 2 racks, 1 missile launcher (no spare rounds) |
+| 10 | 27 | 7 | 3 racks, 2 missile launchers |
+
+Real miss rates will push those numbers higher. These are calculated from `makeWave`, not measured in play.
+
+#### Code changes
+
+| Area | Change | Where |
+|---|---|---|
+| Unit state | Keep `s.load` (bought) separate from `s.rounds` (now). Laydowns save `load`, or leaving the sandbox would save a depleted magazine. | `sim/laydown.js` |
+| Firing | Check rounds instead of budget for guided weapons, and add the laser's beam store | `FIRE` in `sim/effectors.js`, `sim/economy.js` |
+| Task acceptance | Reject a task when the launcher is empty | `acceptTask` in `sim/simulation.js` |
+| Fusion node | Stop offering tracks to a launcher it has heard is empty. Otherwise the message log fills with rejected tasks. | `eligible` in `sim/network/tasking.js` |
+| SAPIENT | Add an `Empty` mode, and report rounds as a `STATUS_TYPE_OTHER` status, so the empty state travels through the normal network | `sim/network/` |
+| Ledger | Add `munitions` and split system spending by sensor, effector and network. Keep `consumables` as the value fired, so the exchange ratio keeps its meaning. Defence spend in the Cost tab and the HUD budget bar must add `munitions`, or bought stock disappears from the totals. Ledger fields feed the digest, so this lands with B1. | `sim/economy.js`, `ui/Hud.jsx`, `ui/dock/CostTab.jsx` |
+| Saved runs | Add `munitions_bought` in a new migration, with `DEFAULT 0` for existing rows, through `runRecord`, the API models and the Runs tab. Regenerate fixtures. | `backend/app/db/migrations/`, `backend/app/schemas.py`, `backend/app/db/stores.py`, `sim/run-record.js`, `ui/dock/RunsTab.jsx` |
+| Commands | Add `resupply` as a logged command | `commands` in `sim/simulation.js` |
+| Tab | Keep expanded rows in `useState`. The Dock keeps every tab mounted, so they survive switching tabs. Change only the label in `TABS`, keeping the `cost` id that tests and styles use. | `ui/dock/CostTab.jsx`, `ui/dock/Dock.jsx` |
+| Tuning | Add `magazine`, beam store and recharge to the editable figures | `sim/config/figures.js` |
+| Replay | Record rounds in snapshots, so labels and the Unit panel show the right count when rewinding | `sim/recorder.js`, `render/replay-view.js` |
+| Toolbar | Show launcher price plus cost per round | `ui/Toolbar.jsx`, descriptions in `sim/config/systems.js` |
+
+#### Stages
+
+| Stage | Work | Done when |
+|---|---|---|
+| B1 | Magazine rules in the simulation: rounds, empty handling, resupply, sandbox, reset and replay | Tests cover running empty, handing over to another launcher, resupply limits, and load surviving a reset |
+| B2 | Re-baseline and balance rack size and missile capacity using `tools/balance.js` | New digests are committed with the reason recorded |
+| B3 | The tab, as new work in `ui/dock/CostTab.jsx` | The expanded rows, spend split and all existing sections work in a browser |
+
+**Left out:** separate ready and reserve stocks with crew reload times, resupply lead times or resupply during a wave, auto-refill between waves, and holding back the last rounds for particular targets.
+
+### Feature C: Unit panel
+
+Click a placed sensor or effector on the map to see what it is, what it is doing, how far it reaches and how much ammunition it has. Nothing can be selected today: with no tool active, a click on the map is ignored. The panel starts read-only and needs no rule changes. Stage A3 adds editing to this same panel, rather than building a second one.
+
+#### What it looks like
+
+```text
+INT-01 · Interceptor drones                     [×]
+Cheap ram-type interceptor drones. Good against FPV
+and FO strikes; cannot catch the fixed-wing drones.
+
+Status      Engaging T88
+Health      18 / 30
+Ammunition  10 / 12 rounds   Reloading 1.2 s
+Range       5.0 km, target at 2.1 km
+Engages     FPV Strike, FO Strike
+Network     Cellular B8, up · 42 ms · 0.4% loss
+Position    620 m from site, bearing 072°
+Cost        $100k launcher · $5,000 a round
+All INT     8 shots · 5 kills · $8,000 a kill
+Modelled on Wild Hornets Sting, SkyFall P1-SUN
+```
+
+```text
+RDR-01 · Radar                                  [×]
+Medium-range surveillance radar. Low flyers hide in
+ground clutter until close.
+
+Status      Detect, scanning every 1 s
+Health      30 / 30
+Range       2.0 km against a small quadcopter
+            FPV 2.0 · FO 2.0 · Spotter 3.9 · FW 4.2 km
+Limits      Below 40 m, only reliable inside 500 m
+Measures    Range, bearing, elevation, velocity
+Network     No terminal: this system is offline
+Position    600 m from site, bearing 090°, mast 25 m
+Cost        $900k
+Modelled on Robin Radar IRIS, Blighter A800
+```
+
+#### What each row shows
+
+| Row | Shown for | Where it comes from |
+|---|---|---|
+| Name, type, description | All | `s.short`, `def.name`, `def.desc` |
+| Status | All | `s.mode`, `s.task` and the track's short name, or the camera's `s.cue`. `s.offline` and no `s.uplink` are stated in words, because a unit with no link does nothing. |
+| Health | All | `s.health` out of `def.health` |
+| Ammunition | Effectors | See below |
+| Range | All | `def.range` in km, to one decimal place. Effectors add the distance to the current target. |
+| Range by drone | Sensors | A new `reachFor(def, droneDef)`, taken out of `pd` in `sim/network/sensors.js`, so the panel cannot disagree with the simulation. RF shows "cannot hear" for FO and FW. |
+| Limits | Sensors and laser | Clutter from `lowAlt` and `lowRange`, the camera's view from `def.fov`, and line of sight for the laser |
+| Measures | Sensors | `def.sapient.noise` and `velocity`: an RF detector gives a bearing only, a camera gives bearing and elevation with no range |
+| Engages | Effectors | `def.engages`, or the missile's `engagePolicy`. The jammer lists its active bands from `s.jamBands`, and how each drone type is affected, from `links` and `jamResist`. |
+| Network | All | `comms.nodeLink` and `comms.pathFor`, as the Network tab's `LinkStats` uses them |
+| Position | All | Distance and bearing from the site, ground height, and `def.mount` for sensors |
+| Cost | All | `def.cost` and `def.shotCost` |
+| Totals for this type | Effectors | `ledger.shots` and `ledger.killedBy`, which are kept per type, so the row is labelled as a type total |
+| Modelled on | All | `def.ref.analogues` and `def.ref.confidence`, so nobody reads an assumption as fact |
+
+Sensor range means about 86% chance of detection per scan at that distance, with clear line of sight (`SENSING` in `sim/config/world.js`). The panel says so in a tooltip. Effector range is a hard limit. At today's figures:
+
+| Sensor | FPV | FO | Spotter | FW |
+|---|---|---|---|---|
+| Radar | 2.0 km | 2.0 km | 3.9 km | 4.2 km |
+| Compact radar | 1.0 km | 1.0 km | 2.0 km | 2.1 km |
+| RF detector | 3.5 km | none | 5.5 km | none |
+| EO/IR camera, once cued | 1.0 km | 1.0 km | 8.6 km | 7.1 km |
+
+#### Ammunition row
+
+| Effector | Before B1 | After B1 |
+|---|---|---|
+| Interceptor, missile | "Paid per shot: $5,000. Budget covers 2,080 shots", calculated from the current budget, with Ready or Reloading | `10 / 12 rounds` with a small bar, Ready or Reloading (from `s.cd`). Amber at 25% and "EMPTY" at zero, in words as well as colour, matching the Magazine depth tab. A Refill button appears when `resupply` is allowed. |
+| Laser | "Paid per second of beam: $13. Budget covers 999,880 s" | Stored beam as a percentage, and whether it is recharging |
+| Jammer | "None needed: no cost per use" | The same |
+| Sensors | Row hidden | Row hidden |
+
+#### How selection works
+
+| Part | Change | Where |
+|---|---|---|
+| State | `view.selected` holds the unit, set through `game.select(s)`. It is view state, not a command, so it is never logged and cannot change a run. | `render/view.js`, `game.js` |
+| Picking | Project each unit to the screen and take the nearest within about 16 px of the line from its base to its name tag. Name tags take no pointer events, so their boxes are checked first, because players will click them. The existing `sell` lookup is not reused, because it measures from a ground point, which lands well behind a tall model at a low camera angle. A plain function, so it can be tested in Node without WebGL. | `render/placement.js` |
+| Clicks | A click with no tool active selects, and a click on empty ground clears. A name tag also opens the panel with a placement tool active, because nothing can be placed on a system. The Sell tool uses the same picking, and falls back to the ground point under the click. The zone tool always uses the ground point. The first placement shows a one-time hint, and the Legend mentions it too. The existing 5 px drag test keeps camera moves from selecting. | `render/placement.js`, `game.js`, `ui/Panels.jsx` |
+| Rebuild at the first wave | Starting wave 1 replaces every unit object and changes its node id (measured), so a held reference goes stale and the panel would show a dead unit. On the `reset` event, find the unit again by position, which is restored exactly. Do not match by callsign or id. | `game.js` |
+| Sold or destroyed | `getSelected()` clears it when the unit is no longer in `sim.structures`. The destroyed toast already explains why. | `game.js` |
+| Rewinding | Mode, target, rounds and health come from the snapshot being reviewed, not the live unit, and the panel is tagged with the review time. Adding `health` and `rounds` to `takeSnapshot` is safe, because snapshots do not feed the digest. | `sim/recorder.js`, `render/replay-view.js` |
+| On the map | The selected unit's range ring is drawn brighter, and stays visible with ranges switched off. Its name tag is highlighted. Arcs replace circles once A4 lands. | `render/structure-view.js`, `ui/minimap.js`, `ui/dock/plan-canvas.js` |
+| Keyboard | Escape clears the tool first, then the selection. Rows in the Nodes tab get a button that selects the unit, which gives a route that does not need the canvas and picks out units whose tags overlap. | `ui/useHotkeys.js`, `ui/dock/NodesTab.jsx` |
+| Panel | New `ui/UnitPanel.jsx`, using `useTick` like the HUD, and showing nothing when no unit is selected. Sits at `right: 214px; bottom: 60px`, beside the control panel, because the assistant wizard took the slot beside the minimap. With the dock open it moves to `left: 256px`, so it does not cover the toolbar. | `ui/App.jsx`, `style.css` |
+| Small exports | Add `distToTrack` to what `createNetwork` returns, and export `stateWord` from `NetworkSide.jsx` | `sim/network/index.js`, `ui/dock/NetworkSide.jsx` |
+
+**Security:** the panel only shows text through React or `textContent`, so custom names cannot inject markup, and `frontend/tests/boundary.test.js` already bans raw HTML in `ui/`. It sends no new requests.
+
+**Existing text to fix on the way:** `def.desc` hard-codes prices ("Each launch costs $5,000"), which go wrong after a Sources edit, so take them out and let the Cost row state them. `hitStructure` in `sim/targeting.js` reports `s.health` as a percentage, but health is out of 30, so "18% health left" really means 60%. That alert goes on the message bus, so fix it at the next re-baseline.
+
+#### Stages
+
+| Stage | Work | Done when |
+|---|---|---|
+| C1 (built) | Selection, picking, map highlight and the read-only panel, with today's data | Reference digests are unchanged. Tests cover picking, every catalogue entry rendering, no uplink, offline, selection surviving the first wave, and clearing on sale and destruction. Checked in a real browser, because the click path needs WebGL. |
+| C2 | With B1: the ammunition row from `s.rounds`, rounds in snapshots, and the Refill button. C1 already records health in snapshots and shows the moment being reviewed. | Tests cover low, empty, refill and rewinding |
+
+Stage A3 then adds rename, editing and Sell to the same panel.
+
+**Left out:** hover tooltips, selecting drones, tracks or the station, selecting several units, per-unit kill counts (the ledger keeps them by type), and moving a placed unit.
+
+### Sources for these figures
+
+- **Radar:** [EchoGuard listing](https://everythingrf.com/products/radar-systems/echodyne-corp/1069-2160-echoguard), [IRIS product sheet](https://www.robinradar.com/hubfs/IRIS%20product%20sheet%20042026.pdf), [Spexer 2000 3D MkIII](https://www.hensoldt.net/products/spexer-2000-3d-mkiii-land-ground-based-air-defence), [Janes on Spexer](https://www.janes.com/osint-insights/defence-news/c4isr/hensoldt-to-deliver-trml-4d-and-spexer-2000-3d-mkiii-radars-to-ukraine)
+- **RF:** [Dedrone RF-360](https://www.dedrone.com/products/hardware/rf-sensors/rf-360), [Dedrone RF-300 datasheet](https://nwsnext.com/wp-content/uploads/5a981fc9d790df0001e798f7_dedrone-datasheet-rf-300-en.pdf), [Wingman comparison](https://aviationsouk.com/compare-products/dedrone-dedronesensors-rf-rf-160-rf-360-vs-mydefence-wingman-103-105-drone-detector/), [AARTOS](https://aviationsouk.com/products/aaronia-aartos-dds-drone-detection-system/)
+- **EO:** [Boson lens options](https://www.oem.flir.com/products/boson/), [80–1200 mm MWIR lens and Johnson thresholds](https://www.ophiropt.com/f/motorized-80-1200mm-f-5.5-mwir-hd-zoom-lens)
+- **Jammer:** [DroneGun MkIII](https://www.asx.com.au/asxpdf/20190715/pdf/446lzqk0qszn9n.pdf), [DroneGun Tactical](https://athlonoutdoors.com/?p=132292), [power per band guide](https://www.rfwireless-world.com/vendors/rf-components/anti-drone-jammer-manufacturers-and-providers)
+- **Magazines:** [Raytheon Coyote launchers](https://Www.Wikipedia.org/wiki/Raytheon_Coyote), [The Myth of the Infinite Magazine](https://www.laserwars.net/p/laser-weapon-infinite-magazine-myth)
+- **Messages and enemy bands:** [SAPIENT status_report.proto](https://raw.githubusercontent.com/dstl/SAPIENT-Proto-Files/main/bsi_flex_335_v2_0/status_report.proto), [non-standard FPV bands](https://newsukraine.rbc.ua/news/ukraine-faces-new-threat-as-russia-rolls-1781645404.html)
+
 ## Feature parity checklist
 
 Check in a real browser at the end of Phase 5 and again at the end of Phase 8.
 
 - [x] Start screen: scenario seed, terrain seed, random seed, Deploy, and seeds in the URL
-- [x] Placement: all eight systems, hotkeys 1 to 8, ghost preview and reasons for refusal, sell and refund, laydown lock
+- [x] Placement: every system and its hotkey (eight until stage A2 folds Compact radar into Radar, then seven), ghost preview and reasons for refusal, sell and refund, laydown lock
 - [x] Camera controls and the minimap (click, drag, scroll)
 - [x] Waves: start, auto-start, speeds, pause, wiring warning, adaptation, game over and retry
 - [x] Toggles: ranges, truth overlay, labels, highlight tracks
@@ -298,7 +685,7 @@ Check in a real browser at the end of Phase 5 and again at the end of Phase 8.
 - [x] Nodes tab, and Plan tab with coverage maps
 - [x] Network tab: auto-wire, clear, click to wire, tapped wires, step to next packet, band settings
 - [x] Spectrum tab, and Learn tab with follow a track
-- [x] Cost tab, and Sources tab with edit, reset, import, export and the range scale
+- [x] Cost tab (Magazine depth once stage B3 lands), and Sources tab with edit, reset, import, export and the range scale
 - [x] Tuning panel, legend, and `window.game` in development builds
 
 ## Testing
@@ -323,9 +710,12 @@ Tests cover behaviour that could really break. Coverage thresholds go in the con
 | Long pause in new features | Each phase leaves a playable game and can be stopped at |
 | Saved laydowns break when rules change | `game_version` is stored, and a mismatch shows a warning |
 | Ponytail's plugin changes on update | Version 5.3.3 was reviewed. Review again before updating. |
+| Sensor classes weaken small radars and cameras | Stage A7 tunes with the balance script, and every figure stays editable in the Sources tab |
+| A 4-round missile launcher makes wave 6 onwards too hard | Stage B2 tests capacity with the balance script before the tab is built |
 
 ## Settled decisions
 
 1. **`parked-friendlies-roe-spectrum` stays parked.** It is untested and branched before Three.js was bundled locally. The feature gets rebuilt on the new structure after Phase 5, using the branch as reference only.
 2. **No GitHub remote yet.** CI in Phase 8 is therefore skipped. The risk is that this work has no off-machine backup until a remote is added.
 3. **Default branch renamed from `master` to `main`.**
+4. **Rounds are paid for when loaded, not when fired.** This matches how stock is really bought, and separates money tied up in munitions from money fired.

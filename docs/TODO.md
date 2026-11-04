@@ -5,7 +5,7 @@ What is still open now the rebuild to React, FastAPI and SQLite is on `main`. De
 ## Decisions for you
 
 - [ ] **Add a remote backup.** This work exists only on one machine. Choose where it lives, and keep the repository private until you decide otherwise.
-- [ ] **Commit or drop the uncommitted plan edits.** `docs/MASTER_IMPLEMENTATION_PLAN.md` (the feature plans) and `docs/REAL_MAPPING_PLAN.md` have another author's changes in the working tree. The features below depend on them.
+- [ ] **Commit or drop the uncommitted mapping plan edits.** `docs/REAL_MAPPING_PLAN.md` has another author's changes in the working tree, and the mapping stages below depend on them.
 - [ ] **Confirm the mapping plan's assumptions.** Grid format, Great Britain coverage, what "offline" means and open data only. See "Assumptions to confirm" in `docs/REAL_MAPPING_PLAN.md`.
 - [ ] **Decide what happens to `parked-friendlies-roe-spectrum`.** It holds untested work on friendly drones, rules of engagement, defence targeting and `spectrum.js`, and predates the rebuild. Reuse its ideas or delete it.
 - [ ] **Delete `refactor/client-server`?** It now points at the same commit as `main`.
@@ -17,7 +17,7 @@ What is still open now the rebuild to React, FastAPI and SQLite is on `main`. De
 
 ## Planned features
 
-Full detail is in the uncommitted `docs/MASTER_IMPLEMENTATION_PLAN.md`.
+Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 **Feature A: configurable sensors and jammers**
 
