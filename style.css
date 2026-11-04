@@ -66,10 +66,12 @@ button.mini { padding: 0 6px; font-size: 10px; margin-left: 6px; }
 #hud-top-left { flex: none; }
 .budget-num { color: #ffd54f; float: right; letter-spacing: 0; }
 .budget-bar span { height: 100%; transition: width 0.6s ease-out; }
+.budget-bar .b-loss { background: #ffb300; }
 .budget-bar .b-left { background: #43a047; flex: 1 1 auto; }
 .bb-legend { font-size: 10px; color: #7f93b2; line-height: 1.5; }
 .bb-legend b { color: #cbd6ea; font-weight: 600; margin-right: 4px; }
 .bb-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; }
+.d-loss { background: #ffb300; }
 .d-capex { background: #4fc3f7; } .d-shots { background: #ef5350; } .d-left { background: #43a047; }
 #hud-top-left #status { font-size: 10px; line-height: 1.35; }
 #minimap { bottom: 12px; left: 12px; padding: 4px; width: 236px; height: 236px; }

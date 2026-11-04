@@ -50,7 +50,7 @@ export function createReplay(deps) {
     g.add(model, unseen);
     g.scale.setScalar(def.scale * WORLD.droneVisualScale);
     group.add(g);
-    const code = { spotter: 'SPT', fo: 'FO', fpv: 'FPV', fw: 'FW' }[d.type] || d.type;
+    const code = { spotter: 'SPT', fo: 'FO', fpv: 'FPV', fw: 'FW', friend: 'FRD' }[d.type] || d.type;
     o = { group: g, model, unseen, label: deps.makeLabel(code, '#' + def.color.toString(16).padStart(6, '0'), 'dlabel') };
     droneObjs.set(d.u, o);
     return o;
@@ -177,7 +177,7 @@ export function createReplay(deps) {
     const total = rec.frames.length ? rec.frames[rec.frames.length - 1].t - rec.frames[0].t : 0;
     if (!total) { eventsEl.innerHTML = ''; return; }
     const t0 = rec.frames[0].t;
-    const colour = { kill: '#66bb6a', leak: '#ff5252', spotter: '#ffd600', lost: '#ff9100' };
+    const colour = { kill: '#66bb6a', leak: '#ff5252', spotter: '#ffd600', lost: '#ff9100', friendly: '#ffd54f' };
     eventsEl.innerHTML = rec.events.filter((e) => colour[e.type]).map((e) =>
       `<i style="left:${(100 * (e.t - t0) / total).toFixed(2)}%;background:${colour[e.type]}" title="${e.text} (${fmtTime(e.t)})"></i>`).join('');
   }

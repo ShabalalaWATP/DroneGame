@@ -3,7 +3,7 @@
 
 import { bus } from './sapient.js';
 import {
-  STRUCTURES, DRONES, WORLD, BUILD, SITE, ECONOMY, WAVES, COMMS, FIGURE_FIELDS, RESEARCHED,
+  STRUCTURES, DRONES, enemyDrones, WORLD, BUILD, SITE, ECONOMY, WAVES, COMMS, FIGURE_FIELDS, RESEARCHED,
   setFigure, resetFigure, resetAllFigures, exportFigures, importFigures, applyRangeScale,
 } from './config.js';
 import { view } from './view.js';
@@ -196,7 +196,7 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged, network
 
   // coverage: for each cell, how many sensors would see a drone of the chosen type there (it flies at that type's usual height)
   const covThreat = $('#cov-threat');
-  covThreat.innerHTML = Object.values(DRONES).map((d) => {
+  covThreat.innerHTML = enemyDrones().map((d) => {
     const agl = Math.round((d.alt[0] + d.alt[1]) / 2);
     return `<option value="${d.id}">${d.name} (${d.rfEmitter ? 'RF emitter' : 'RF-silent'}, ${agl} m)</option>`;
   }).join('');
@@ -335,7 +335,7 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged, network
     const jamKills = sum(ledger.killedBy.jammer || {});
 
     // enemy by type
-    const enemyRows = Object.values(DRONES).map((d) => {
+    const enemyRows = enemyDrones().map((d) => {
       const l = ledger.launched[d.id] || 0, k = ledger.killed[d.id] || 0, x = ledger.leaked[d.id] || 0, e = ledger.escaped[d.id] || 0;
       return `<tr><td><i style="background:${hex(d.color)}"></i>${esc(d.name)}</td><td>${usd(d.cost)}</td><td>${l}</td><td>${k}</td><td>${x}</td><td>${e}</td><td>${usd(l * d.cost)}</td></tr>`;
     }).join('');
@@ -350,12 +350,15 @@ export function initDock({ net, drones, ledger, state, onFiguresChanged, network
       `<div><span class="k">Defence</span> ${usd(defenceSpend)} (${usd(spentCapex)} systems + ${usd(spentShots)} shots)</div>` +
       `<div><span class="k">Per $1 destroyed</span> ${ratio === null ? '–' : '$' + ratio.toFixed(2) + ' of shots'}${destroyed ? ` · $${(defenceSpend / destroyed).toFixed(2)} including systems` : ''}</div>` +
       `<div class="muted">Under 1.00 means each dollar of shots destroys more than a dollar of enemy hardware. Jammers cost nothing per use; ${jamKills} kills so far came from jamming.</div></div>` +
+      `<div class="sys"><div class="sys-h"><b>Friendly drones</b> <span class="muted">the site's own, no Remote ID</span></div>` +
+      `<div>${ledger.friendly.launched} flown · ${ledger.friendly.landed} landed · <span style="color:${ledger.friendly.lost ? '#ff8a80' : 'inherit'}">${ledger.friendly.lost} destroyed (${usd(ledger.friendly.lostValue)} to replace, taken from the budget)</span></div>` +
+      `<div class="muted">Losing a friendly costs its replacement price. Rules of engagement and the flight logs decide how likely that is.</div></div>` +
       `<div class="sys"><div class="sys-h"><b>Laydown</b></div><table class="mini"><tr><th>System</th><th>Count</th><th>Each</th><th>Total</th></tr>${laydownRows}</table></div>` +
       `<div class="sys"><div class="sys-h"><b>Shots fired</b></div><table class="mini"><tr><th>Effector</th><th>Per shot</th><th>Shots</th><th>Spent</th><th>Kills</th><th>Per kill</th></tr>${effRows}</table></div>` +
       `<div class="sys"><div class="sys-h"><b>Enemy attack</b> <span class="muted">cost to the attacker per drone</span></div><table class="mini"><tr><th>Drone</th><th>Each</th><th>Launched</th><th>Destroyed</th><th>Leaked</th><th>Left</th><th>Attack cost</th></tr>${enemyRows}</table>` +
       `<div class="muted">Leaked = reached the site. Left = a spotter that withdrew after its time on station.</div></div>` +
       `<div class="sys"><div class="sys-h"><b>Where the enemy costs come from</b></div>` +
-      Object.values(DRONES).map((d) => `<div class="cost-src"><b>${esc(d.name)}</b> ${usd(d.cost)}: ${esc(d.costRef.note)} <span class="conf">${esc(d.costRef.confidence)}</span><br>${linkList(d.costRef.sources)}</div>`).join('') + `</div>`;
+      enemyDrones().map((d) => `<div class="cost-src"><b>${esc(d.name)}</b> ${usd(d.cost)}: ${esc(d.costRef.note)} <span class="conf">${esc(d.costRef.confidence)}</span><br>${linkList(d.costRef.sources)}</div>`).join('') + `</div>`;
   }
 
   // ---------- sources: every researched figure, tuneable ----------

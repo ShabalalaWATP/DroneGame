@@ -85,7 +85,23 @@ export const FUSION = {
 };
 
 // How the attack arrives. FPV drones come one at a time, each from its own direction, this many seconds apart.
-export const WAVES = { fpvGap: 20 };
+// defenceShare: the fraction of strike drones that go for your defences as well as the emitters (the rest head for the
+// station); friendlies: friendly drones per wave (more in later waves); friendlyOffRoute: the share that fly no logged route.
+export const WAVES = { fpvGap: 20, defenceShare: 0.6, friendlies: 2, friendlyOffRoute: 0.25 };
+
+// Rules of engagement: how sure the fusion node must be that a track is a friendly (from matching its flight against the
+// logs) before it asks the operator (ask) or holds fire (hold). Probabilities are capped below 1 in FLIGHT_LOG_MATCH.
+export const ROE = {
+  mode: 'standard',
+  modes: {
+    free: { label: 'Weapons free', ask: 1.1, hold: 1.1, note: 'Engage anything that looks hostile, even a likely friendly.' },
+    standard: { label: 'Standard', ask: 0.4, hold: 0.75, note: 'Ask the operator for a likely friendly; hold fire on a near-certain one.' },
+    tight: { label: 'Weapons tight', ask: 0.15, hold: 0.4, note: 'Ask on any hint of a friendly; hold fire on a probable one.' },
+  },
+};
+// How a track is compared with the friendly flight logs (the routes in terrain.js): the distance it may stray from the
+// route, the height and speed bands it must fit, and the most the fusion node will ever believe it (never certain).
+export const FLIGHT_LOG_MATCH = { cross: 160, aglBand: 60, speedBand: 0.45, maxProb: 0.9 };
 
 // The site's own close-in sensing. It is a SAPIENT node too, so everything flows through the same messages.
 export const PERIMETER = {
@@ -113,6 +129,12 @@ export const SPECTRUM = {
     gnss: { label: 'GNSS L1/L2', f: [[1.215, 1.255], [1.559, 1.610]], note: 'GPS and similar navigation signals' },
   },
   detectorListens: [0.07, 6], // the RF detector sweeps 70 MHz to 6 GHz (trade reference)
+  // What an RF detector hears (spectrum.js). All of these are assumptions, not measurements: radio output in dBm,
+  // the receiver's noise floor over a 20 MHz channel, and how far above it a signal must stand to be picked out.
+  // The detector is calibrated so a small FPV's control link is just heard at the detector's published range.
+  noiseFloor: -105, snr: 14,
+  power: { default: { control: 20, video: 27 }, spotter: { control: 33, video: 30 } },
+  jammerDbm: 40, modemDbm: 23, towerDbm: 43,
 };
 export const overlaps = (a, b) => a.some(([a0, a1]) => b.some(([b0, b1]) => a0 < b1 && b0 < a1));
 
@@ -159,10 +181,11 @@ export const COMMS = {
 // Costs are in US dollars. `cost` is what a system costs to buy and deploy; `shotCost` is charged every time a
 // consumable (interceptor drone, missile, laser shot) is used. The whole run draws on one fixed budget (ECONOMY).
 // Each system's `ref.cost` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
+// enemyValue: how attractive the system is to a strike drone hunting defences (relative, assumptions).
 export const STRUCTURES = {
   radar: {
     name: 'Radar', short: 'RDR', key: '1', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 6, falseAlarm: 0.1, // chance of a false alarm per scan
-    health: 30, signature: 1.0, emits: [{ label: 'X-band radar (assumed 9.2\u20139.5 GHz)', f: [[9.2, 9.5]] }], // radar band: assumption
+    health: 30, enemyValue: 0.8, signature: 1.0, emits: [{ label: 'X-band radar (assumed 9.2\u20139.5 GHz)', f: [[9.2, 9.5]] }], // radar band: assumption
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
     sapient: {
@@ -189,7 +212,7 @@ export const STRUCTURES = {
   },
   radar_s: {
     name: 'Compact radar', short: 'RDC', key: '2', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 4, falseAlarm: 0.15,
-    health: 30, signature: 0.8, emits: [{ label: 'K-band radar 24.45\u201324.65 GHz', f: [[24.45, 24.65]] }], // published for EchoGuard (US)
+    health: 30, enemyValue: 0.5, signature: 0.8, emits: [{ label: 'K-band radar 24.45\u201324.65 GHz', f: [[24.45, 24.65]] }], // published for EchoGuard (US)
     lowAlt: 30, lowRange: 300,
     desc: 'Small solid-state radar. Cheap and short range, so you can afford several, but it sees less.',
     sapient: {
@@ -213,7 +236,7 @@ export const STRUCTURES = {
   },
   rf: {
     name: 'RF detector', short: 'RF', key: '3', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
-    health: 30, signature: 0.05, emits: [], listens: [[0.07, 6]], // passive
+    health: 30, enemyValue: 0.5, signature: 0.05, emits: [], listens: [[0.07, 6]], // passive
     desc: 'Passive RF sensor. Direction finding only (no range). Cannot see RF-silent drones.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
@@ -238,7 +261,7 @@ export const STRUCTURES = {
   },
   camera: {
     name: 'EO/IR camera', short: 'EO', key: '4', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 4, falseAlarm: 0.03,
-    health: 30, signature: 0.05, emits: [], // passive
+    health: 30, enemyValue: 0.4, signature: 0.05, emits: [], // passive
     // A narrow field of view (degrees, total) that has to be pointed. Idle, it sweeps; the fusion node cues it to
     // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.
     fov: 10, slewRate: 90, searchRate: 12, dwell: 3,
@@ -263,7 +286,7 @@ export const STRUCTURES = {
   },
   jammer: {
     name: 'RF jammer', short: 'JAM', key: '5', cost: 60000, shotCost: 0, color: 0x7c4dff, role: 'effector', published: 1000,
-    health: 30, signature: 1.5, emits: [], bands: ['control24', 'video58'], // which bands it jams (changeable per jammer); loud while jamming
+    health: 30, enemyValue: 1.0, signature: 1.5, emits: [], bands: ['control24', 'video58'], // which bands it jams (changeable per jammer); loud while jamming
     slow: 0.5, killTime: 5, // jammed drones slow down; after killTime seconds of full jamming they lose link and crash
     desc: 'RF jammer. Switched on only while tracks are in range. Autonomous/fibre drones ignore it. No cost per use.',
     sapient: { nodeType: 'NODE_TYPE_JAMMER', subType: ['RF', 'GNSS'], scan: 'SCAN_TYPE_FIXED', modes: ['Standby', 'Jam'] },
@@ -289,7 +312,7 @@ export const STRUCTURES = {
   },
   interceptor: {
     name: 'Interceptor drones', short: 'INT', key: '6', cost: 100000, shotCost: 5000, color: 0x00e5ff, role: 'effector', published: 5000, muzzleY: 1.6, fire: 'guided',
-    health: 30, signature: 0.2, emits: [],
+    health: 30, enemyValue: 1.1, signature: 0.2, emits: [],
     engages: ['fpv', 'fo'], // too slow to catch the fixed-wing drones (game rule)
     damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80,
     desc: 'Cheap ram-type interceptor drones. Each launch costs $5,000. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
@@ -313,7 +336,7 @@ export const STRUCTURES = {
   },
   missile: {
     name: 'Missile', short: 'MSL', key: '7', cost: 1000000, shotCost: 200000, color: 0xff4081, role: 'effector', published: 10000, muzzleY: 2.2, fire: 'guided',
-    health: 30, signature: 0.2, emits: [],
+    health: 30, enemyValue: 1.6, signature: 0.2, emits: [],
     engagePolicy: 'fixed-wing', // the fusion node keeps this for fixed-wing tracks (or anything that gets close), to save the expensive rounds
     damage: 70, splash: 40, fuze: 30, cooldown: 4, missileSpeed: 150,
     desc: 'High-end guided missile that can hit the fixed-wing drones. Each shot costs $200,000, so the fusion node saves it for fixed-wing tracks.',
@@ -340,7 +363,7 @@ export const STRUCTURES = {
   },
   laser: {
     name: 'Laser', short: 'LSR', key: '8', cost: 2000000, shotCost: 13, color: 0xffffff, role: 'effector', published: 1000, muzzleY: 2.6,
-    health: 30, signature: 0.3, emits: [],
+    health: 30, enemyValue: 1.2, signature: 0.3, emits: [],
     dps: 28,
     desc: 'High-energy laser. $2,000,000 to deploy and about $13 per shot, but it needs dwell time, so evasive targets take longer to burn.',
     sapient: { nodeType: 'NODE_TYPE_LDEW', subType: ['Laser'], scan: 'SCAN_TYPE_STEERABLE' },
@@ -437,15 +460,29 @@ export const DRONES = {
       ],
     },
   },
+  // A friendly drone: one of the site's own, flying a logged route (or, sometimes, not). It has no Remote ID, so the
+  // sensors see it exactly like a small multirotor. Losing one costs its replacement price.
+  friend: {
+    name: 'Friendly drone', friendly: true, model: 'quad', hp: 20, speed: 14, damage: 0, scale: 0.8, evade: 0.7,
+    links: { control: 'control24', video: 'video58', gnss: true },
+    rfEmitter: true, airframe: 'Multirotor', color: 0x69f0ae, alt: [60, 120], minAgl: 20, jamResist: 0, adapt: 0,
+    cost: 8000, rcs: 0.01, size: 0.35, rfPower: 1,
+    costRef: {
+      note: 'Assumption: a survey/inspection multirotor of the kind site operators fly, about $8,000 to replace. Not a researched price.',
+      confidence: 'Assumption',
+      sources: [],
+    },
+  },
 };
 for (const [id, def] of Object.entries(DRONES)) def.id = id;
+export const enemyDrones = () => Object.values(DRONES).filter((d) => !d.friendly);
 
 // The enemy learns: each wave after the first, drones spawn better at evading and resisting jamming.
 // evade = max(evadeFloor, base * (1 - evadePerWave * adapt * (wave - 1)))
 // jamResist = max(base, min(jamResistCap, base + jamResistPerWave * adapt * (wave - 1)))
 export const ADAPT = { evadePerWave: 0.07, evadeFloor: 0.25, jamResistPerWave: 0.05, jamResistCap: 0.95 };
 
-// Returns [{ t, type, bearing, jitter, altFrac, freq }] sorted by spawn time (seconds into the wave).
+// Returns [{ t, type, bearing, jitter, altFrac, freq, pref, ... }] sorted by spawn time (seconds into the wave).
 // `rng` is the wave's own seeded stream (rng.js waveStream), so a wave looks the same however it is reached.
 export function makeWave(n, rng) {
   const out = [];
@@ -455,17 +492,22 @@ export function makeWave(n, rng) {
     for (let i = 0; i < count; i++) {
       out.push({
         t: start + (span * i) / Math.max(count, 1), type, bearing: bearings[i % groups],
-        jitter: (rng() - 0.5) * 0.3, altFrac: rng(), freq: rng() < 0.5 ? 2.4e9 : 5.8e9,
+        jitter: (rng() - 0.5) * 0.3, altFrac: rng(), freq: rng() < 0.5 ? 2.4e9 : 5.8e9, pref: rng(),
       });
     }
   };
   // FPV strikes arrive one at a time, each from its own direction, WAVES.fpvGap seconds apart
   for (let i = 0; i < 3 + n * 2; i++) {
-    out.push({ t: i * WAVES.fpvGap, type: 'fpv', bearing: rng() * Math.PI * 2, jitter: 0, altFrac: rng(), freq: rng() < 0.5 ? 2.4e9 : 5.8e9 });
+    out.push({ t: i * WAVES.fpvGap, type: 'fpv', bearing: rng() * Math.PI * 2, jitter: 0, altFrac: rng(), freq: rng() < 0.5 ? 2.4e9 : 5.8e9, pref: rng() });
   }
   if (n >= 2) add('fw', Math.ceil((n - 1) / 2), 4, 14);
   if (n >= 3) add('fo', Math.floor((n - 1) / 2), 2, 10);
   if (n >= 3) add('spotter', n >= 8 ? 2 : 1, 0, 1);
+  // the site's own drones are about too: some on a logged route, some not
+  const friends = Math.min(WAVES.friendlies + Math.floor(n / 4), 5);
+  for (let i = 0; i < friends; i++) {
+    out.push({ t: 5 + rng() * 140, type: 'friend', bearing: rng() * Math.PI * 2, jitter: 0, altFrac: rng(), freq: 2.4e9, pref: 1, route: rng(), offRoute: rng() < WAVES.friendlyOffRoute });
+  }
   return out.sort((a, b) => a.t - b.t);
 }
 

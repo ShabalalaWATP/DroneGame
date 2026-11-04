@@ -10,7 +10,7 @@
 //  - Registration `task` definitions are minimal.
 
 import * as S from './sapient.js';
-import { WORLD, TERRAIN, FUSION, SENSING, PERIMETER, FUSION_DEF, DRONES } from './config.js';
+import { WORLD, TERRAIN, FUSION, SENSING, PERIMETER, FUSION_DEF, DRONES, ROE, FLIGHT_LOG_MATCH } from './config.js';
 import { rand, gauss, EPOCH_MS } from './rng.js';
 import { terrainState } from './terrain.js';
 import { createTracker } from './tracker.js';
@@ -91,12 +91,14 @@ export function createNetwork(ctx) {
   //  - ground clutter hiding low flyers from radar, line of sight over the terrain, and trees
   //  - for a camera, whether it is pointing at the target (it has a narrow field of view and has to be cued)
   // `pointing: false` ignores the camera's aim, for coverage maps (assume it has been cued).
+  // A damaged system performs worse: 1 at full health, down to 0.3. Sensors reach less far (by its square root).
+  const perf = (s) => (s.def.health ? clamp((s.health ?? s.def.health) / s.def.health, 0.3, 1) : 1);
   function pd(s, d, { pointing = true } = {}) {
     const def = s.def, kind = def.kind || def.id;
     const r = rel(s, d);
     if (def.senses === 'perimeter') return r.hr < def.range ? 0.98 : 0;
     if (def.senses === 'rf' && !d.def.rfEmitter) return 0;
-    let reach = def.range;
+    let reach = def.range * Math.sqrt(perf(s));
     if (kind === 'radar') reach *= Math.pow((d.def.rcs ?? SENSING.refRcs) / SENSING.refRcs, 0.25);
     else if (kind === 'camera') reach *= (d.def.size ?? SENSING.refSize) / SENSING.refSize;
     else if (kind === 'rf') reach *= Math.sqrt(d.def.rfPower ?? 1);
@@ -382,10 +384,53 @@ export function createNetwork(ctx) {
     body.detection_confidence = round(Math.min(0.99, 0.4 + 0.12 * tr.hits), 2);
     if (tr.cls) body.classification = tr.cls;
     body.behaviour = [{ type: tr.drone && tr.drone.mode === 'orbit' ? 'Loitering' : 'Approaching', confidence: 0.7 }];
+    if ((tr.friendProb || 0) > 0.2) body.behaviour.push({ type: `Matches known flight log: ${tr.friendRoute}`, confidence: round(tr.friendProb, 2) });
     if (srcs.length) body.derived_detection = srcs.map(([id, v]) => ({ timestamp: v.ts, node_id: id, object_id: v.objectId }));
     const e = tracker.estimate(tr, T());
     body.enu_velocity = { east_rate: round(e.vel[0], 2), north_rate: round(e.vel[1], 2), up_rate: round(e.vel[2], 2) };
     send(S.envelope(fusion.nodeId, 'detection_report', body), fusion.nodeId, gui.nodeId);
+  }
+
+  // ---------- flight logs ----------
+  // The site's own drones fly logged routes (terrain.js). The fusion node compares each track with them: how far it is from
+  // the route, whether it is heading along it, and whether its speed and height fit. The result is a probability that the
+  // track is a friendly, capped below 1: a match is never proof, and an unlogged friendly looks hostile.
+  const holdFire = (tr) => (tr.friendProb || 0) >= ROE.modes[ROE.mode].hold;
+  function matchFlightLogs(dt) {
+    const T3 = terrainState.data, routes = T3 && T3.routes;
+    if (!routes || !routes.length) return;
+    const M = FLIGHT_LOG_MATCH, k = 1 - Math.exp(-dt * 0.8);
+    for (const tr of tracker.tracks.values()) {
+      if (tr.status === 'tentative' || !tr.est) continue;
+      const e = tracker.estimate(tr, T());
+      const x = tr.est.east, z = -tr.est.north, vx = e.vel[0], vz = -e.vel[1];
+      const spd = Math.hypot(vx, vz), agl = tr.est.up - T3.groundAt(x, z);
+      let best = 0, name = null;
+      for (const rt of routes) {
+        const pts = rt.pts;
+        let bd = Infinity, dir = null;
+        for (let i = 0; i < pts.length - (rt.loop ? 0 : 1); i++) {
+          const a = pts[i], b = pts[(i + 1) % pts.length];
+          const sx = b.x - a.x, sz = b.z - a.z, len2 = sx * sx + sz * sz || 1;
+          const t = clamp(((x - a.x) * sx + (z - a.z) * sz) / len2, 0, 1);
+          const dd = Math.hypot(x - (a.x + t * sx), z - (a.z + t * sz));
+          if (dd < bd) { bd = dd; dir = [sx, sz, Math.sqrt(len2)]; }
+        }
+        if (bd >= M.cross) continue;
+        const along = spd > 1 ? Math.abs((vx * dir[0] + vz * dir[1]) / (spd * dir[2])) : 0.5; // either way along the route
+        const score = (1 - bd / M.cross) * along
+          * (0.5 + 0.5 * Math.max(0, 1 - Math.abs(spd - rt.speed) / (rt.speed * M.speedBand)))
+          * (0.5 + 0.5 * Math.max(0, 1 - Math.abs(agl - rt.agl) / M.aglBand));
+        if (score > best) { best = score; name = rt.name; }
+      }
+      const prev = tr.friendProb || 0;
+      tr.friendProb = prev + (best * M.maxProb - prev) * k;
+      if (name && best > 0.05) tr.friendRoute = name;
+      if (!tr.friendAlert && tr.friendProb >= 0.5) {
+        tr.friendAlert = true;
+        raiseAlert('information', `Track ${tr.short} matches known flight log "${tr.friendRoute}" (${Math.round(tr.friendProb * 100)}%): probably a friendly`, null, 'DISCRETE_PRIORITY_LOW', tr);
+      }
+    }
   }
 
   // ---------- alerts ----------
@@ -408,14 +453,17 @@ export function createNetwork(ctx) {
   // decision, and the operator's answer comes back as an AlertAck (ACCEPTED / REJECTED, or CANCELLED if it lapses).
   const pending = []; // { id, alertId, s, tr, t0, text }
   const usd = (v) => '$' + Math.round(v).toLocaleString('en-US');
-  function needsApproval(s) {
+  function needsApproval(s, tr) {
+    if (tr && (tr.friendProb || 0) >= ROE.modes[ROE.mode].ask) return true; // rules of engagement: it might be a friendly
     if (FUSION.authority === 'all') return true;
     return FUSION.authority === 'costly' && (s.def.shotCost || 0) >= FUSION.authorityThreshold;
   }
   const isPending = (s, tr) => pending.some((p) => p.s === s && p.tr.id === tr.id);
   function requestApproval(s, tr) {
     const cost = s.def.shotCost ? `, ${usd(s.def.shotCost)} per shot` : '';
-    const text = `Authorise ${s.name} to engage ${tr.short} (${tr.airframe === 'Unknown' ? 'unclassified' : tr.airframe})${cost}?`;
+    const fp = tr.friendProb || 0;
+    const friend = fp > 0.05 ? ` Warning: ${Math.round(fp * 100)}% match to flight log "${tr.friendRoute}", so it may be a friendly.` : '';
+    const text = `Authorise ${s.name} to engage ${tr.short} (${tr.airframe === 'Unknown' ? 'unclassified' : tr.airframe})${cost}?${friend}`;
     const alertId = raiseAlert('warning', `Engagement request: ${text}`, null, 'DISCRETE_PRIORITY_HIGH', tr, false);
     const req = { id: alertId, alertId, s, tr, t0: T(), text };
     pending.push(req);
@@ -469,7 +517,7 @@ export function createNetwork(ctx) {
   }
 
   function assign(s, tr, approved = false) {
-    if (!approved && needsApproval(s)) { if (!isPending(s, tr)) requestApproval(s, tr); return; }
+    if (!approved && needsApproval(s, tr)) { if (!isPending(s, tr)) requestApproval(s, tr); return; }
     const { id, res: sent } = sendTask(s, {
       control: 'CONTROL_START',
       command: { request: 'Engage', command_parameter: tr.id },
@@ -493,6 +541,7 @@ export function createNetwork(ctx) {
   function eligible(s, tr) {
     const def = s.def;
     if (s.denied.has(tr.id) || isPending(s, tr)) return false;
+    if (holdFire(tr)) return false; // rules of engagement: probably a friendly
     if (s.rejected && T() < s.rejected.until && tr.id === s.rejected.id) return false;
     if (!takesAirframe(def, tr.airframe)) return false; // already known to be beyond this effector
     if (def.engagePolicy === 'fixed-wing' && tr.airframe !== 'Fixed wing') {
@@ -544,7 +593,7 @@ export function createNetwork(ctx) {
     for (const s of nodes.values()) {
       if (s.def.role !== 'effector' || s.offline) continue; // an effector we have lost contact with can't be tasked
       if (s.def.id === 'jammer') {
-        const want = live.some((tr) => distToTrack(s, tr) <= s.def.range) ? 'Jam' : 'Standby';
+        const want = live.some((tr) => distToTrack(s, tr) <= s.def.range * Math.sqrt(perf(s)) && !holdFire(tr)) ? 'Jam' : 'Standby';
         if (s.mode !== want && s.modePending !== want) {
           const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { mode_change: want } }, `Mode ${want}`, `Switch ${s.name} to ${want}`);
           if (!res.dropped) {
@@ -626,6 +675,7 @@ export function createNetwork(ctx) {
     }
     tracker.prune(T());
     refreshTracks();
+    matchFlightLogs(dt);
     expireRequests();
     for (const tr of [...tracker.tracks.values()]) { // kill confirmation: the sensors must have lost the track
       if (!tr.killWatch || T() - tr.killWatch.t < FUSION.killConfirmDelay) continue;

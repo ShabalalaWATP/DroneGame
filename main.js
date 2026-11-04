@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  WORLD, SITE, BUILD, TERRAIN, ECONOMY, FUSION, WAVES, COMMS, STRUCTURES, DRONES, ADAPT,
+  WORLD, SITE, BUILD, TERRAIN, ECONOMY, FUSION, WAVES, ROE, COMMS, STRUCTURES, DRONES, ADAPT,
   makeWave, applyRangeScale,
 } from './config.js';
 import { createNetwork } from './network.js';
@@ -22,6 +22,8 @@ seedAll(seedParam);
 const u = (metres) => metres / WORLD.metresPerUnit;           // metres -> scene units
 const hdist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
+// a damaged system performs worse: 1 at full health, down to 0.3 (effectors fire slower, reach less far)
+const structPerf = (s) => clamp(s.health / (s.def.health || 30), 0.3, 1);
 const STRUCT_SCALE = 3;                                       // structures are drawn larger than true size
 
 // ---------- scene ----------
@@ -89,6 +91,7 @@ const ledger = {
   killedBy: {},              // effector id (or 'jammer') -> { drone type -> count }
   terminals: { starlink: 0, cellular: 0 }, // network terminals bought (counted in capex)
   lost: {}, lostValue: 0,    // systems the enemy destroyed (id -> count) and what they were worth
+  friendly: { launched: 0, lost: 0, lostValue: 0, landed: 0 }, // the site's own drones, and what losing them cost
 };
 const rec = createRecorder(); // history for pause and rewind
 rec.now = () => state.time;
@@ -114,9 +117,9 @@ const net = createNetwork({
   // An effector decides whether it can take a task from the fusion node.
   acceptTask(s, d) {
     if (!d || d.dead) return { ok: false, reasons: ['target no longer exists'] };
-    if (s.pos.distanceTo(d.pos) > u(s.def.range)) return { ok: false, reasons: ['target outside effector range'] };
+    if (s.pos.distanceTo(d.pos) > u(s.def.range) * Math.sqrt(structPerf(s))) return { ok: false, reasons: ['target outside effector range'] };
     if (!opticalLos(s, d)) return { ok: false, reasons: ['no line of sight to target'] };
-    if (s.def.engages && !s.def.engages.includes(d.type)) return { ok: false, permanent: true, reasons: ['target outside engagement envelope (too fast or too high for this interceptor)'] };
+    if (s.def.engages && !s.def.engages.some((t) => DRONES[t].airframe === d.def.airframe)) return { ok: false, permanent: true, reasons: ['target outside engagement envelope (too fast or too high for this interceptor)'] };
     if (!affordable(s.def)) return { ok: false, reasons: ['insufficient budget for this shot'] };
     return { ok: true };
   },
@@ -340,7 +343,7 @@ function placementProblem(x, z, def) {
   if (r < u(BUILD.minDist)) return `Too close to the station (minimum ${BUILD.minDist} m)`;
   if (r > u(BUILD.maxDist)) return `Outside the build zone (maximum ${BUILD.maxDist} m)`;
   if (terrainState.data.bldgAt(xm, zm)) return 'There is a building here';
-  if (terrainState.data.coverAt(xm, zm) === 4) return 'You cannot build in water';
+  if (terrainState.data.nearWater(xm, zm, 60)) return 'You cannot build in or beside water';
   if (terrainState.data.slope(xm, zm) > 0.4) return 'The ground is too steep';
   if (structures.some((s) => hdist(s.pos, { x, z }) < u(BUILD.spacing))) return 'Too close to another structure';
   if (state.budget < def.cost) return `Not enough budget (${money(def.cost)} needed, ${money(state.budget)} left)`;
@@ -423,7 +426,7 @@ function droneTemplate(type, unseen) {
 
 function spawnDrone(type, bearing, rolls = {}) {
   const def = DRONES[type];
-  tally(ledger.launched, type); // the attacker pays for every drone it launches
+  if (def.friendly) ledger.friendly.launched++; else tally(ledger.launched, type); // the attacker pays for every drone it launches
   // the enemy adapts: later waves spawn harder to hit and harder to jam
   const k = Math.max(effWave() - 1, 0) * (def.adapt ?? 1);
   const evade = Math.max(Math.min(ADAPT.evadeFloor, def.evade), def.evade * (1 - ADAPT.evadePerWave * k));
@@ -434,8 +437,10 @@ function spawnDrone(type, bearing, rolls = {}) {
   const altFrac = rolls.altFrac ?? rand();
   const freq = rolls.freq ?? (rand() < 0.5 ? 2.4e9 : 5.8e9);
   const a = bearing + jitter;
-  const sx = Math.cos(a) * u(WORLD.spawnDist), sz = Math.sin(a) * u(WORLD.spawnDist);
-  const agl = def.alt[0] + altFrac * (def.alt[1] - def.alt[0]); // metres above the ground at the spawn point
+  let sx = Math.cos(a) * u(WORLD.spawnDist), sz = Math.sin(a) * u(WORLD.spawnDist);
+  let agl = def.alt[0] + altFrac * (def.alt[1] - def.alt[0]); // metres above the ground at the spawn point
+  let plan = null;
+  if (def.friendly) { plan = friendlyPlan(a, agl, rolls); ({ sx, sz, agl } = plan); }
   const y = hereU(sx, sz) + u(agl);
   const group = new THREE.Group();
   const model = droneTemplate(type, false).clone();
@@ -479,9 +484,39 @@ function spawnDrone(type, bearing, rolls = {}) {
     agl0: agl, h0: Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
     mode: 'approach', angle: 0, orbitT: 0, bank: 0,         // spotter state
     vel: new THREE.Vector3(), freq, track: null, nav: 0, videoJammed: false, targetStructure: null,
+    seeksDefences: def.friendly ? false : (rolls.pref ?? rand()) < WAVES.defenceShare, // this one goes for the defences as well as the emitters
+    path: plan && plan.path, wp: 0, laps: plan && plan.route && plan.route.loop ? 2 : 1, speedMps: plan && plan.route ? plan.route.speed : undefined,
   };
   drones.push(d);
-  rec.event('launch', `${def.name} launched`, d.uid);
+  rec.event('launch', `${def.name} launched${plan && plan.route ? ` on ${plan.route.name}` : ''}`, d.uid);
+}
+
+// A friendly drone either flies one of the logged routes (out and back along a power line, or the perimeter patrol) or, now and
+// then, none of them: it comes in from outside, heads for the site and circles it. Only the logged ones can be told from a threat.
+function friendlyPlan(a, agl, rolls) {
+  const routes = terrainState.data.routes;
+  if (!rolls.offRoute && routes.length) {
+    const route = routes[Math.min(Math.floor((rolls.route ?? rand()) * routes.length), routes.length - 1)];
+    const path = route.pts.map((p) => ({ x: u(p.x), z: u(p.z) }));
+    return { path, route, sx: path[0].x, sz: path[0].z, agl: route.agl };
+  }
+  const rc = u(350), path = [];
+  for (let i = 0; i <= 8; i++) path.push({ x: Math.cos(a + (i / 8) * Math.PI * 2) * rc, z: Math.sin(a + (i / 8) * Math.PI * 2) * rc });
+  return { path, route: null, sx: Math.cos(a) * u(1800), sz: Math.sin(a) * u(1800), agl };
+}
+// Fly the path at the route's height above the ground, then land. Returns false if the drone was removed.
+function moveFriendly(d, spd) {
+  let wp = d.path[d.wp];
+  while (wp && hdist(d.pos, wp) < Math.max(spd * 1.5, u(10))) {
+    if (++d.wp >= d.path.length && d.laps > 1) { d.laps--; d.wp = 0; }
+    wp = d.path[d.wp];
+  }
+  if (!wp) { ledger.friendly.landed++; removeDrone(d); return false; }
+  const dx = wp.x - d.pos.x, dz = wp.z - d.pos.z, dist = Math.hypot(dx, dz) || 1, step = Math.min(spd, dist);
+  d.pos.x += (dx / dist) * step; d.pos.z += (dz / dist) * step;
+  const ahead = Math.max(groundM(d.pos.x, d.pos.z), groundM(d.pos.x + (dx / dist) * u(100), d.pos.z + (dz / dist) * u(100)));
+  d.pos.y += clamp(u(ahead + d.agl0) - d.pos.y, -spd * 1.2, spd * 0.8);
+  return true;
 }
 
 function removeDrone(d) {
@@ -497,6 +532,14 @@ function removeDrone(d) {
 
 // `by` is the id of whatever did the damage ('laser', 'interceptor', 'missile', ...), for the cost ledger.
 function recordKill(d, by) {
+  if (d.def.friendly) { // one of ours: it costs its replacement, and the operator is told
+    rec.event('friendly', `Friendly drone lost to ${by}`, d.uid);
+    ledger.friendly.lost++;
+    if (!state.sandbox) { state.budget -= d.def.cost; ledger.friendly.lostValue += d.def.cost; }
+    net.raiseAlert('critical', `Friendly drone destroyed by ${by}`, d.pos, 'DISCRETE_PRIORITY_HIGH');
+    toast('Friendly drone destroyed!');
+    return;
+  }
   rec.event('kill', `${d.def.name} destroyed by ${by}`, d.uid);
   state.kills++;
   tally(ledger.killed, d.type);
@@ -567,14 +610,18 @@ function emitterScore(s) {
 }
 const SITE_AIM = { x: 0, z: 0, structure: null };
 function pickTarget(d) {
-  if (!d.def.seeksEmitters) return SITE_AIM;
+  // FPV and FO strikes hunt emitters (and, when sent after the defences, anything of value). An FW Strike goes for the most
+  // valuable defence once a spotter is on station to guide it, and otherwise for the station.
+  const guided = d.def.id === 'fw' && d.seeksDefences && spotterBonus() > 0;
+  if (!d.def.seeksEmitters && !guided) return SITE_AIM;
   if (d.targetStructure && structures.includes(d.targetStructure)) return { x: d.targetStructure.pos.x, z: d.targetStructure.pos.z, structure: d.targetStructure };
   d.targetStructure = null;
   let best = null, bs = 0.3;
   for (const s of structures) {
     const dist = hdist(s.pos, d.pos);
-    if (dist > u(3000)) continue;
-    const score = emitterScore(s) / (1 + dist / u(1500));
+    if (dist > u(guided ? 8000 : 3000)) continue;
+    const score = guided ? (s.def.enemyValue || 0) / (1 + dist / u(4000))
+      : (emitterScore(s) + (d.seeksDefences ? s.def.enemyValue || 0 : 0)) / (1 + dist / u(1500));
     if (score > bs) { bs = score; best = s; }
   }
   if (!best) return SITE_AIM;
@@ -608,7 +655,7 @@ function updateDrones(dt) {
     const links = d.def.links || {};
     let ctrl = false, vid = false, gnss = false, killTime = Infinity;
     for (const s of structures) {
-      if (s.def.id !== 'jammer' || s.mode !== 'Jam' || s.pos.distanceTo(d.pos) > u(s.def.range)) continue;
+      if (s.def.id !== 'jammer' || s.mode !== 'Jam' || s.pos.distanceTo(d.pos) > u(s.def.range) * Math.sqrt(structPerf(s))) continue;
       if (links.control && s.jamBands.has(links.control)) ctrl = true;
       if (links.video && s.jamBands.has(links.video)) vid = true;
       if (links.gnss && s.jamBands.has('gnss')) gnss = true;
@@ -631,9 +678,11 @@ function updateDrones(dt) {
     if (gnss) d.nav += gauss() * 0.08 * Math.sqrt(dt);
 
     const px = d.pos.x, py = d.pos.y, pz = d.pos.z;
-    const spd = u(d.def.speed) * slow * dt;
+    const spd = u(d.speedMps ?? d.def.speed) * slow * dt;
     if (d.def.role === 'spotter') {
       if (!moveSpotter(d, spd, dt)) continue;
+    } else if (d.def.friendly) {
+      if (!moveFriendly(d, spd)) continue;
     } else {
       const tgt = pickTarget(d);
       const hrem = Math.hypot(tgt.x - d.pos.x, tgt.z - d.pos.z);
@@ -686,7 +735,7 @@ const trackColour = (tr) => {
 
 // ---------- name tags ----------
 const hexCss = (c) => '#' + c.toString(16).padStart(6, '0');
-const DRONE_CODE = { spotter: 'SPT', fo: 'FO', fpv: 'FPV', fw: 'FW' };
+const DRONE_CODE = { spotter: 'SPT', fo: 'FO', fpv: 'FPV', fw: 'FW', friend: 'FRD' };
 function makeLabel(text, colour, cls) {
   const el = document.createElement('div');
   el.className = cls; el.textContent = text; el.style.borderColor = colour;
@@ -704,6 +753,7 @@ function updateLabels() {
   for (const s of structures) {
     const target = s.task && net.tracks.get(s.task.trackId);
     s.label.textContent = `${s.short} · ${s.mode}${target ? ' ▸ ' + (target.short || '?') : ''}`;
+    if (s.health < (s.def.health || 30)) s.label.textContent += ` \u00b7 ${Math.round((100 * s.health) / (s.def.health || 30))}% hp`;
     placeLabel(s.label, s.pos.x, s.pos.y + 9, s.pos.z, view.labels);
   }
   for (const d of drones) {
@@ -824,10 +874,10 @@ const aim = (s, t) => { s.parts.head.rotation.y = Math.atan2(t.pos.x - s.pos.x, 
 
 function updateStructures(dt) {
   for (const s of structures) {
-    const def = s.def;
+    const def = s.def, perf = structPerf(s);
     s.cd = Math.max(0, s.cd - dt);
     if (def.role === 'sensor' || def.id === 'jammer') continue;
-    const range = u(def.range);
+    const range = u(def.range) * Math.sqrt(perf);
     let t = s.task && state.time >= (s.task.activeAt || 0) && !s.task.drone.dead && s.pos.distanceTo(s.task.drone.pos) <= range ? s.task.drone : null; // acts once its task has arrived
     if (t && (def.id === 'laser' || s.cd <= 0) && !opticalLos(s, t)) t = null; // terrain or trees in the way
     if (def.id === 'laser') {
@@ -842,14 +892,14 @@ function updateStructures(dt) {
         p.setXYZ(0, m.x, m.y, m.z); p.setXYZ(1, t.pos.x, t.pos.y, t.pos.z); p.needsUpdate = true;
         s.beamT = (s.beamT || 0) + dt; // a "shot" is a second of beam time
         while (s.beamT >= 1) { s.beamT -= 1; spend(def); }
-        damageDrone(t, def.dps * dt * (0.5 + 0.5 * t.evade), 'laser'); // evasion spoils beam dwell
+        damageDrone(t, def.dps * perf * dt * (0.5 + 0.5 * t.evade), 'laser'); // evasion spoils beam dwell
       }
       continue;
     }
     if (!t) continue;
     aim(s, t);
     if (s.cd > 0 || !affordable(def)) continue;
-    s.cd = def.cooldown;
+    s.cd = def.cooldown / perf; // a damaged launcher reloads slower
     if (def.fire === 'guided') { // interceptor drones and missiles
       const pending = missiles.filter((m) => m.target === t).length * def.damage;
       if (pending >= t.hp) { s.cd = 0.3; continue; } // enough already in the air
@@ -969,7 +1019,7 @@ function updateWaves(dt) {
       const q = state.queue.shift();
       spawnDrone(q.type, q.bearing, q);
     }
-    if (!state.queue.length && !drones.some((d) => d.def.role !== 'spotter')) {
+    if (!state.queue.length && !drones.some((d) => d.def.role !== 'spotter' && !d.def.friendly)) {
       for (const d of drones) d.mode = 'egress'; // spotters withdraw once the strike is over
       state.waveActive = false;
       toast(`Wave ${state.wave} cleared. Budget left ${money(state.budget)}`);
@@ -1028,6 +1078,9 @@ $('truth').onchange = (e) => { view.truth = e.target.checked; };
 $('labels-toggle').onchange = (e) => { view.labels = e.target.checked; };
 $('authority').value = FUSION.authority;
 $('authority').onchange = (e) => { FUSION.authority = e.target.value; };
+$('roe').innerHTML = Object.entries(ROE.modes).map(([k, md]) => `<option value="${k}" title="${md.note}">${md.label}</option>`).join('');
+$('roe').value = ROE.mode;
+$('roe').onchange = (e) => { ROE.mode = e.target.value; };
 
 // the operator's approval prompt: one card per pending engagement request
 let approvalKey = '';
@@ -1074,7 +1127,7 @@ function buildTuning() {
   numberField(el, 'Jam resist gain', ADAPT, 'jamResistPerWave', { step: 0.01 });
 }
 
-const bb = { capex: $('bb-capex'), shots: $('bb-shots'), capexT: $('bb-capex-t'), shotsT: $('bb-shots-t'), leftT: $('bb-left-t') };
+const bb = { capex: $('bb-capex'), shots: $('bb-shots'), loss: $('bb-loss'), capexT: $('bb-capex-t'), shotsT: $('bb-shots-t'), leftT: $('bb-left-t') };
 const hud = {
   fill: $('health-fill'), budget: $('budget'), wave: $('wave'), kills: $('kills'), leaks: $('leaks'), btn: $('btn-wave'), status: $('status'),
 };
@@ -1084,7 +1137,7 @@ function updateHud() {
   hud.fill.style.background = k > 0.6 ? '#4caf50' : k > 0.3 ? '#ffb300' : '#e53935';
   hud.budget.textContent = money(state.budget);
   const pct = (v) => (v > 0 ? Math.max(100 * Math.min(v / ECONOMY.budget, 1), 0.6) : 0).toFixed(2) + '%'; // a sliver stays visible
-  bb.capex.style.width = pct(ledger.capex); bb.shots.style.width = pct(ledger.consumables);
+  bb.capex.style.width = pct(ledger.capex); bb.shots.style.width = pct(ledger.consumables); bb.loss.style.width = pct(ledger.friendly.lostValue);
   bb.capexT.textContent = money(ledger.capex); bb.shotsT.textContent = money(ledger.consumables); bb.leftT.textContent = money(state.budget);
   hud.wave.textContent = state.wave;
   hud.kills.textContent = state.kills;
@@ -1098,6 +1151,7 @@ function updateHud() {
   hud.status.innerHTML = (spot > 0 ? `<span class="warn">FW Spotter on station: strikes +${Math.round(spot * 100)}%</span><br>` : '')
     + `Enemy attack cost ${money(enemyCost(ledger.launched))} &middot; shots fired ${money(ledger.consumables)}`
     + `${ledger.consumables && enemyCost(ledger.killed) ? ` &middot; $${(ledger.consumables / enemyCost(ledger.killed)).toFixed(2)} per $1 destroyed` : ''}<br>`
+    + `Friendly drones: ${ledger.friendly.launched} flown, ${ledger.friendly.lost} lost${ledger.friendly.lostValue ? ` (${money(ledger.friendly.lostValue)})` : ''} &middot; ROE ${ROE.modes[ROE.mode].label}<br>`
     + `Enemy evasion (1.00 = easy to hit): FPV ${adapted('fpv').toFixed(2)} &middot; FW ${adapted('fw').toFixed(2)}<br>Seed ${state.seed} &middot; Terrain ${state.terrainSeed}`;
   hud.btn.disabled = state.waveActive || state.over || state.sandbox;
   hud.btn.textContent = state.sandbox ? 'Exit sandbox to start' : state.waveActive ? `Wave ${state.wave} in progress` : `Start wave ${state.wave + 1}`;
@@ -1210,6 +1264,14 @@ function drawMinimap() {
   ring(BUILD.maxDist, 'rgba(92,123,176,0.9)', [3, 3]);
   ring(WORLD.spawnDist, 'rgba(255,255,255,0.18)', [2, 4]);
   ring(SITE.radius, 'rgba(255,82,82,0.95)');
+  g.strokeStyle = 'rgba(105,240,174,0.5)'; g.lineWidth = 1; g.setLineDash([2, 3]); // friendly flight logs
+  for (const rt of data.routes || []) {
+    g.beginPath();
+    rt.pts.forEach((p, i) => { const [x, y] = mmXY(p.x, p.z); if (i) g.lineTo(x, y); else g.moveTo(x, y); });
+    if (rt.loop) g.closePath();
+    g.stroke();
+  }
+  g.setLineDash([]);
   for (const s of structures) {
     const [x, y] = mmXY(s.pos.x * mpu, s.pos.z * mpu);
     if (state.showRings) { g.beginPath(); g.arc(x, y, px(s.def.range), 0, Math.PI * 2); g.strokeStyle = hexCss(s.def.color) + '66'; g.lineWidth = 1; g.stroke(); }
@@ -1258,7 +1320,7 @@ $('track-hi').onchange = (e) => { trackHi = e.target.checked; document.body.clas
 function resetLedger() {
   Object.assign(ledger, {
     capex: 0, consumables: 0, shots: {}, launched: {}, killed: {}, leaked: {}, escaped: {}, killedBy: {},
-    terminals: { starlink: 0, cellular: 0 }, lost: {}, lostValue: 0,
+    terminals: { starlink: 0, cellular: 0 }, lost: {}, lostValue: 0, friendly: { launched: 0, lost: 0, lostValue: 0, landed: 0 },
   });
 }
 function captureLaydown() {
@@ -1324,7 +1386,7 @@ $('btn-clear').onclick = (e) => { // two clicks, since it throws the laydown awa
 const COMPASS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
 function buildSandbox() {
   const el = $('sandbox');
-  const types = Object.entries(DRONES).map(([k, d]) => `<option value="${k}">${d.name}</option>`).join('');
+  const types = Object.entries(DRONES).map(([k, d]) => `<option value="${k}">${d.name}</option>`).join('') + '<option value="friend:off">Friendly drone (off its route)</option>';
   const dirs = COMPASS.map(([n, b]) => `<option value="${b}">${n}</option>`).join('') + '<option value="rand">Random</option>';
   el.innerHTML = `<h3>SANDBOX</h3>
     <div class="note">Attack your laydown without consequences: the site and your systems cannot be damaged and shots are free. Leaving resets the run and keeps your laydown, so you can still place and wire systems here.</div>
@@ -1332,6 +1394,7 @@ function buildSandbox() {
     <div class="row"><button id="sb-wave" class="primary">Launch that wave's attack</button></div>
     <div class="label" style="margin-top:8px">CUSTOM ATTACK</div>
     <label>Drone <select id="sb-type">${types}</select></label>
+    <label>Goes for <select id="sb-pref"><option value="mix">A mix, as in a wave</option><option value="site">The station</option><option value="def">Your defences</option></select></label>
     <label>Number <input id="sb-count" type="number" min="1" max="30" value="3"></label>
     <label>From <select id="sb-dir">${dirs}</select></label>
     <label>Seconds apart <input id="sb-gap" type="number" min="0" max="60" value="4"></label>
@@ -1345,10 +1408,11 @@ function buildSandbox() {
   };
   $('sb-launch').onclick = () => {
     const n = clamp(Math.round(Number($('sb-count').value) || 1), 1, 30), gap = Math.max(Number($('sb-gap').value) || 0, 0);
-    const dir = $('sb-dir').value, type = $('sb-type').value;
+    const dir = $('sb-dir').value, sel = $('sb-type').value, pf = $('sb-pref').value;
+    const type = sel === 'friend:off' ? 'friend' : sel, offRoute = sel === 'friend:off';
     for (let i = 0; i < n; i++) {
       const bearing = (dir === 'rand' ? rand() * 360 : Number(dir)) * Math.PI / 180 - Math.PI / 2; // compass bearing to a scene angle
-      state.sbQueue.push({ t: state.sbTime + i * gap, type, bearing, jitter: 0, altFrac: rand(), freq: rand() < 0.5 ? 2.4e9 : 5.8e9 });
+      state.sbQueue.push({ t: state.sbTime + i * gap, type, bearing, jitter: 0, altFrac: rand(), freq: rand() < 0.5 ? 2.4e9 : 5.8e9, pref: pf === 'site' ? 1 : pf === 'def' ? 0 : rand(), route: rand(), offRoute });
     }
     state.sbQueue.sort((a, b) => a.t - b.t);
   };

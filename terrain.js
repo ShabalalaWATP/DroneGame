@@ -185,6 +185,19 @@ export function generateTerrain(seed) {
     if (towers.every((t) => Math.hypot(t.x - c.x, t.z - c.z) > 3000)) towers.push({ x: c.x, z: c.z, ground: c.h });
   }
 
+  // Friendly flight logs: the routes the site's own drones normally fly (inspecting the power lines, patrolling the
+  // perimeter). The fusion node compares tracks with these; they are what "previous flight logs" means in this game.
+  // No random numbers are drawn here, so adding them does not change the terrain.
+  const routes = [];
+  lines.forEach((pylons, k) => {
+    const pts = pylons.filter((p) => Math.hypot(p.x - yard.x, p.z - yard.z) < 3000).map((p) => ({ x: p.x, z: p.z }));
+    if (pts.length >= 3) routes.push({ id: `line${k + 1}`, name: `Line inspection ${k + 1}`, pts: [...pts, ...pts.slice(0, -1).reverse()], agl: 60, speed: 11, loop: false });
+  });
+  routes.push({
+    id: 'patrol', name: 'Perimeter patrol', agl: 100, speed: 10, loop: true,
+    pts: Array.from({ length: 14 }, (_, i) => ({ x: Math.cos((i / 14) * Math.PI * 2) * 800, z: Math.sin((i / 14) * Math.PI * 2) * 800 })),
+  });
+
   // ---------- queries ----------
   function groundAt(x, z) { // bilinear
     const fx = clamp((x + R) / cell, 0, N - 1.001), fz = clamp((z + R) / cell, 0, N - 1.001);
@@ -214,9 +227,17 @@ export function generateTerrain(seed) {
   }
 
   return {
-    seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, station: STATION,
+    seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, routes, station: STATION,
     groundAt, cellOf, los,
     coverAt: (x, z) => cover[cellOf(x, z)],
+    // true if there is water at or within r metres of this spot (sampled on a ring): systems cannot be built there
+    nearWater: (x, z, r = 60) => {
+      for (let k = 0; k < 9; k++) {
+        const a = (k / 8) * Math.PI * 2, d = k === 8 ? 0 : r;
+        if (cover[cellOf(x + Math.cos(a) * d, z + Math.sin(a) * d)] === 4) return true;
+      }
+      return false;
+    },
     canopyAt: (x, z) => canopy[cellOf(x, z)],
     bldgAt: (x, z) => bldg[cellOf(x, z)],
     slope: (x, z) => {

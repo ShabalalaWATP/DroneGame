@@ -24,9 +24,9 @@
     <div class="bar"><div id="health-fill"></div></div>
     <div class="label" style="margin-top:8px">BUDGET <b id="budget" class="budget-num">$0</b></div>
     <div class="budget-bar" title="The whole budget: systems bought, shots fired, and what is left">
-      <span class="b-capex" id="bb-capex"></span><span class="b-shots" id="bb-shots"></span><span class="b-left" id="bb-left"></span>
+      <span class="b-capex" id="bb-capex"></span><span class="b-shots" id="bb-shots"></span><span class="b-loss" id="bb-loss"></span><span class="b-left" id="bb-left"></span>
     </div>
-    <div class="bb-legend"><i class="d-capex"></i>systems <b id="bb-capex-t">$0</b> <i class="d-shots"></i>shots <b id="bb-shots-t">$0</b> <i class="d-left"></i>left <b id="bb-left-t">$0</b></div>
+    <div class="bb-legend"><i class="d-capex"></i>systems <b id="bb-capex-t">$0</b> <i class="d-shots"></i>shots <b id="bb-shots-t">$0</b> <i class="d-loss"></i>friendlies lost <i class="d-left"></i>left <b id="bb-left-t">$0</b></div>
     <div class="stats">
       <span>Wave <b id="wave">0</b></span>
       <span>Kills <b id="kills">0</b></span>
@@ -56,6 +56,9 @@
     <label title="Who decides to engage. SAPIENT has no weapon-release message, so this is a C2 policy."> Engagement authority
       <select id="authority"><option value="auto">Automatic</option><option value="costly">Ask for costly shots</option><option value="all">Ask for every engagement</option></select>
     </label>
+    <label title="Rules of engagement: how sure the fusion node must be that a track is not a friendly (judged from the flight logs) before it engages"> Rules of engagement
+      <select id="roe"></select>
+    </label>
     <button id="btn-sandbox" title="Try attacks against your laydown without risking the site">Sandbox</button>
     <div class="row">
       <button id="btn-reset" title="Start the run again with the same laydown, wiring and seed">Reset run</button>
@@ -76,6 +79,7 @@
     <div><i style="background:#ff9100"></i>FO Strike &mdash; slow FPV on fibre: no radio, no jam</div>
     <div><i style="background:#ff1744"></i>FPV Strike &mdash; fast, agile, jammable, emits RF</div>
     <div><i style="background:#d500f9"></i>FW Strike &mdash; fast, high, RF-silent, partly jammable</div>
+    <div><i style="background:#69f0ae"></i>Friendly drone &mdash; no Remote ID; judged only by flight logs (dashed green on the minimap)</div>
     <div><i style="background:#8a94a3"></i>Grey ghost &mdash; real drone no sensor has (truth overlay)</div>
     <div><i style="background:#ffffff"></i>Faint diamond &mdash; a fused track (tick Highlight tracks to colour it: white = unclassified, red = multirotor, magenta = fixed-wing)</div>
     <div class="hint">Drag to orbit &middot; right-drag to pan &middot; scroll to zoom</div>
@@ -94,6 +98,7 @@
         <li>Pick a system from the bar on the left (or press 1&ndash;8), then click the ground to place it.</li>
         <li>You have one fixed budget of <b>$15M</b> for the whole run. Buying systems and every shot fired both come out of it, and nothing is earned back. The <b>Cost</b> tab compares what you spend with what the attack costs the enemy.</li>
         <li>Try attacks in the <b>Sandbox</b> first: the site cannot be damaged there. Press <b>Start wave</b> when you're ready. The laydown locks once the first wave starts, so runs are comparable.</li>
+        <li>The enemy goes for your defences as well as the site, and friendly drones are about too. Set the <b>rules of engagement</b> so you do not shoot your own.</li>
         <li>Mix it up: no single defence handles every drone type, and the enemy gets harder to hit and jam every wave.</li>
       </ul>
       <div class="seed-row">
