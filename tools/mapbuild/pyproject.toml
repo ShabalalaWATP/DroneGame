@@ -1,0 +1,26 @@
+[project]
+name = "site-guard-mapbuild"
+version = "0.1.0"
+description = "Builds Site Guard's real-world map packs from open data. It is not part of the running game."
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "pyogrio>=0.13",
+    "pyproj>=3.7",
+    "rasterio>=1.5",
+    "shapely>=2.1",
+]
+
+[tool.uv]
+# only packages at least two weeks old, so a compromised release has time to be caught
+exclude-newer = "2026-10-21T00:00:00Z"
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
