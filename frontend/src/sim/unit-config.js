@@ -5,14 +5,14 @@
 import { STRUCTURES } from './config/index.js';
 
 const each = (ids, limits) => Object.fromEntries(ids.map((id) => [id, limits]));
-const RADARS = ['radar_s', 'radar', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_l'];
+const RADARS = ['radar_s', 'radar', 'radar_a800', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_l'];
 const MAST_PRICE = 0.015, RELOAD_PRICE = 0.1; // share of the system's price, per metre and per second
 const THRESHOLD = { low: { range: 1.1, falseAlarm: 2 }, high: { range: 0.9, falseAlarm: 0.5 } };
 
 export const UNIT_FIELDS = [
   {
     key: 'mount', label: 'Mast height', unit: 'm', step: 1, base: (c) => c.mount, direct: 'mount',
-    limits: { radar_s: [5, 25], radar: [5, 35], radar_l: [10, 40], rf_s: [2, 10], rf: [2, 15], rf_l: [2, 20], camera_s: [5, 20], camera: [5, 25], camera_l: [5, 30] },
+    limits: { radar_s: [5, 25], radar: [5, 35], radar_a800: [5, 35], radar_l: [10, 40], rf_s: [2, 10], rf: [2, 15], rf_elysion: [2, 15], rf_l: [2, 20], camera_s: [5, 20], camera: [5, 25], camera_l: [5, 30] },
     price: (v, c) => (v - c.mount) * MAST_PRICE * c.cost,
     help: 'Higher sees over more trees and terrain, at a price.',
   },
@@ -43,7 +43,7 @@ export const UNIT_FIELDS = [
     help: 'Longer holds a track for more looks, and leaves other tracks waiting.',
   },
   {
-    key: 'reload', label: 'Time between shots', unit: 's', step: 0.5, base: (c) => c.cooldown, direct: 'cooldown', limits: { interceptor: [1.5, 6], missile: [2, 8] },
+    key: 'reload', label: 'Time between shots', unit: 's', step: 0.5, base: (c) => c.cooldown, direct: 'cooldown', limits: { interceptor: [1.5, 6], interceptor_p1: [1.5, 6], missile: [2, 8] },
     price: (v, c) => (c.cooldown - v) * RELOAD_PRICE * c.cost,
     help: 'Faster launchers cost more.',
   },

@@ -6,17 +6,19 @@ import { EFFECTORS } from './effectors.js';
 export const STRUCTURES = { ...SENSORS, ...EFFECTORS };
 for (const [id, def] of Object.entries(STRUCTURES)) def.id = id;
 
-// The purchase bar: one row per kind of system, with its sizes smallest first. The medium size is the one offered first.
+// The purchase bar: one row per kind of system, listing its real systems smallest first. The standard medium one is offered first.
 export const TOOLBAR = [
-  { kind: 'radar', name: 'Radar', key: '1', classes: ['radar_s', 'radar', 'radar_l'] },
-  { kind: 'rf', name: 'RF detector', key: '2', classes: ['rf_s', 'rf', 'rf_l'] },
+  { kind: 'radar', name: 'Radar', key: '1', classes: ['radar_s', 'radar', 'radar_a800', 'radar_l'] },
+  { kind: 'rf', name: 'RF detector', key: '2', classes: ['rf_s', 'rf', 'rf_elysion', 'rf_l'] },
   { kind: 'camera', name: 'EO/IR camera', key: '3', classes: ['camera_s', 'camera', 'camera_l'] },
   { kind: 'jammer', name: 'RF jammer', key: '4', classes: ['jammer_s', 'jammer', 'jammer_l'] },
-  { kind: 'interceptor', name: 'Interceptor drones', key: '5', classes: ['interceptor'] },
+  { kind: 'interceptor', name: 'Interceptor drones', key: '5', classes: ['interceptor', 'interceptor_p1'] },
   { kind: 'missile', name: 'Missile', key: '6', classes: ['missile'] },
   { kind: 'laser', name: 'Laser', key: '7', classes: ['laser'] },
 ];
-export const firstClass = ({ classes }) => classes[classes.length >> 1];
+export const firstClass = ({ classes }) => classes.find((id) => STRUCTURES[id].size === 'M' && !STRUCTURES[id].variantOf) ?? classes[0];
+// The S, M and L buttons on a row: the standard systems, leaving out further real systems of a size.
+export const sizeButtons = ({ classes }) => classes.filter((id) => STRUCTURES[id].size && !STRUCTURES[id].variantOf);
 
 // game range = published range x WORLD.rangeScale. Call again after changing the scale.
 export function applyRangeScale() {

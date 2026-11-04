@@ -14,6 +14,7 @@ import { Sandbox } from './Sandbox.jsx';
 import { Overlay } from './Overlay.jsx';
 import { Dock } from './dock/Dock.jsx';
 import { UnitPanel } from './UnitPanel.jsx';
+import { ToolPicker } from './ToolPicker.jsx';
 import { Wizard, WizardButton } from './assistant/Wizard.jsx';
 
 // Owns the canvas: the Three.js scene stays imperative, because per-frame updates should not go through React.
@@ -49,6 +50,7 @@ function Screen() {
       <WizardButton />
       <Dock open={dockOpen} onClose={() => setDockOpen(false)} tab={dockTab} onTab={setDockTab} />
       <UnitPanel />
+      <ToolPicker />
       <Sandbox />
       <Legend />
       <Toast />

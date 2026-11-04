@@ -2,6 +2,7 @@
 
 import * as THREE from 'three';
 import { STRUCTURES, WORLD, firstClass } from './sim/config/index.js';
+import { fieldsFor, setSetting } from './sim/unit-config.js';
 import { createSimulation, SIM_STEP } from './sim/simulation.js';
 import { createGameView } from './render/game-view.js';
 import { hereU } from './sim/units.js';
@@ -91,6 +92,13 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     bump();
   }
 
+  // The settings the next system of each type is placed with, chosen in the toolbar's list.
+  const loadouts = {};
+  const loadoutFor = (id) => (loadouts[id] ??= {});
+  function setLoadout(id, field, value) {
+    if (fieldsFor(id).includes(field)) setSetting(loadoutFor(id), field, id, value);
+    bump();
+  }
   const toolChoice = (group) => sizes[group.kind] || firstClass(group);
   // A hotkey: the first press picks the kind, and pressing it again moves to the next size. With only one size, it switches off.
   function cycleTool(group) {
@@ -107,7 +115,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
       if (view.zone && view.zone.closed) setTool('zone'); else bump();
       return;
     }
-    refusal = commands.place(tool, x, z);
+    refusal = Object.keys(loadoutFor(tool)).length ? commands.place(tool, x, z, { ...loadoutFor(tool) }) : commands.place(tool, x, z);
     if (refusal) toast(refusal);
     else if (!selectHinted) { selectHinted = true; toast('Placed. Click a system for details, or press Esc to stop placing'); }
   }
@@ -222,7 +230,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   return {
     packs, loadPack, ensureWorld, mapSource, cursor: () => placement?.cursor() ?? null,
     sim, commands, clock, setSpeed, reviewClock, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
-    getTool: () => tool, setTool, toolChoice, cycleTool, lastRefusal: () => refusal, select, getSelected, reveal,
+    getTool: () => tool, setTool, toolChoice, cycleTool, loadoutFor, setLoadout, lastRefusal: () => refusal, select, getSelected, reveal,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },
     getReplay: () => replay,

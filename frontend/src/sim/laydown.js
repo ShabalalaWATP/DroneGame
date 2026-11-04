@@ -26,7 +26,7 @@ export function removeStructure(w, s) {
 }
 
 // Why a structure can't go here, or null if it can.
-export function placementProblem(w, x, z, def) {
+export function placementProblem(w, x, z, def, cost = def.cost) {
   const r = Math.hypot(x, z);
   const xm = x * WORLD.metresPerUnit, zm = z * WORLD.metresPerUnit;
   if (BUILD.lockAfterStart && w.state.wave > 0) return 'The laydown is locked once the first wave starts';
@@ -36,17 +36,17 @@ export function placementProblem(w, x, z, def) {
   if (terrainState.data.coverAt(xm, zm) === 4) return 'You cannot build in water';
   if (terrainState.data.slope(xm, zm) > 0.4) return 'The ground is too steep';
   if (w.structures.some((s) => hdist(s.pos, { x, z }) < u(BUILD.spacing))) return 'Too close to another structure';
-  if (w.state.budget < def.cost) return `Not enough budget (${money(def.cost)} needed, ${money(w.state.budget)} left)`;
+  if (w.state.budget < cost) return `Not enough budget (${money(cost)} needed, ${money(w.state.budget)} left)`;
   return null;
 }
 
 // Returns the reason it can't be placed, or null if it was.
-export function place(w, id, x, z) {
-  const def = STRUCTURES[id];
-  const problem = placementProblem(w, x, z, def);
+export function place(w, id, x, z, settings) {
+  const cost = unitCost(id, cleanSettings(id, settings));
+  const problem = placementProblem(w, x, z, STRUCTURES[id], cost);
   if (problem) return problem;
-  w.state.budget -= def.cost; w.ledger.capex += def.cost;
-  addStructure(w, id, x, z);
+  w.state.budget -= cost; w.ledger.capex += cost;
+  addStructure(w, id, x, z, { settings });
   return null;
 }
 

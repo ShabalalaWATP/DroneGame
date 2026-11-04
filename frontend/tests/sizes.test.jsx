@@ -4,7 +4,7 @@
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createGame } from '../src/game.js';
-import { STRUCTURES, TOOLBAR, firstClass, resetAllFigures } from '../src/sim/config/index.js';
+import { STRUCTURES, TOOLBAR, firstClass, resetAllFigures, sizeButtons } from '../src/sim/config/index.js';
 import { GameContext } from '../src/ui/hooks.js';
 import { Toolbar } from '../src/ui/Toolbar.jsx';
 import { useHotkeys } from '../src/ui/useHotkeys.js';
@@ -29,10 +29,10 @@ describe('the catalogue', () => {
   });
 
   it('offers the medium size first, and orders sizes small to large', () => {
-    for (const g of TOOLBAR.filter((row) => row.classes.length > 1)) {
-      expect(g.classes.map((id) => STRUCTURES[id].size)).toEqual(['S', 'M', 'L']);
+    for (const g of TOOLBAR.filter((row) => sizeButtons(row).length)) {
+      expect(sizeButtons(g).map((id) => STRUCTURES[id].size)).toEqual(['S', 'M', 'L']);
       expect(STRUCTURES[firstClass(g)].size).toBe('M');
-      const [s, m, l] = g.classes.map((id) => STRUCTURES[id]);
+      const [s, m, l] = sizeButtons(g).map((id) => STRUCTURES[id]);
       expect(s.range).toBeLessThan(m.range);
       expect(m.range).toBeLessThan(l.range);
       expect(s.cost).toBeLessThan(m.cost);
@@ -97,6 +97,8 @@ describe('the hotkeys', () => {
     press('1');
     expect(game.getTool()).toBe('radar');
     press('1');
+    expect(game.getTool()).toBe('radar_a800');
+    press('1');
     expect(game.getTool()).toBe('radar_l');
     press('1');
     expect(game.getTool()).toBe('radar_s');
@@ -111,7 +113,7 @@ describe('the hotkeys', () => {
     press('4');
     expect(game.getTool()).toBe('jammer');
     press('2');
-    expect(game.getTool()).toBe('rf_l');
+    expect(game.getTool()).toBe('rf_elysion');
   });
 
   it('switches a single-size system off on the second press', () => {

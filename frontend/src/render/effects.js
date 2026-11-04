@@ -40,7 +40,7 @@ export function createEffects(scene, sim) {
     for (const m of sim.missiles) {
       let mesh = missiles.get(m);
       if (!mesh) {
-        const small = m.def.id === 'interceptor';
+        const small = m.def.kind === 'interceptor';
         mesh = new THREE.Mesh(missileGeo, new THREE.MeshBasicMaterial({ color: small ? 0xffcdd2 : 0xffffff }));
         mesh.scale.setScalar(small ? STRUCT_SCALE * 0.6 : STRUCT_SCALE);
         scene.add(mesh);

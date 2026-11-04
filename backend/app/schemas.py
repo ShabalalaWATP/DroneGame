@@ -7,8 +7,8 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, JsonValue, St
 
 # Names the game uses. A test compares these with the frontend's config, so they cannot drift apart.
 SystemId = Literal[
-    "radar", "radar_s", "radar_l", "rf", "rf_s", "rf_l", "camera", "camera_s", "camera_l",
-    "jammer", "jammer_s", "jammer_l", "interceptor", "missile", "laser",
+    "radar", "radar_s", "radar_a800", "radar_l", "rf", "rf_s", "rf_elysion", "rf_l", "camera", "camera_s", "camera_l",
+    "jammer", "jammer_s", "jammer_l", "interceptor", "interceptor_p1", "missile", "laser",
 ]
 Uplink = Literal["starlink", "cellular"]
 CellBand = Literal["B8", "B3", "n78"]

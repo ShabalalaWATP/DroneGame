@@ -1,9 +1,10 @@
-// The effectors you can buy. The jammer comes in three sizes, with the medium one first.
+// The effectors you can buy. The jammer comes in three sizes, with the medium one first, and `variantOf` marks a further real
+// system of a kind. `product` is the name the toolbar lists it by.
 // Costs are in US dollars. `cost` buys and deploys a system, and `shotCost` is charged every time a consumable (interceptor drone,
 // missile, laser shot) is used. Each system's `ref` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
 export const EFFECTORS = {
   jammer: {
-    size: 'M', name: 'Medium RF jammer', short: 'JAM', cost: 60000, shotCost: 0, color: 0x7c4dff, role: 'effector', kind: 'jammer', published: 1000, fire: 'jam',
+    product: 'DroneShield DroneGun Tactical', size: 'M', name: 'Medium RF jammer', short: 'JAM', cost: 60000, shotCost: 0, color: 0x7c4dff, role: 'effector', kind: 'jammer', published: 1000, fire: 'jam',
     health: 30, signature: 1.5, emits: [], bands: ['control24', 'video58'], // which bands it jams (changeable per jammer); loud while jamming
     slow: 0.5, killTime: 5, // jammed drones slow down; after killTime seconds of full jamming they lose link and crash
     desc: 'RF jammer. Switched on only while tracks are in range. Autonomous/fibre drones ignore it. No cost per use.',
@@ -29,7 +30,7 @@ export const EFFECTORS = {
     },
   },
   jammer_s: {
-    size: 'S', name: 'Small RF jammer', short: 'JMS', model: 'jammer', modelScale: 0.7, cost: 40000, shotCost: 0, color: 0xb388ff, role: 'effector', kind: 'jammer', published: 500, fire: 'jam',
+    product: 'DroneShield DroneGun MkIII', size: 'S', name: 'Small RF jammer', short: 'JMS', model: 'jammer', modelScale: 0.7, cost: 40000, shotCost: 0, color: 0xb388ff, role: 'effector', kind: 'jammer', published: 500, fire: 'jam',
     health: 30, signature: 0.8, emits: [], bands: ['control24', 'video58'], slow: 0.5, killTime: 5,
     desc: 'Handheld RF jammer. Cheaper and quieter than the larger jammers, with half the reach. Autonomous/fibre drones ignore it. No cost per use.',
     sapient: { nodeType: 'NODE_TYPE_JAMMER', subType: ['RF', 'GNSS'], scan: 'SCAN_TYPE_FIXED', modes: ['Standby', 'Jam'] },
@@ -51,7 +52,7 @@ export const EFFECTORS = {
     },
   },
   jammer_l: {
-    size: 'L', name: 'Large RF jammer', short: 'JML', model: 'jammer', modelScale: 1.4, cost: 350000, shotCost: 0, color: 0x4a148c, role: 'effector', kind: 'jammer', published: 1600, fire: 'jam',
+    product: 'Generic fixed site jammer', size: 'L', name: 'Large RF jammer', short: 'JML', model: 'jammer', modelScale: 1.4, cost: 350000, shotCost: 0, color: 0x4a148c, role: 'effector', kind: 'jammer', published: 1600, fire: 'jam',
     health: 30, signature: 2.5, emits: [], bands: ['control24', 'video58'], slow: 0.5, killTime: 5,
     desc: 'Fixed multi-band site jammer. It has the longest reach, but it is expensive and very loud while jamming. Autonomous/fibre drones ignore it. No cost per use.',
     sapient: { nodeType: 'NODE_TYPE_JAMMER', subType: ['RF', 'GNSS'], scan: 'SCAN_TYPE_FIXED', modes: ['Standby', 'Jam'] },
@@ -66,7 +67,7 @@ export const EFFECTORS = {
     },
   },
   interceptor: {
-    name: 'Interceptor drones', short: 'INT', cost: 100000, shotCost: 5000, color: 0x00e5ff, role: 'effector', kind: 'interceptor', published: 5000, muzzleY: 1.6, fire: 'guided',
+    product: 'Wild Hornets Sting', name: 'Interceptor drones', short: 'INT', cost: 100000, shotCost: 5000, color: 0x00e5ff, role: 'effector', kind: 'interceptor', published: 5000, muzzleY: 1.6, fire: 'guided',
     health: 30, signature: 0.2, emits: [],
     engages: ['fpv', 'fo'], // too slow to catch the fixed-wing drones (game rule)
     damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80,
@@ -89,8 +90,28 @@ export const EFFECTORS = {
       },
     },
   },
+  interceptor_p1: {
+    product: 'SkyFall P1-SUN', variantOf: 'interceptor', name: 'P1-SUN interceptor', short: 'P1S', model: 'interceptor', cost: 100000, shotCost: 1000, color: 0x18ffff, role: 'effector', kind: 'interceptor', published: 5000, muzzleY: 1.6, fire: 'guided',
+    health: 30, signature: 0.2, emits: [],
+    engages: ['fpv', 'fo'],
+    damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80,
+    desc: 'Mass-produced ram-type interceptor drone, cheaper per launch. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
+    sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
+    ref: {
+      class: 'Low-cost kinetic interceptor drone',
+      analogues: ['SkyFall P1-SUN'],
+      published: 'Reported at about $1,000 a drone, or about $3,000 per kill. No verified speed or range was found.',
+      basis: 'Per-launch cost is the $1,000 figure. Range, speed and damage are ASSUMPTIONS, copied from the Sting entry, so it is simply cheaper to fire until stage A7 rebalances it.',
+      confidence: 'Press figures for price; performance is an assumption',
+      sources: [
+        { label: 'Oboronka: P1-SUN price', url: 'https://oboronka.mezha.ua/en/skyfall-rozpovila-pro-cinu-na-dron-perehoplyuvach-p1-sun-308453/' },
+        { label: 'Euromaidan Press: P1-SUN', url: 'https://euromaidanpress.com/2026/04/24/ukrainian-p1-sun-drones-down-3000-plus-shaheds-in-2026-at-about-3000-apiece/' },
+      ],
+      cost: { capex: 'Launcher and ground control station: no public price. Game price $100,000 is a placeholder.', confidence: 'ASSUMPTION for the launcher; per-shot from the press', sources: [] },
+    },
+  },
   missile: {
-    name: 'Missile', short: 'MSL', cost: 1000000, shotCost: 200000, color: 0xff4081, role: 'effector', kind: 'missile', published: 10000, muzzleY: 2.2, fire: 'guided',
+    product: 'Raytheon Coyote Block 2', name: 'Missile', short: 'MSL', cost: 1000000, shotCost: 200000, color: 0xff4081, role: 'effector', kind: 'missile', published: 10000, muzzleY: 2.2, fire: 'guided',
     health: 30, signature: 0.2, emits: [],
     engagePolicy: 'fixed-wing', // the fusion node keeps this for fixed-wing tracks (or anything that gets close), to save the expensive rounds
     damage: 70, splash: 40, fuze: 30, cooldown: 4, missileSpeed: 150,
@@ -117,7 +138,7 @@ export const EFFECTORS = {
     },
   },
   laser: {
-    name: 'Laser', short: 'LSR', cost: 2000000, shotCost: 13, color: 0xffffff, role: 'effector', kind: 'laser', published: 1000, muzzleY: 2.6, fire: 'beam',
+    product: 'UK DragonFire', name: 'Laser', short: 'LSR', cost: 2000000, shotCost: 13, color: 0xffffff, role: 'effector', kind: 'laser', published: 1000, muzzleY: 2.6, fire: 'beam',
     health: 30, signature: 0.3, emits: [],
     dps: 28,
     desc: 'High-energy laser. Very cheap to fire, but it needs dwell time, so evasive targets take longer to burn.',

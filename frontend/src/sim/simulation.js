@@ -161,7 +161,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   const commands = logged({
     deploy,
     leave,
-    place: (id, x, z) => laydown.place(w, id, x, z),
+    place: (id, x, z, settings) => laydown.place(w, id, x, z, settings),
     sell: (x, z) => laydown.sell(w, x, z),
     startWave: () => startWave(w, beginRun),
     reset: (mode) => resetRun(mode),

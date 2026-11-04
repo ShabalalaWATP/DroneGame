@@ -7,18 +7,13 @@ import { fieldsFor, settingValue } from '../sim/unit-config.js';
 import { useArmed } from './hooks.js';
 import { NumberInput } from './NumberInput.jsx';
 
-function Field({ field, s, game, locked }) {
-  const [attempt, setAttempt] = useState(0); // redraws the input when a value was clamped or refused
-  const def = s.def, id = def.id, value = settingValue(def, field), catalogue = STRUCTURES[id];
-  const changed = def.settings[field.key] != null;
-  const change = (v) => {
-    const problem = game.commands.configureUnit(s, field.key, v);
-    if (problem) game.toast(problem);
-    if (settingValue(s.def, field) !== v) setAttempt((a) => a + 1);
-  };
-  const price = field.price && changed ? Math.round(field.price(value, catalogue)) : 0;
+// One setting. onChange makes the change and returns the value that resulted, which may differ if it was clamped or refused.
+export function UnitField({ field, id, value, changed, onChange, locked, prefix = 'unit' }) {
+  const [attempt, setAttempt] = useState(0); // redraws the input when the result differs from what was typed
+  const change = (v) => { if (onChange(v) !== v) setAttempt((a) => a + 1); };
+  const price = field.price && changed ? Math.round(field.price(value, STRUCTURES[id])) : 0;
   const limits = field.limits[id];
-  const inputId = `unit-${field.key}`;
+  const inputId = `${prefix}-${field.key}`;
   return (
     <div className="up-field">
       <label htmlFor={inputId}>{field.label}{field.unit ? ` (${field.unit})` : ''}</label>
@@ -74,7 +69,17 @@ export function UnitEditor({ s, game }) {
       </div>
       {locked && <p className="muted">Locked once the first wave starts, so runs stay comparable.{s.jamBands ? ' Jamming bands can still change.' : ''}</p>}
       <Names s={s} game={game} locked={locked} />
-      {fieldsFor(def.id).map((f) => <Field key={f.key} field={f} s={s} game={game} locked={locked} />)}
+      {fieldsFor(def.id).map((f) => (
+        <UnitField
+          key={f.key}
+          field={f} id={def.id} value={settingValue(def, f)} changed={def.settings[f.key] != null} locked={locked}
+          onChange={(v) => {
+            const problem = commands.configureUnit(s, f.key, v);
+            if (problem) game.toast(problem);
+            return settingValue(s.def, f);
+          }}
+        />
+      ))}
       {s.jamBands && (
         <fieldset className="up-bands">
           <legend>Jamming bands</legend>

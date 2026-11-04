@@ -1,9 +1,10 @@
-// The sensors you can buy. Radar, RF detector and camera each come in three sizes, with the medium one first.
+// The sensors you can buy. Radar, RF detector and camera each come in three sizes, with the medium one first, and `variantOf`
+// marks a further real system of a size. `product` is the name the toolbar lists it by.
 // Costs are in US dollars, and each system's `ref` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
 // `mount` is how high a sensor sits on its mast (m), an assumption: below the 12-20 m tree tops, trees hide most low flyers.
 export const SENSORS = {
   radar: {
-    size: 'M', name: 'Medium radar', short: 'RDR', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 25, falseAlarm: 0.1, // chance of a false alarm per scan
+    product: 'Robin Radar IRIS', size: 'M', name: 'Medium radar', short: 'RDR', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 25, falseAlarm: 0.1, // chance of a false alarm per scan
     health: 30, signature: 1.0, emits: [{ label: 'X-band radar (assumed 9.2\u20139.5 GHz)', f: [[9.2, 9.5]] }], // radar band: assumption
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
@@ -30,7 +31,7 @@ export const SENSORS = {
     },
   },
   radar_s: {
-    size: 'S', name: 'Small radar', short: 'RDS', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 15, falseAlarm: 0.15,
+    product: 'Echodyne EchoGuard', size: 'S', name: 'Small radar', short: 'RDS', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 15, falseAlarm: 0.15,
     health: 30, signature: 0.8, emits: [{ label: 'K-band radar 24.45\u201324.65 GHz', f: [[24.45, 24.65]] }], // published for EchoGuard (US)
     lowAlt: 30, lowRange: 300,
     desc: 'Small solid-state radar. Cheap and short range, so you can afford several, but it sees less.',
@@ -53,8 +54,28 @@ export const SENSORS = {
       },
     },
   },
+  radar_a800: {
+    product: 'Blighter A800', variantOf: 'radar', size: 'M', name: 'Blighter A800', short: 'A80', model: 'radar_s', modelScale: 1.2, cost: 600000, shotCost: 0, color: 0x448aff, role: 'sensor', kind: 'radar', published: 3000, mount: 25, falseAlarm: 0.1,
+    health: 30, signature: 1.0, emits: [{ label: 'Ku-band radar 15.7\u201317.2 GHz', f: [[15.7, 17.2]] }],
+    lowAlt: 40, lowRange: 500,
+    desc: '3D multi-mode AESA drone radar. It reaches further than the IRIS for less, but the real one only looks through a 90\u00B0 cone, which stage A4 will model.',
+    sapient: {
+      nodeType: 'NODE_TYPE_RADAR', subType: ['Multi-mode', 'C-UAS'], scan: 'SCAN_TYPE_SCANNING', interval: 1,
+      noise: { az: 0.6, el: 1.2, range: 8 }, velocity: true,
+      status: { type: 'STATUS_TYPE_CLUTTER', value: 'Targets below 40 m masked beyond 500 m' },
+    },
+    ref: {
+      class: 'Counter-UAS surveillance radar, medium range',
+      analogues: ['Blighter A800'],
+      published: 'Ku band, 15.7\u201317.2 GHz. FMCW Doppler AESA scanning a 90\u00B0 x 40\u00B0 cone, with a 1 s full scan. DJI Phantom detected to 3 km.',
+      basis: 'Game range is the 3 km Phantom figure. Accuracy and clutter are assumptions, copied from the IRIS entry. It still sees all round until stage A4.',
+      confidence: 'Vendor figures',
+      sources: [{ label: 'Blighter: A800', url: 'https://www.blighter.com/products/a800-3d-multi-mode-radar' }],
+      cost: { capex: 'No public price found. Game price $600,000 is a placeholder.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },
+    },
+  },
   radar_l: {
-    size: 'L', name: 'Large radar', short: 'RDL', model: 'radar_s', modelScale: 1.5, cost: 2500000, shotCost: 0, color: 0x0d47a1, role: 'sensor', kind: 'radar', published: 4300, mount: 30, falseAlarm: 0.1,
+    product: 'Hensoldt Spexer 2000 3D MkIII', size: 'L', name: 'Large radar', short: 'RDL', model: 'radar_s', modelScale: 1.5, cost: 2500000, shotCost: 0, color: 0x0d47a1, role: 'sensor', kind: 'radar', published: 4300, mount: 30, falseAlarm: 0.1,
     health: 30, signature: 1.5, emits: [{ label: 'X-band radar 9.2\u201310 GHz', f: [[9.2, 10]] }],
     lowAlt: 30, lowRange: 800,
     desc: 'Long-range multi-beam radar. It sees furthest and is the most accurate, but it is the most expensive and the easiest for the enemy to find.',
@@ -77,7 +98,7 @@ export const SENSORS = {
     },
   },
   rf: {
-    size: 'M', name: 'Medium RF detector', short: 'RF', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
+    product: 'Dedrone RF-360 / RF-160', size: 'M', name: 'Medium RF detector', short: 'RF', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
     health: 30, signature: 0.05, emits: [], listens: [[0.07, 6]], // passive
     desc: 'Passive RF sensor. Direction finding only (no range). Cannot see RF-silent drones.',
     sapient: {
@@ -102,7 +123,7 @@ export const SENSORS = {
     },
   },
   rf_s: {
-    size: 'S', name: 'Small RF detector', short: 'RFS', model: 'rf', modelScale: 0.7, cost: 10000, shotCost: 0, color: 0x69f0ae, role: 'sensor', kind: 'rf', published: 1000, mount: 5, senses: 'rf', falseAlarm: 0.08,
+    product: 'MyDefence Wingman 103/105', size: 'S', name: 'Small RF detector', short: 'RFS', model: 'rf', modelScale: 0.7, cost: 10000, shotCost: 0, color: 0x69f0ae, role: 'sensor', kind: 'rf', published: 1000, mount: 5, senses: 'rf', falseAlarm: 0.08,
     health: 30, signature: 0.05, emits: [], listens: [[2.4, 2.4835], [5.15, 5.925]], // without its optional wideband antenna
     desc: 'Wearable passive RF detector. Cheap and short range, and its bearing is only a rough sector, so it warns of a drone more than it locates one.',
     sapient: {
@@ -122,8 +143,26 @@ export const SENSORS = {
       cost: { capex: 'No public price found. Game price $10,000 is a placeholder.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },
     },
   },
+  rf_elysion: {
+    product: 'Hensoldt Elysion RF DF', variantOf: 'rf', size: 'M', name: 'Elysion RF detector', short: 'ELY', model: 'rf', cost: 30000, shotCost: 0, color: 0x1de9b6, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
+    health: 30, signature: 0.05, emits: [], listens: [[2.4, 2.4835], [5.15, 5.925]],
+    desc: 'Passive RF sensor with a rough bearing. It warns of a drone more than it locates one. Cannot see RF-silent drones.',
+    sapient: {
+      nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
+      noise: { az: 30 }, signal: true,
+    },
+    ref: {
+      class: 'Passive RF detection / direction-finding sensor',
+      analogues: ['Hensoldt Elysion RF DF'],
+      published: 'One catalogue lists \u00B130\u00B0 direction finding and 2.4, 5.2 and 5.8 GHz. No detection range or Hensoldt datasheet was found.',
+      basis: 'Game range 3.5 km is an ASSUMPTION, copied from the Dedrone entry. The bearing and bands are the unverified catalogue figures.',
+      confidence: 'One catalogue listing, unverified; range is an assumption',
+      sources: [{ label: 'Aviations UK: Hensoldt Elysion', url: 'https://aviationsouk.com/products/hensoldt-elysion-c-uas-current-c-uas-family-formerly-xpeller/' }],
+      cost: { capex: 'No public price found. Game price $30,000 is a placeholder.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },
+    },
+  },
   rf_l: {
-    size: 'L', name: 'Large RF detector', short: 'RFL', model: 'rf', modelScale: 1.4, cost: 400000, shotCost: 0, color: 0x00a152, role: 'sensor', kind: 'rf', published: 8000, mount: 10, senses: 'rf', falseAlarm: 0.03,
+    product: 'Aaronia AARTOS', size: 'L', name: 'Large RF detector', short: 'RFL', model: 'rf', modelScale: 1.4, cost: 400000, shotCost: 0, color: 0x00a152, role: 'sensor', kind: 'rf', published: 8000, mount: 10, senses: 'rf', falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [], listens: [[0.02, 8]],
     desc: 'Fixed wideband RF detection system. It hears furthest and gives the best bearing, at a much higher price. It still cannot hear RF-silent drones.',
     sapient: {
@@ -144,7 +183,7 @@ export const SENSORS = {
     },
   },
   camera: {
-    size: 'M', name: 'Medium EO/IR camera', short: 'EO', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 15, falseAlarm: 0.03,
+    product: 'Generic EO/IR turret', size: 'M', name: 'Medium EO/IR camera', short: 'EO', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 15, falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [], // passive
     // A narrow field of view (degrees, total) that has to be pointed. Idle, it sweeps; the fusion node cues it to
     // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.
@@ -169,7 +208,7 @@ export const SENSORS = {
     },
   },
   camera_s: {
-    size: 'S', name: 'Small EO/IR camera', short: 'EOS', model: 'camera', modelScale: 0.7, cost: 25000, shotCost: 0, color: 0xcfd8dc, role: 'sensor', kind: 'camera', published: 260, mount: 15, falseAlarm: 0.03,
+    product: 'Teledyne FLIR Boson 640, 36 mm', size: 'S', name: 'Small EO/IR camera', short: 'EOS', model: 'camera', modelScale: 0.7, cost: 25000, shotCost: 0, color: 0xcfd8dc, role: 'sensor', kind: 'camera', published: 260, mount: 15, falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [],
     fov: 12, slewRate: 90, searchRate: 12, dwell: 3,
     desc: 'Small thermal camera. Cheap and passive, with a short reach. Must be cued by another sensor. Bearing and elevation with strong classification, no range.',
@@ -188,7 +227,7 @@ export const SENSORS = {
     },
   },
   camera_l: {
-    size: 'L', name: 'Large EO/IR camera', short: 'EOL', model: 'camera', modelScale: 1.4, cost: 500000, shotCost: 0, color: 0x78909c, role: 'sensor', kind: 'camera', published: 1600, mount: 25, falseAlarm: 0.02,
+    product: 'MWIR turret, Ophir 80\u20131200 mm', size: 'L', name: 'Large EO/IR camera', short: 'EOL', model: 'camera', modelScale: 1.4, cost: 500000, shotCost: 0, color: 0x78909c, role: 'sensor', kind: 'camera', published: 1600, mount: 25, falseAlarm: 0.02,
     health: 30, signature: 0.05, emits: [],
     fov: 2, slewRate: 90, searchRate: 12, dwell: 3,
     desc: 'Cooled long-zoom thermal turret. It reaches further and identifies at a distance, but its view is very narrow, so it needs a good cue.',

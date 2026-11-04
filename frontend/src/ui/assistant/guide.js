@@ -7,7 +7,7 @@ export const STEP_IDS = ['zone', 'sensors', 'effectors', 'network', 'coverage', 
 
 const placed = (sim, role) => sim.structures.filter((s) => s.def.role === role);
 // One size of each kind: the guidance is about which kinds you need, and sizes do not change that.
-const catalogue = (role) => Object.values(STRUCTURES).filter((d) => d.role === role && (d.size ?? 'M') === 'M');
+const catalogue = (role) => Object.values(STRUCTURES).filter((d) => d.role === role && (d.size ?? 'M') === 'M' && !d.variantOf);
 
 // A short verdict for how this effector does against this drone, read from its rules so edits cannot make it wrong.
 export function answer(drone, def) {
