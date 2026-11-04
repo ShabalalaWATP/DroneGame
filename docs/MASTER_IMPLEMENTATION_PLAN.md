@@ -66,7 +66,9 @@ Files stay under the 350-line target, with 400 as the exceptional limit. `config
 | `terrain-view.js` | 245 | `render/terrain-view.js`, unchanged |
 | `tracker.js`, `comms.js`, `terrain.js`, `sapient.js`, `rng.js`, `sapient-help.js` | | `sim/`, unchanged. These already have no browser dependencies, and `sapient-help.js` holds plain text. |
 | `style.css` | 224 | Kept and imported as it is |
-| `serve.py`, `vendor/`, `README.txt` | | Deleted at cut-over |
+| `tools/` (regression checks and digests) | | `frontend/tools/`, moving into Vitest in Phase 3 |
+| `serve.py`, `vendor/` | | Deleted in Phase 2 |
+| `README.txt` | | Replaced at cut-over |
 
 ## Choices made to keep it small
 
@@ -192,10 +194,13 @@ Every phase leaves the game working and ends with a commit or small series of co
 
 ### Phase 2: Move to Vite, with no behaviour change
 
-- [ ] Move the current files to `frontend/src/`, and install `three@0.160.0` (the same version as `vendor/`) and Vite
-- [ ] Update the imports, keeping the current `index.html` and UI
+- [x] Move the current files to `frontend/src/`, and install `three@0.160.0` (the same version as `vendor/`) and Vite
+- [x] Update the imports, keeping the current `index.html` and UI
 
-**Done when:** `npm run dev` plays the game, and reference digests match.
+- [x] Delete `serve.py` and `vendor/` early, because nothing can use them after the move. The npm copy of Three.js is byte-identical to the vendored one.
+- [x] Use port 5199, because Docker holds 5173 on this machine
+
+**Done when:** `npm run dev` plays the game, and reference digests match in both the dev server and the production build.
 
 ### Phase 3: Separate the simulation
 
@@ -251,7 +256,7 @@ This is the one phase that deliberately changes results, so it gets its own re-b
 ### Phase 8: Cut-over and documentation
 
 - [ ] FastAPI serves the built frontend, with one documented command to build and one to run
-- [ ] Delete `serve.py`, `vendor/` and `README.txt`
+- [ ] Replace `README.txt` with a proper README
 - [ ] Write the README, `docs/DEVELOPMENT_STORY.md`, `docs/SECURITY_NOTES.md` and ADRs for the simulation location and for choosing `sqlite3`
 - [ ] Add CI only if a remote exists by then
 - [ ] Run the security and code quality reviewers over the whole branch
