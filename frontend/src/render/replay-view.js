@@ -1,12 +1,10 @@
 // Pause and rewind. The replay view redraws a snapshot from the recorder (sim/recorder.js) in the scene, and the timeline
-// scrubs through them. Rewinding is for looking: the live simulation is not rolled back, so
+// (ui/Timeline.jsx) scrubs through them. Rewinding is for looking: the live simulation is not rolled back, so
 // "Live" returns to where the run had got to.
 
 import * as THREE from 'three';
 import { WORLD, DRONES, STRUCTURES } from '../sim/config/index.js';
 import { view } from './view.js';
-
-const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 // deps: { scene, rec, droneTemplate, makeLabel, placeLabel, trackColour, getStructures, labelOf, hideLive, setSpeed, getLastSpeed, setPaused }
 export function createReplay(deps) {
@@ -111,25 +109,7 @@ export function createReplay(deps) {
     for (const o of trackObjs) o.label.style.display = 'none';
   }
 
-  // ---------- the timeline ----------
-  const bar = document.createElement('div');
-  bar.id = 'timeline'; bar.className = 'panel';
-  bar.innerHTML = `
-    <div class="tl-row">
-      <button id="tl-live" class="primary" title="Back to the live run">LIVE</button>
-      <button id="tl-back" title="Back 0.5 s (Left arrow)">&#9664;|</button>
-      <button id="tl-play" title="Play the replay">&#9654;</button>
-      <button id="tl-fwd" title="Forward 0.5 s (Right arrow)">|&#9654;</button>
-      <div class="tl-track"><input id="tl-range" type="range" min="0" max="0" value="0" step="1"><div id="tl-events"></div></div>
-      <span id="tl-time">0:00</span>
-    </div>`;
-  document.body.appendChild(bar);
-  const banner = document.createElement('div');
-  banner.id = 'review-banner'; banner.className = 'hidden';
-  document.body.appendChild(banner);
-  const range = bar.querySelector('#tl-range'), timeEl = bar.querySelector('#tl-time'), eventsEl = bar.querySelector('#tl-events');
-  const playBtn = bar.querySelector('#tl-play');
-
+  // ---------- reviewing ----------
   function enter(idx) {
     if (!rec.frames.length) return;
     if (!review.active) { review.active = true; deps.setPaused(true); }
@@ -138,59 +118,27 @@ export function createReplay(deps) {
   function exit() {
     if (!review.active) return;
     review.active = false; review.playing = false; view.replayT = null;
-    playBtn.innerHTML = '&#9654;';
     hide();
     deps.setSpeed(deps.getLastSpeed() || 1);
   }
-  range.addEventListener('input', () => enter(Number(range.value)));
-  bar.querySelector('#tl-live').onclick = exit;
-  bar.querySelector('#tl-back').onclick = () => { review.playing = false; enter((review.active ? review.idx : rec.frames.length - 1) - 1); };
-  bar.querySelector('#tl-fwd').onclick = () => { review.playing = false; enter((review.active ? review.idx : rec.frames.length - 1) + 1); };
-  playBtn.onclick = () => {
+  const stepBy = (d) => { review.playing = false; enter((review.active ? review.idx : rec.frames.length - 1) + d); };
+  function togglePlay() {
     if (!review.active) return;
     review.playing = !review.playing;
     if (review.playing && review.idx >= rec.frames.length - 1) review.idx = 0;
-  };
-  addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-    if (e.key === 'ArrowLeft') { bar.querySelector('#tl-back').click(); e.preventDefault(); }
-    else if (e.key === 'ArrowRight') { bar.querySelector('#tl-fwd').click(); e.preventDefault(); }
-    else if (e.key === ' ' && review.active) { playBtn.click(); e.preventDefault(); e.stopImmediatePropagation(); }
-  }, true);
-
-  let tickCount = -1;
-  function drawEvents() {
-    const total = rec.frames.length ? rec.frames[rec.frames.length - 1].t - rec.frames[0].t : 0;
-    if (!total) { eventsEl.innerHTML = ''; return; }
-    const t0 = rec.frames[0].t;
-    const colour = { kill: '#66bb6a', leak: '#ff5252', spotter: '#ffd600', lost: '#ff9100' };
-    eventsEl.innerHTML = rec.events.filter((e) => colour[e.type]).map((e) =>
-      `<i style="left:${(100 * (e.t - t0) / total).toFixed(2)}%;background:${colour[e.type]}" title="${e.text} (${fmtTime(e.t)})"></i>`).join('');
   }
+  const frameIndex = () => Math.max(0, Math.min(Math.floor(review.idx), rec.frames.length - 1));
 
   // called every frame with the real elapsed time and the camera
   function update(real, camera) {
+    if (!review.active) return;
     const n = rec.frames.length;
-    range.max = Math.max(n - 1, 0);
-    if (n !== tickCount) { tickCount = n; drawEvents(); }
-    if (!review.active) {
-      range.value = n - 1;
-      timeEl.textContent = n ? fmtTime(rec.frames[n - 1].t) : '0:00';
-      banner.classList.add('hidden');
-      return;
-    }
     if (review.playing) {
       review.idx += (real * WORLD.timeScale * Math.max(deps.getLastSpeed() || 1, 1)) / 0.5;
       if (review.idx >= n - 1) { review.idx = n - 1; review.playing = false; }
     }
-    const i = Math.max(0, Math.min(Math.floor(review.idx), n - 1));
-    const f = rec.frames[i];
-    range.value = i;
+    const f = rec.frames[frameIndex()];
     view.replayT = f.t;
-    timeEl.textContent = fmtTime(f.t);
-    playBtn.innerHTML = review.playing ? '&#10074;&#10074;' : '&#9654;';
-    banner.classList.remove('hidden');
-    banner.innerHTML = `REPLAY <b>${fmtTime(f.t)}</b> &middot; wave ${f.wave} &middot; budget $${Math.round(f.budget).toLocaleString('en-US')} &middot; kills ${f.kills} &middot; leaks ${f.leaks}`;
     deps.hideLive();
     show(f, camera);
   }
@@ -200,8 +148,7 @@ export function createReplay(deps) {
     exit();
     for (const o of droneObjs.values()) { group.remove(o.group); o.label.remove(); }
     droneObjs.clear();
-    tickCount = -1;
   }
 
-  return { review, update, enter, exit, hide, reset, active: () => review.active };
+  return { review, update, enter, exit, hide, reset, togglePlay, frameIndex, stepBack: () => stepBy(-1), stepForward: () => stepBy(1), active: () => review.active };
 }

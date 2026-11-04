@@ -1,0 +1,67 @@
+// Top right: starting waves, game speed, view toggles, engagement authority, and opening the other panels.
+
+import { useEffect, useRef, useState } from 'react';
+import { FUSION } from '../sim/config/index.js';
+import { view } from '../render/view.js';
+import { useGame, useTick } from './hooks.js';
+
+const SPEEDS = [[0, '❚❚', 'Pause (Space)'], [1, '1x'], [2, '2x'], [3, '3x']];
+
+export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
+  useTick();
+  const game = useGame();
+  const { sim, commands, clock } = game;
+  const { state } = sim;
+
+  useEffect(() => { document.body.classList.toggle('track-hi', view.trackHi); });
+
+  // two clicks, since it throws the laydown away
+  const [armed, setArmed] = useState(false);
+  const armTimer = useRef(0);
+  const clearLaydown = () => {
+    if (!state.started) return;
+    if (!armed) {
+      setArmed(true);
+      armTimer.current = setTimeout(() => setArmed(false), 3000);
+      return;
+    }
+    clearTimeout(armTimer.current); setArmed(false);
+    commands.reset('clear');
+  };
+
+  const toggle = (id, key, label, title) => (
+    <label title={title}><input type="checkbox" id={id} checked={view[key]} onChange={(e) => game.setViewOption(key, e.target.checked)} /> {label}</label>
+  );
+
+  return (
+    <div id="hud-top-right" className="panel">
+      <button id="btn-wave" className="primary" disabled={state.waveActive || state.over || state.sandbox} onClick={() => commands.startWave()}>
+        {state.sandbox ? 'Exit sandbox to start' : state.waveActive ? `Wave ${state.wave} in progress` : `Start wave ${state.wave + 1}`}
+      </button>
+      <div className="row">
+        {SPEEDS.map(([s, text, title]) => (
+          <button key={s} className={`speed${clock.speed === s ? ' active' : ''}`} data-speed={s} title={title} onClick={() => game.setSpeed(s)}>{text}</button>
+        ))}
+      </div>
+      <label><input type="checkbox" id="auto" checked={state.autoStart} onChange={(e) => commands.setAutoStart(e.target.checked)} /> Auto-start next wave</label>
+      {toggle('rings', 'rings', 'Show ranges (R)')}
+      {toggle('truth', 'truth', 'Truth overlay (T)', "On: every drone is drawn where it really is (grey if no sensor has it). Off: you only see what the fusion node believes.")}
+      {toggle('labels-toggle', 'labels', 'Labels (L)', 'Name tags on every system and drone')}
+      {toggle('track-hi', 'trackHi', 'Highlight tracks', "Tracks are drawn faint grey so they don't crowd the view. Tick to colour them by classification.")}
+      <label title="Who decides to engage. SAPIENT has no weapon-release message, so this is a C2 policy."> Engagement authority
+        <select id="authority" value={FUSION.authority} onChange={(e) => commands.setAuthority(e.target.value)}>
+          <option value="auto">Automatic</option><option value="costly">Ask for costly shots</option><option value="all">Ask for every engagement</option>
+        </select>
+      </label>
+      <button id="btn-sandbox" title="Try attacks against your laydown without risking the site" onClick={() => { if (state.sandbox) commands.exitSandbox(); else { commands.enterSandbox(); onSandbox(); } }}>
+        {state.sandbox ? 'Exit sandbox' : 'Sandbox'}
+      </button>
+      <div className="row">
+        <button id="btn-reset" title="Start the run again with the same laydown, wiring and seed" onClick={() => { if (state.started) commands.reset('keep'); }}>Reset run</button>
+        <button id="btn-clear" title="Remove everything and start with an empty site" onClick={clearLaydown}>{armed ? 'Sure? Click again' : 'New laydown'}</button>
+      </div>
+      <button id="btn-sapient" onClick={onToggleDock}>SAPIENT</button>
+      <button id="btn-tuning" onClick={onToggleTuning}>Tuning</button>
+    </div>
+  );
+}

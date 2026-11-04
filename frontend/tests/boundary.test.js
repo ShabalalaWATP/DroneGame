@@ -36,10 +36,16 @@ describe('rendering boundary', () => {
   }
 });
 
+describe('UI safety', () => {
+  for (const file of files(join(SRC, 'ui'))) {
+    it(`${relative(SRC, file)} never builds HTML from strings`, () => {
+      expect(readFileSync(file, 'utf8')).not.toMatch(/innerHTML|dangerouslySetInnerHTML|insertAdjacentHTML|document\.write/);
+    });
+  }
+});
+
 describe('file size', () => {
-  // shortcut: the two dock files are over the limit until Phase 5 replaces them with one component per tab.
-  const pending = new Set(['ui/sapient-ui.js', 'ui/network-ui.js'].map((f) => join(SRC, f)));
-  for (const file of files(SRC).filter((f) => !pending.has(f))) {
+  for (const file of files(SRC)) {
     it(`${relative(SRC, file)} is within 350 lines`, () => {
       expect(readFileSync(file, 'utf8').split('\n').length).toBeLessThanOrEqual(351);
     });

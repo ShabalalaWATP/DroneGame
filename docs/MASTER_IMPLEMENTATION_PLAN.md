@@ -237,12 +237,14 @@ This is the one phase that deliberately changes results, so it gets its own re-b
 
 ### Phase 5: React frontend
 
-- [ ] Add React with no extra libraries. One `GameCanvas` component owns the Three.js scene.
-- [ ] Add a `useSimulation` hook on `useSyncExternalStore`, updating panels about 5 to 10 times a second
-- [ ] Port one panel at a time, deleting its old DOM code each time: HUD, toolbar, control panel, approvals, sandbox, tuning, timeline, minimap, then each dock tab
-- [ ] Keep name tags and other per-frame labels in `render/`, outside React
+- [x] Add React with no extra libraries. One `GameCanvas` component owns the Three.js scene.
+- [x] Add a `useSimulation` hook on `useSyncExternalStore`, updating panels about 5 to 10 times a second
+- [x] Port one panel at a time, deleting its old DOM code each time: HUD, toolbar, control panel, approvals, sandbox, tuning, timeline, minimap, then each dock tab
+- [x] Keep name tags and other per-frame labels in `render/`, outside React
 
 **Done when:** every item on the parity checklist passes in a browser, and no `innerHTML` built from data remains.
+
+**Result:** every panel is React, and every source file is within 350 lines. `style.css` is unchanged, and class names and ids were kept, so the game looks the same. Reference digests match in Node and the browser, 304 tests pass, with 97.8% statement and 91.2% branch coverage of `sim/` and `ui/`. The parity checklist passes in a browser, except that figure import and log and figure export were only tested with stubbed files.
 
 ### Phase 6: Backend
 
@@ -275,21 +277,21 @@ This is the one phase that deliberately changes results, so it gets its own re-b
 
 Check in a real browser at the end of Phase 5 and again at the end of Phase 8.
 
-- [ ] Start screen: scenario seed, terrain seed, random seed, Deploy, and seeds in the URL
-- [ ] Placement: all eight systems, hotkeys 1 to 8, ghost preview and reasons for refusal, sell and refund, laydown lock
-- [ ] Camera controls and the minimap (click, drag, scroll)
-- [ ] Waves: start, auto-start, speeds, pause, wiring warning, adaptation, game over and retry
-- [ ] Toggles: ranges, truth overlay, labels, highlight tracks
-- [ ] Engagement authority: all three modes, approval cards, auto-pause and expiry
-- [ ] Sandbox: wave levels, custom attacks, clear, exit keeps the laydown
-- [ ] Reset run and New laydown, including the two-click confirmation
-- [ ] Replay: timeline, stepping, play, event markers, keyboard shortcuts
-- [ ] Messages tab: filters, freeze, clear, export, inject fault, explain
-- [ ] Nodes tab, and Plan tab with coverage maps
-- [ ] Network tab: auto-wire, clear, click to wire, tapped wires, step to next packet, band settings
-- [ ] Spectrum tab, and Learn tab with follow a track
-- [ ] Cost tab, and Sources tab with edit, reset, import, export and the range scale
-- [ ] Tuning panel, legend, and `window.game` in development builds
+- [x] Start screen: scenario seed, terrain seed, random seed, Deploy, and seeds in the URL
+- [x] Placement: all eight systems, hotkeys 1 to 8, ghost preview and reasons for refusal, sell and refund, laydown lock
+- [x] Camera controls and the minimap (click, drag, scroll)
+- [x] Waves: start, auto-start, speeds, pause, wiring warning, adaptation, game over and retry
+- [x] Toggles: ranges, truth overlay, labels, highlight tracks
+- [x] Engagement authority: all three modes, approval cards, auto-pause and expiry
+- [x] Sandbox: wave levels, custom attacks, clear, exit keeps the laydown
+- [x] Reset run and New laydown, including the two-click confirmation
+- [x] Replay: timeline, stepping, play, event markers, keyboard shortcuts
+- [x] Messages tab: filters, freeze, clear, export, inject fault, explain
+- [x] Nodes tab, and Plan tab with coverage maps
+- [x] Network tab: auto-wire, clear, click to wire, tapped wires, step to next packet, band settings
+- [x] Spectrum tab, and Learn tab with follow a track
+- [x] Cost tab, and Sources tab with edit, reset, import, export and the range scale
+- [x] Tuning panel, legend, and `window.game` in development builds
 
 ## Testing
 

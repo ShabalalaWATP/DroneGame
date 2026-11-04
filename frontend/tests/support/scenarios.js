@@ -1,6 +1,6 @@
 // Scripted runs shared by the Node tests and the browser. Compare runReferences() with reference-digests.json: any
 // difference means behaviour changed. To run them against the real page, in the browser console:
-//   const r = await import('/tests/support/scenarios.js'); window.game.frozen = true; await r.runReferences(window.game.sim)
+//   const r = await import('/tests/support/scenarios.js'); window.game.debug.frozen = true; r.runReferences(window.game.sim)
 
 export const MIXED = [['radar', 600, 0], ['rf', 900, 0], ['rf', -900, 0], ['camera', 378, 589], ['camera', -378, -589], ['jammer', 702, 384], ['jammer', -702, -384],
   ['interceptor', 490, 99], ['interceptor', -331, 374], ['interceptor', -158, -474], ['missile', -400, 300]];

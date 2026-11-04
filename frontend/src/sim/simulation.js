@@ -123,6 +123,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     setAuthority: (mode) => { FUSION.authority = mode; },
     decide: (id, approve) => w.net.decide(id, approve),
     injectFault: () => w.net.injectFault(),
+    clearMessages: () => { bus.entries.length = 0; },
     wireNode: (s, kind) => laydown.wireNode(w, s, kind),
     wireFusion: (kind, on) => laydown.wireFusion(w, kind, on),
     setCellBand: (s, band) => laydown.setCellBand(w, s, band),

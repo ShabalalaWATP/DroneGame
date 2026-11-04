@@ -1,0 +1,128 @@
+// Wires the simulation to the 3D view and runs the frame loop. React reads from here through useTick and never owns game state.
+
+import * as THREE from 'three';
+import { WORLD } from './sim/config/index.js';
+import { createSimulation, SIM_STEP } from './sim/simulation.js';
+import { createGameView } from './render/game-view.js';
+import { createPlacement } from './render/placement.js';
+import { createReplay } from './render/replay-view.js';
+import { droneTemplate } from './render/models.js';
+import { trackColour } from './render/belief-view.js';
+import { view } from './render/view.js';
+
+const PANEL_INTERVAL = 100; // ms between panel refreshes: panels never update per frame
+
+export function createGame({ seed, terrainSeed }) {
+  const sim = createSimulation({ seed, terrainSeed });
+  const { state, net } = sim;
+
+  // ---------- what panels subscribe to ----------
+  const subscribers = new Set();
+  let tick = 0;
+  const bump = () => { tick++; for (const fn of subscribers) fn(); };
+  const subscribe = (fn) => { subscribers.add(fn); return () => subscribers.delete(fn); };
+  const getTick = () => tick;
+
+  // Every command the UI sends refreshes the panels straight away, so controls never lag behind a click.
+  const commands = Object.fromEntries(Object.entries(sim.commands).map(([name, fn]) => [name, (...args) => { const r = fn(...args); bump(); return r; }]));
+
+  // ---------- game speed ----------
+  const clock = { speed: 1, lastSpeed: 1 };
+  const setSpeed = (s) => { if (s > 0) clock.lastSpeed = s; clock.speed = s; bump(); };
+
+  const toastListeners = new Set();
+  const toast = (msg) => { for (const fn of toastListeners) fn(msg); };
+  sim.on('toast', toast);
+  sim.on('gameOver', bump);
+  sim.on('sandbox', bump);
+
+  // ---------- filled in once the canvas exists ----------
+  let gameView = null, placement = null, replay = null;
+  const frameListeners = new Set();
+  let tool = null; // structure id | 'sell' | null
+
+  function setTool(t) {
+    tool = tool === t ? null : t;
+    if (placement) placement.refresh();
+    bump();
+  }
+
+  function groundClick(x, z) {
+    if (!tool || state.over || !state.started) return;
+    if (tool === 'sell') { commands.sell(x, z); return; }
+    const problem = commands.place(tool, x, z);
+    if (problem) toast(problem);
+  }
+
+  // when the fusion node asks the operator to authorise an engagement, stop the clock so there is time to decide
+  let pausedForApproval = false, simAcc = 0;
+  sim.on('approvalRequest', () => { if (clock.speed > 0) { pausedForApproval = true; setSpeed(0); } });
+  sim.on('approvalDecided', () => {
+    if (pausedForApproval && !net.pendingRequests.length && !(replay && replay.active())) { pausedForApproval = false; setSpeed(clock.lastSpeed || 1); }
+  });
+  sim.on('reset', ({ kept, begin }) => {
+    if (replay) replay.reset();
+    if (gameView) gameView.clear();
+    simAcc = 0; pausedForApproval = false;
+    if (!begin) { setSpeed(1); toast(kept ? 'Run reset: same laydown and seed' : 'New laydown: the site is empty'); }
+    bump();
+  });
+
+  const debug = { frozen: false }; // scripted browser runs drive the simulation themselves
+  const frameClock = new THREE.Clock();
+  let lastBump = 0;
+  function frame() {
+    const real = Math.min(frameClock.getDelta(), 0.05);
+    if (!debug.frozen && state.started && !state.over && clock.speed > 0) {
+      // fixed-size steps: the same seed and laydown give the same run at any frame rate or speed
+      simAcc += real * WORLD.timeScale * clock.speed;
+      let n = 0;
+      while (simAcc >= SIM_STEP && n < 400 && !state.over) { sim.step(); simAcc -= SIM_STEP; n++; }
+      if (n >= 400) simAcc = 0;
+    }
+    gameView.update(real);
+    for (const fn of frameListeners) fn(real);
+    replay.update(real, gameView.camera);
+    placement.update();
+    gameView.draw();
+    const now = performance.now();
+    if (now - lastBump >= PANEL_INTERVAL) { lastBump = now; bump(); }
+  }
+
+  // Called once, when the canvas and label layer are in the page.
+  function attach(canvas, labelLayer) {
+    gameView = createGameView(canvas, labelLayer, sim);
+    placement = createPlacement({
+      scene: gameView.scene, camera: gameView.camera, canvas, getWorldMesh: gameView.getWorldMesh, sim,
+      getTool: () => tool, onGroundClick: groundClick,
+    });
+    replay = createReplay({
+      scene: gameView.scene, rec: sim.rec, droneTemplate, makeLabel: gameView.labels.make, placeLabel: gameView.labels.place, trackColour,
+      getStructures: () => sim.structures, labelOf: gameView.structures.labelOf, hideLive: gameView.hideLive,
+      setSpeed, getLastSpeed: () => clock.lastSpeed, setPaused: () => setSpeed(0),
+    });
+    gameView.start(frame);
+    bump();
+  }
+
+  return {
+    sim, commands, clock, setSpeed, subscribe, getTick, bump, attach, debug,
+    getTool: () => tool, setTool,
+    toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
+    onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },
+    getReplay: () => replay,
+    getView: () => gameView,
+    // settings shared with the 3D view
+    setViewOption(key, value) {
+      view[key] = value;
+      if (key === 'rings' && gameView) gameView.structures.setRingsVisible(value);
+      bump();
+    },
+    // a figure was edited in the Sources tab: redraw anything built from it
+    figuresChanged() {
+      if (gameView) gameView.structures.remakeRings();
+      if (placement) placement.refresh();
+      bump();
+    },
+  };
+}
