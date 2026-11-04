@@ -9,12 +9,12 @@
 .thumb-live { background: linear-gradient(115deg, transparent 46%, #f4c95d 46% 52%, transparent 52%), linear-gradient(20deg, transparent 62%, #ffffff 62% 66%, transparent 66%), #dfe8d5; }
 .thumb-generated { background: linear-gradient(150deg, #3c5a38, #8c8064); }
 
-#map-panel { left: 304px; bottom: 12px; width: 326px; max-height: calc(100vh - 24px); overflow-y: auto; display: flex; flex-direction: column; gap: 8px; z-index: 4; font-size: 12px; }
+#map-panel { left: 304px; bottom: 12px; width: 380px; max-height: calc(100vh - 24px); overflow-y: auto; display: flex; flex-direction: column; gap: 8px; z-index: 4; font-size: 12px; }
 .map-panel-head { display: flex; align-items: center; gap: 8px; }
 .map-panel-head b { font-size: 14px; color: #fff; }
 .map-panel-head button { margin-left: auto; padding: 0 8px; font-size: 16px; }
 
-#map-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+#map-types { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .map-card { display: flex; flex-direction: column; gap: 3px; padding: 3px; text-align: left; background: #111c30; border: 2px solid #263754; border-radius: 8px; color: #cbd6ea; position: relative; overflow: hidden; }
 .map-card:hover:not(:disabled) { border-color: #5c7bb0; }
 .map-card.on { border-color: #4fc3f7; color: #fff; background: #1b2a45; }

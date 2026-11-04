@@ -100,14 +100,23 @@ describe('the laptop location', () => {
   it('explains a browser with no location', async () => {
     await expect(locateMe(null)).rejects.toThrow(/cannot share/);
   });
-  it('falls back to a Wi-Fi estimate when high accuracy times out, but not when location is blocked', async () => {
-    const asked = [];
-    const slow = { getCurrentPosition: (yes, no, options) => { asked.push(options.enableHighAccuracy); if (options.enableHighAccuracy) no({ code: 3 }); else fixAt(...NEAR).getCurrentPosition(yes); } };
-    expect((await locateMe(slow)).e).toBeGreaterThan(0);
-    expect(asked).toEqual([true, false]);
-    const blocked = vi.fn((_, no) => no({ code: 1 }));
-    await expect(locateMe({ getCurrentPosition: blocked })).rejects.toThrow(/blocked/);
-    expect(blocked).toHaveBeenCalledTimes(1);
+  it('answers from whichever reading comes first, and reports a later, better one', async () => {
+    const calls = [];
+    const pending = locateMe({ getCurrentPosition: (yes, no, options) => calls.push({ yes, no, options }) }, (better) => calls.push({ better }));
+    expect(calls.map((c) => c.options.enableHighAccuracy)).toEqual([false, true]);
+    expect(calls[0].options.maximumAge).toBeGreaterThan(calls[1].options.maximumAge); // the rough one may reuse a recent answer
+    fixAt(...NEAR, 900).getCurrentPosition(calls[0].yes);
+    expect((await pending).accuracy).toBe(900);
+    fixAt(...NEAR, 30).getCurrentPosition(calls[1].yes);
+    expect(calls[2].better.accuracy).toBe(30);
+  });
+  it('keeps the rough answer if the precise one fails, and the reverse', async () => {
+    const roughOnly = { getCurrentPosition: (yes, no, options) => { if (options.enableHighAccuracy) no({ code: 3 }); else fixAt(...NEAR, 900).getCurrentPosition(yes); } };
+    expect((await locateMe(roughOnly)).accuracy).toBe(900);
+    const preciseOnly = { getCurrentPosition: (yes, no, options) => { if (options.enableHighAccuracy) fixAt(...NEAR, 30).getCurrentPosition(yes); else no({ code: 2 }); } };
+    expect((await locateMe(preciseOnly)).accuracy).toBe(30);
+    const none = { getCurrentPosition: (_, no, options) => no({ code: options.enableHighAccuracy ? 3 : 2 }) };
+    await expect(locateMe(none)).rejects.toThrow(/too long/);
   });
 });
 
@@ -238,8 +247,8 @@ describe('choosing a world', () => {
       }
       expect($('#map-credit').textContent).toContain('OS credit');
       expect(nextBaseMap('live')).toBe('os');
-      expect(nextBaseMap('os')).toBe('topo'); // skips what this pack does not have
-      expect(nextBaseMap('os', { pictures: [{ layer: 'satellite' }] })).toBe('satellite');
+      expect(nextBaseMap('dark')).toBe('topo'); // skips what this pack does not have
+      expect(nextBaseMap('dark', { pictures: [{ layer: 'satellite' }] })).toBe('satellite');
     });
     it('centres on this laptop, marks it, and says when it is outside the world', async () => {
       await deployed();

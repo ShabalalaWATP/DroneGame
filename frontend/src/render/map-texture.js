@@ -6,7 +6,7 @@ import { wgs84ToBng } from '../sim/bng.js';
 import { latLonOf } from '../sim/world-pack.js';
 import { contourLines, topoPixels } from './topo.js';
 
-const SIZE = 4096, SMALL = 1024, PREVIEW = 192, PREVIEW_SPAN = 6000;
+const SIZE = 4096, SMALL = 1024, PREVIEW = 192, PREVIEW_SPAN = 6000, TILE_REFRESH_MS = 400;
 export const OSM_URL = 'https://tile.openstreetmap.org', OSM_ZOOM = 14;
 const ROADS = [['Motorway', 34, '#4d9de0'], ['Primary', 27, '#3fbf6f'], ['A Road', 24, '#e15554'], ['B Road', 20, '#f0a33a'], ['Minor', 12, '#ffffff'], ['Local', 7, '#dddddd'], ['Restricted', 7, '#cccccc']]; // widths in metres on the ground
 
@@ -14,6 +14,16 @@ const roadStyle = (cls) => ROADS.find(([start]) => cls.startsWith(start));
 const tileLon = (x, z) => (x / 2 ** z) * 360 - 180;
 const tileLat = (y, z) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / 2 ** z))) * 180) / Math.PI;
 const usesSatellite = (baseMap) => baseMap === 'satellite' || baseMap === 'hybrid';
+const onDarkGround = (baseMap) => usesSatellite(baseMap) || baseMap === 'dark';
+// The light and dark maps are the pack's OS map recoloured, so they work offline and need no other map provider.
+const RESTYLE = {
+  light: [['saturation', '#000'], ['screen', '#3a3a3a']],
+  dark: [['saturation', '#000'], ['difference', '#fff'], ['multiply', '#8ea4c8'], ['lighter', '#0e1626']],
+};
+function restyle({ g, size }, steps) {
+  for (const [mode, colour] of steps) { g.globalCompositeOperation = mode; g.fillStyle = colour; g.fillRect(0, 0, size, size); }
+  g.globalCompositeOperation = 'source-over';
+}
 
 // The OSM tiles over a world, and where three of each tile's corners land on the national grid.
 export function tilesOver({ north, south, east, west }, zoom = OSM_ZOOM) {
@@ -59,20 +69,22 @@ async function paintPictures(f, pictures, layer, still) {
 }
 
 // Each tile is stretched by its own corners, because OSM's squares sit at an angle to the national grid.
-async function paintLive({ g, west, top, px }, data, still) {
+// Tiles go on as they arrive, over the old map, so a slow connection shows the new one filling in rather than nothing.
+async function paintLive({ g, west, top, px }, data, still, onTile) {
   const corner = (x, z) => latLonOf(data.geo, x, -z);
   const a = corner(-data.R, -data.R), b = corner(data.R, data.R), c = corner(data.R, -data.R), d = corner(-data.R, data.R);
   const tiles = tilesOver({ north: Math.max(a.lat, c.lat), south: Math.min(b.lat, d.lat), east: Math.max(b.lon, c.lon), west: Math.min(a.lon, d.lon) });
-  const images = await Promise.all(tiles.map(tileImage));
-  if (!still()) return {};
   let failed = 0;
-  images.forEach((image, i) => {
+  await Promise.all(tiles.map(async (tile) => {
+    const image = await tileImage(tile);
+    if (!still()) return;
     if (!image) { failed++; return; }
-    const { origin, right, down } = tiles[i], k = px(1) / 256;
+    const { origin, right, down } = tile, k = px(1) / 256;
     g.setTransform((right.e - origin.e) * k, (origin.n - right.n) * k, (down.e - origin.e) * k, (origin.n - down.n) * k, px(origin.e - west), px(top - origin.n));
     g.drawImage(image, 0, 0);
-  });
-  g.setTransform(1, 0, 0, 1, 0, 0);
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    onTile();
+  }));
   return { failed, total: tiles.length };
 }
 
@@ -110,7 +122,7 @@ function paintNames(f, features, data) {
 }
 
 function paintContours(f, lines, data, baseMap, withLabels) {
-  const { g, west, top, px } = f, onPhoto = usesSatellite(baseMap);
+  const { g, west, top, px } = f, onPhoto = onDarkGround(baseMap);
   const worldWest = data.geo.e0 - data.R, worldTop = data.geo.n0 + data.R;
   const ax = (x) => px(x + worldWest - west), az = (z) => px(z + top - worldTop);
   const stroke = (list, width, colour) => {
@@ -177,23 +189,30 @@ export function createMapTexture(renderer, relief) {
     return topo;
   }
 
-  async function paintBase(f, data, source, baseMap, still) {
+  async function paintBase(f, data, source, baseMap, still, onTile) {
     const { g, west, top, px, size } = f, worldX = px(data.geo.e0 - data.R - west), worldZ = px(top - data.geo.n0 - data.R), world = px(2 * data.R);
+    if (baseMap === 'live') return paintLive(f, data, still, onTile);
     g.fillStyle = '#e8e4da'; g.fillRect(0, 0, size, size);
     if (baseMap === 'relief') { g.drawImage(relief(data), worldX, worldZ, world, world); return {}; }
     if (baseMap === 'topo') { g.drawImage(topoOf(data).picture, worldX, worldZ, world, world); return {}; }
-    if (baseMap === 'live') return paintLive(f, data, still);
     await paintPictures(f, source.pictures, usesSatellite(baseMap) ? 'satellite' : 'osmap', still);
+    if (RESTYLE[baseMap] && still()) restyle(f, RESTYLE[baseMap]);
     return {};
   }
 
-  // options: { baseMap: 'os' | 'satellite' | 'hybrid' | 'topo' | 'relief' | 'live', roads, grid, contours }.
+  // options: { baseMap: 'os' | 'light' | 'dark' | 'satellite' | 'hybrid' | 'topo' | 'relief' | 'live', roads, grid, contours }.
   // Resolves with { failed, total } for a live map, or { stale: true } if a newer choice took over.
   async function paint(data, source, options) {
     const ticket = ++painting, still = () => ticket === painting;
     const f = frameOf(canvas.getContext('2d'), data.geo.e0 - data.R, data.geo.n0 + data.R, 2 * data.R, SIZE);
     const roads = options.roads || options.baseMap === 'hybrid';
-    const layer = await paintBase(f, data, source, options.baseMap, still);
+    let shown = 0;
+    const onTile = () => { // uploading a canvas this size is slow, so not for every tile
+      if (performance.now() - shown < TILE_REFRESH_MS) return;
+      shown = performance.now();
+      texture.needsUpdate = true;
+    };
+    const layer = await paintBase(f, data, source, options.baseMap, still, onTile);
     if (!still()) return { stale: true };
     if (options.contours || options.baseMap === 'topo') paintContours(f, topoOf(data).lines, data, options.baseMap, true);
     if (roads) paintRoads(f, source.features, data);

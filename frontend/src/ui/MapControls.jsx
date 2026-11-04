@@ -15,6 +15,8 @@ import './map-panel.css';
 
 const REAL_MAPS = [
   ['os', 'OS map', 'Roads, woods and towns'],
+  ['light', 'Light', 'The OS map in pale greys'],
+  ['dark', 'Dark', 'The OS map at night'],
   ['satellite', 'Satellite', 'Pictures from space'],
   ['hybrid', 'Hybrid', 'Satellite with roads and names'],
   ['topo', 'Topographic', 'Heights, contours and hill shading'],
@@ -120,13 +122,16 @@ export function MapControls() {
     setLocating(true);
     say('Finding your location...');
     try {
-      const fix = await locateMe();
+      const mark = (reading, at) => { // the camera only moves once: a better reading moves the pin, and leaves the player's view alone
+        view.me = { ...at, accuracy: reading.accuracy / m };
+        say(`You are at ${gridRef(reading.e, reading.n)}, ${accuracyText(reading.accuracy)}.`);
+      };
+      const fix = await locateMe(undefined, (better) => { const at = geo && toScene(better.e, better.n); if (at && inWorld(at)) mark(better, at); });
       const where = gridRef(fix.e, fix.n), quality = accuracyText(fix.accuracy);
       const at = geo && toScene(fix.e, fix.n);
       if (at && inWorld(at)) {
-        view.me = { ...at, accuracy: fix.accuracy / m };
+        mark(fix, at);
         gameView?.centreOn(at.x, at.z, CLOSE_ZOOM);
-        say(`You are at ${where}, ${quality}.`);
       } else {
         view.me = null;
         const text = geo ? `outside this world` : 'and this is generated ground';

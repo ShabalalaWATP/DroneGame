@@ -4,7 +4,7 @@ export const view = {
   labels: true, // name tags on every system and drone
   rings: true, // range rings on every system
   trackHi: false, // colour tracks by classification instead of drawing them faint and grey
-  baseMap: 'os', // a real world's picture: 'os', 'satellite', 'hybrid', 'topo', 'relief' or 'live'
+  baseMap: 'os', // a real world's picture: 'os', 'light', 'dark', 'satellite', 'hybrid', 'topo', 'relief' or 'live'
   mapRoads: false, // roads and names on the map: with satellite, this is the hybrid view
   mapGrid: true, // the national grid on the map
   mapContours: false, // height lines on the map
