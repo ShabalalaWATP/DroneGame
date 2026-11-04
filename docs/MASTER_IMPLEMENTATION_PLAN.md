@@ -468,6 +468,8 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 | A6 | RF, libraries and jammer physics | Tests confirm band matching, jam range and self-interference |
 | A7 | Balance using `tools/balance.js`. Optionally, later waves move to non-standard bands such as 3.3 GHz, as reported in Ukraine. | Results are recorded and the game is playable |
 
+**Real systems in the toolbar:** clicking a row opens `ui/ToolPicker.jsx`, which lists the real systems of that kind by name, with the settings the next one will be placed with. S, M and L stay as quick choices. The list starts with the systems the Sources tab already named, three of which gained their own entries, marked `variantOf`: Blighter A800 (Ku band, 3 km against a Phantom, price assumed), Hensoldt Elysion RF DF (unverified ±30° and bands, range and price assumed) and SkyFall P1-SUN (about $1,000 a drone, performance copied from the Sting). "Generic EO/IR turret" and "Generic fixed site jammer" have no real product behind them. Until A7 the P1-SUN is simply cheaper to fire than the Sting, and until A4 the A800 sees all round, so it beats the IRIS.
+
 **What A3 can edit today:** only fields that already change the game, as design rule 1 requires. The limits, prices and threshold factors are assumptions in `sim/unit-config.js`.
 
 | Kind | Fields |

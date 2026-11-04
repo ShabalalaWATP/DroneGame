@@ -61,7 +61,7 @@ Press **Deploy**, pick a system from the left (or press 1 to 7), and click the g
 | 6 | Missile | | $1M, 10 km | | $200,000 | Can hit fixed-wing drones |
 | 7 | Laser | | $2M, 1 km | | $13 | Needs dwell time, so evasive targets take longer |
 
-Sensor ranges are against a small quadcopter. Press a key again for the next size.
+Sensor ranges are against a small quadcopter. Pick a row to see the real systems of that kind, such as the Robin Radar IRIS or Blighter A800, and the settings for the next one you place. Press a key again for the next one.
 
 The attack is made of FPV strike drones ($400), fibre-optic strike drones that fly low and emit no radio ($1,000), fixed-wing strike drones ($35,000) and fixed-wing spotters that make strikes hit harder ($100,000). They get harder to hit and jam each wave.
 

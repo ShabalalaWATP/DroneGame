@@ -111,6 +111,12 @@ A real browser found one more problem no test could: the suggested ring landed b
 
 The map choice then moved out of the crowded control panel into a switcher beside the minimap, with previews drawn from the pack. A topographic map and contours came from the height grid already in every world, so they needed no new data. Marching squares runs over a lightly smoothed copy, as raw lidar makes contours fizz. Two faults turned up on the way: a stale paint could draw over a newer choice of map, and a failed live map could undo a later choice. Location now falls back to a Wi-Fi estimate if high accuracy times out, and a position outside the world offers a map of that place instead of stopping there.
 
+## Real systems in the toolbar
+
+Stage A2 delivered sizes when the user had asked for types: S, M and L are abstractions, and what they wanted was to choose a real radar and set it up before placing it. Clicking a toolbar row now opens a list of the real systems of that kind, with the settings the next one will be placed with. New catalogue entries left the reference digests alone, because each system's name is only carried once it is placed.
+
+The lesson is about reading the request. It had been said more than once, and each time it was answered with a plan stage instead.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

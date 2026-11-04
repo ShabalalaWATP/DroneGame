@@ -48,7 +48,8 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 **Later: named real systems**
 
-- [ ] A list of specific sensors and effectors to choose from within each kind, such as named radars, with their own figures. Not yet planned in detail.
+- [x] Real systems listed by name when you pick a kind in the toolbar, with settings for the next one placed
+- [ ] More real systems beyond those the Sources tab first named, and replacing the two generic entries
 
 **Real-world mapping** (see `docs/REAL_MAPPING_PLAN.md`)
 
