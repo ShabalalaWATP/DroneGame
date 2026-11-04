@@ -43,20 +43,21 @@ Screenshots use scenario seed 7 and terrain seed 3 (`?seed=7&terrain=3`) with th
 
 ### 1. Build a laydown
 
-Press **Deploy**, pick a system from the left (or press 1 to 8), and click the ground to place it. Everything comes out of one budget, including every shot fired, and nothing is earned back. No single system handles every drone.
+Press **Deploy**, pick a system from the left (or press 1 to 7), and click the ground to place it. Everything comes out of one budget, including every shot fired, and nothing is earned back. No single system handles every drone.
 
 ![Eleven systems placed around the site, with their ranges drawn over the terrain](docs/screenshots/laydown.jpg)
 
-| Key | System | Cost | Per shot | Notes |
-|---|---|---|---|---|
-| 1 | Radar | $900k | | Range, bearing and velocity. Low flyers hide in ground clutter until close |
-| 2 | Compact radar | $45k | | Cheap and short range |
-| 3 | RF detector | $40k | | Passive direction finding with no range. Cannot see RF-silent drones |
-| 4 | EO/IR camera | $100k | | Narrow view cued by other sensors, with strong classification |
-| 5 | RF jammer | $60k | | On only while tracks are in range. Fibre-optic drones ignore it |
-| 6 | Interceptor drones | $100k | $5,000 | Good against FPV and fibre-optic strikes. Cannot catch fixed-wing drones |
-| 7 | Missile | $1M | $200,000 | Can hit fixed-wing drones |
-| 8 | Laser | $2M | $13 | Needs dwell time, so evasive targets take longer |
+| Key | System | Small | Medium | Large | Per shot | Notes |
+|---|---|---|---|---|---|---|
+| 1 | Radar | $45k, 1 km | $900k, 2 km | $2.5M, 4.3 km | | Range, bearing and velocity. Low flyers hide in ground clutter until close |
+| 2 | RF detector | $10k, 1 km | $40k, 3.5 km | $400k, 8 km | | Passive direction finding with no range. Cannot see RF-silent drones |
+| 3 | EO/IR camera | $25k, 260 m | $100k, 1 km | $500k, 1.6 km | | Narrow view cued by other sensors, with strong classification |
+| 4 | RF jammer | $40k, 500 m | $60k, 1 km | $350k, 1.6 km | | On only while tracks are in range. Fibre-optic drones ignore it |
+| 5 | Interceptor drones | | $100k, 5 km | | $5,000 | Good against FPV and fibre-optic strikes. Cannot catch fixed-wing drones |
+| 6 | Missile | | $1M, 10 km | | $200,000 | Can hit fixed-wing drones |
+| 7 | Laser | | $2M, 1 km | | $13 | Needs dwell time, so evasive targets take longer |
+
+Sensor ranges are against a small quadcopter. Press a key again for the next size.
 
 The attack is made of FPV strike drones ($400), fibre-optic strike drones that fly low and emit no radio ($1,000), fixed-wing strike drones ($35,000) and fixed-wing spotters that make strikes hit harder ($100,000). They get harder to hit and jam each wave.
 

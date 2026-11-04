@@ -284,9 +284,9 @@ This is the one restructure phase that deliberately changes results, so it gets 
 
 ## Planned gameplay features
 
-Status: agreed 2026-11-04, and rechecked the same day against the refactored code. Stage C1 is built; everything else is not started. These change game rules, so they are separate from the behaviour-preserving restructure.
+Status: agreed 2026-11-04, and rechecked the same day against the refactored code. Stages C1, A1 and A2 are built; everything else is not started. These change game rules, so they are separate from the behaviour-preserving restructure.
 
-**When they land:** the restructure phases are complete, so nothing here is waiting on them. Each stage gets its own branch from `main`. The order is C1, A1, B1 with C2, B2, B3, A2, A3, A4, A5, A6, A7. C1 comes first because it changes no rules and A3 builds on it. A1 comes before B1 because magazines need per-unit state. Raise `GAME_VERSION` at every stage that re-baselines digests, so the Saved tab warns about older laydowns.
+**When they land:** the restructure phases are complete, so nothing here is waiting on them. Each stage gets its own branch from `main`. The order from here is B1 with C2, B2, B3, A3, A4, A5, A6, A7. A1 and A2 were built ahead of the magazines because the sizes were what the player wanted to see first. Raise `GAME_VERSION` at every stage that re-baselines digests, so the Saved tab warns about older laydowns.
 
 **Evidence:** vendor figures are marketing claims. They came from search summaries, because the vendor PDFs could not be opened, so check each one against its source when it enters the code. Every figure gets a `ref` entry with its confidence, and anything unsourced is labelled ASSUMPTION in the Sources tab.
 
@@ -302,7 +302,9 @@ The design still holds. File references were out of date and some assumptions we
 | Starting wave 1 keeps the same unit objects | **Wrong.** All are replaced, node ids change, and default callsigns renumber: INT-01 became INT-03. Saved settings and the Unit panel both have to allow for this. |
 | Magazine wave table | Still right: recalculated from `makeWave` |
 
-The other corrections came from reading the code and have not been run. No feature code has been written.
+The other corrections came from reading the code and have not been run.
+
+**Measured when A2 was built:** a small RF detector's ±30° bearing does not flood the tracker with ghost tracks. Over wave 1 on three seeds, four small detectors alone averaged 0.6 confirmed tracks, only 8% of them on a real drone, and tracked 1% of drones, against 3.2 tracks, 32% and 29% for four medium ones. Beside a radar they do no harm: 71% of tracks sat on a real drone, against 60% with medium detectors, though fewer drones were tracked (44% against 54%). A small detector alone is close to useless as a locator, which suits its price and is one for A7 to look at.
 
 ### Feature A: configurable sensors and jammers
 
@@ -329,7 +331,7 @@ Radar, RF detector, EO/IR camera and RF jammer each get Small, Medium and Large 
 | Default band | K, 24.45–24.65 GHz | X, about 9 GHz | X |
 | Coverage per unit or panel | 120° x 80° | 360° x 60° | 120° x 60° (elevation is an assumption) |
 | Scan period | 1 s (the real radar updates at 10 Hz; capped to limit message volume) | 1 s | 1 s (assumption) |
-| Range, small quadcopter | 1 km | 2 km | 5 km (assumption) |
+| Range, small quadcopter | 1 km | 2 km | 4.3 km (about 9 km is reported against a 0.2 m² drone, scaled by the radar range equation) |
 | Price | $45k per panel | $900k | $2.5M (assumption) |
 
 | Field | Kind | Effect |
@@ -354,8 +356,8 @@ Range follows the search radar equation: `range ∝ (power x aperture x scan tim
 |---|---|---|---|
 | Based on | Boson-class thermal core | Today's EO/IR camera | Cooled MWIR long-zoom turret |
 | Sensor | LWIR 640 x 512, 12 µm | HD visible plus LWIR | MWIR 640 x 512, 15 µm |
-| Lens and view | 36 mm, 12° | 10° search, 2.5° track (assumption) | 80–1200 mm, 7.1° to 0.5° |
-| Range, small quadcopter | About 260 m | 1 km in search | About 470 m in search, 7 km in track |
+| Lens and view | 36 mm, 12° | 10° search, 2.5° track (assumption) | 80–1200 mm, 7.1° to 0.5°. One fixed 2° view until A5. |
+| Range, small quadcopter | About 260 m | 1 km in search | 1.6 km at the fixed 2° view until A5. Then about 470 m in search, 7 km in track. |
 | Price | $25k (assumption) | $100k | $500k (assumption) |
 
 | Field | Kind | Effect |
@@ -446,8 +448,8 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 | Custom names are new untrusted text | Registration, alerts, labels and panels | Trim, limit length and require unique callsigns, including against later automatic numbering. React and `textContent` already escape them on output. |
 | The coverage map will not refresh on edits, and rings are always full circles | `coverageGrid` and the drawing in `ui/dock/plan-canvas.js`, `render/structure-view.js`, `render/placement.js`, `ui/minimap.js` | Include unit settings in the cache key, and draw arcs in all four views |
 | Laydowns only save position, wiring and bands. Edits made before the first wave are not in the command log, because starting wave 1 clears it and rebuilds from the saved laydown. | `captureLaydown` and `restoreLaydown` in `sim/laydown.js` | Add name, callsign and settings. Pass them to `addStructure` before `registerNode`, because the registration message carries the name and range. Then charge the budget. |
-| Default callsigns renumber when wave 1 starts | `captureLaydown` sorts, `registerNode` counts | Save custom names from A1. Saving default callsigns too changes digests, so do it at the first re-baseline. |
-| The API refuses the new data: `PlacedSystem` forbids unknown fields, and `SystemId` is a fixed list | `backend/app/schemas.py`, `backend/tests/fixtures/` | Add optional fields, so older saves still load, and extend `SystemId`. Regenerate fixtures with `tests/support/write-fixtures.js`. |
+| Default callsigns renumber when wave 1 starts | `captureLaydown` sorts, `registerNode` counts | Save custom names from A3. Saving default callsigns too changes digests, so do it at the first re-baseline. |
+| The API refuses the new data: `PlacedSystem` forbids unknown fields, and `SystemId` is a fixed list | `backend/app/schemas.py`, `backend/tests/fixtures/` | A2 extended `SystemId`, and laydowns saved earlier still load. A3 adds optional fields, so older saves keep loading, and regenerates fixtures with `tests/support/write-fixtures.js`. |
 | Unit types are hard-coded by id. `buildModel` has no default case, so a new id would draw a bare base. | `def.id === 'jammer'` and similar in `sim/drones.js`, `sim/targeting.js`, `sim/network/core.js`, `sim/network/tasking.js`, `ui/dock/spectrum-canvas.js`, `ui/dock/plan-canvas.js`, `STRUCTURES.jammer.slow` in `sim/drones.js`, `render/models.js`, `render/structure-view.js` | Use `kind`, and a `model` field for drawing. Keep ids `radar`, `radar_s`, `rf`, `camera` and `jammer`, so figure exports and test scenarios still load |
 | The catalogue will pass the 350-line limit that `frontend/tests/boundary.test.js` enforces | `sim/config/systems.js` | Split sensors from effectors. `test_the_names_the_api_accepts_match_the_game` in `backend/tests/test_security.py` reads `systems.js` by name, so it must read both files. |
 | Edits must be reproducible | `commands` in `sim/simulation.js` | Add `configureUnit` and `renameUnit` as logged commands, for edits after wave 1 starts. Only keys in the field table are written, because `s.def[key]` with `__proto__` would change the unit's prototype. `configureUnit` re-sends registration, since capabilities include range. |
@@ -456,9 +458,9 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 
 | Stage | Work | Done when |
 |---|---|---|
-| A1 | Per-unit `def`, `kind` in place of id checks, per-unit laydown data, optional API fields, and each unit's own price in the ledger | Reference digests are unchanged, and a laydown saved before this stage still loads |
-| A2 | Two commits. First: S, M and L catalogue entries, the API's `SystemId`, models, and the toolbar: 7 systems, with a repeat hotkey press cycling the class. Second: the renames. | The first leaves digests unchanged. The second re-baselines them with the reason recorded. |
-| A3 | Editing in the Unit panel (Feature C): rename, Sell, and fields from one table that drives the UI, limits and price changes. Refuse edits you cannot afford. | Tests cover limits, pricing, rename, reset and sell |
+| A1 (built) | Per-unit `def` and `kind` in place of id checks. Laydown data, API fields and the Cost tab's per-unit prices moved to A3, because nothing can write them until then. Sell, refund and lost value already read each unit's own price. | Reference digests are unchanged |
+| A2 (built) | Two commits. First: S, M and L catalogue entries, the API's `SystemId`, models, and the toolbar: 7 systems, with a repeat hotkey press cycling the class. Second: the renames. | The first leaves digests unchanged. The second re-baselines them: all five reference digests changed, and kills, leaks, health and budget are identical in every scenario, because only names in messages moved. `GAME_VERSION` is 0.2.0. |
+| A3 | Editing in the Unit panel (Feature C): rename, Sell, and fields from one table that drives the UI, limits and price changes. Refuse edits you cannot afford. Also the work moved from A1: names and settings in laydowns, optional API fields, recalculating units after figure edits, and each unit's own price in `LaydownTable` and `costProblem`. | Tests cover limits, pricing, rename, reset and sell |
 | A4 | Radar physics in a new `sim/sensor-model.js`, arcs, tracker fixes and map drawing. Small radars drop from 360° to 120°, a deliberate balance change. | Digests are re-baselined with the reason recorded |
 | A5 | Environment and EO physics | Tests confirm the pixel maths and night behaviour |
 | A6 | RF, libraries and jammer physics | Tests confirm band matching, jam range and self-interference |
@@ -616,7 +618,7 @@ Sensor range means about 86% chance of detection per scan at that distance, with
 | Sensor | FPV | FO | Spotter | FW |
 |---|---|---|---|---|
 | Radar | 2.0 km | 2.0 km | 3.9 km | 4.2 km |
-| Compact radar | 1.0 km | 1.0 km | 2.0 km | 2.1 km |
+| Small radar | 1.0 km | 1.0 km | 2.0 km | 2.1 km |
 | RF detector | 3.5 km | none | 5.5 km | none |
 | EO/IR camera, once cued | 1.0 km | 1.0 km | 8.6 km | 7.1 km |
 
@@ -673,7 +675,7 @@ Stage A3 then adds rename, editing and Sell to the same panel.
 Check in a real browser at the end of Phase 5 and again at the end of Phase 8.
 
 - [x] Start screen: scenario seed, terrain seed, random seed, Deploy, and seeds in the URL
-- [x] Placement: every system and its hotkey (eight until stage A2 folds Compact radar into Radar, then seven), ghost preview and reasons for refusal, sell and refund, laydown lock
+- [x] Placement: every system, its size buttons and its hotkey, ghost preview and reasons for refusal, sell and refund, laydown lock
 - [x] Camera controls and the minimap (click, drag, scroll)
 - [x] Waves: start, auto-start, speeds, pause, wiring warning, adaptation, game over and retry
 - [x] Toggles: ranges, truth overlay, labels, highlight tracks

@@ -60,6 +60,16 @@ Stage C1 of the planned features: click a sensor or effector on the map, or its 
 
 Prototyping changed the design before any code was written. Starting wave 1 rebuilds every system with a new id and sometimes a new callsign, so the panel finds its unit again by position. In a real browser, a CSS rule flattened the jammer's list and the panel covered the toolbar with the dock open. jsdom showed neither. The assistant wizard had also taken the planned spot beside the minimap, so the panel moved beside the control panel.
 
+## Small, medium and large
+
+Stages A1 and A2: radar, RF detector, camera and jammer each come in three sizes, chosen from the toolbar or by pressing a hotkey again. Each placed unit now has its own definition over the catalogue's.
+
+The change came in two checks. Adding the sizes and the kind checks left all five reference digests exactly as they were. The renames then changed all five, because names travel in registration messages, but kills, leaks, health and budget matched in every scenario, so the new digests record only the new names.
+
+Checking sources changed two figures. The large radar's assumed 5 km became 4.3 km, scaled from a reported 9 km against a 0.2 m² drone. The large camera became 1.6 km at a fixed 2° view, because range and view have to be set as a pair until the zoom is modelled. Laydown fields and API fields moved to A3, because nothing could write them yet.
+
+The small detector needed testing against the tracker: its ±30° bearing looked likely to fill it with ghost tracks. It does not. Alone, small detectors track almost nothing, and beside a radar they do no harm.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

@@ -21,9 +21,9 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 **Feature A: configurable sensors and jammers**
 
-- [ ] A1: per-unit definitions, laydown data and pricing, with digests unchanged
-- [ ] A2: small, medium and large catalogue entries, and the toolbar
-- [ ] A3: editing in the unit panel
+- [x] A1: per-unit definitions and kind checks, with digests unchanged
+- [x] A2: small, medium and large catalogue entries, and the toolbar
+- [ ] A3: editing in the unit panel, with names and settings in laydowns and the API
 - [ ] A4: radar physics, arcs, tracker fixes and map drawing
 - [ ] A5: environment and electro-optical physics
 - [ ] A6: RF detector, libraries and jammer physics
