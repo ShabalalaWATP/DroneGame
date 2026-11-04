@@ -2,6 +2,7 @@
 // which is the normal command. An option that can't be used stays visible and says why.
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { terrainState } from '../sim/terrain.js';
 import { STRUCTURES, WORLD } from '../sim/config/index.js';
 import { gridRef, parseGridRef } from '../sim/bng.js';
@@ -20,7 +21,7 @@ export const nextBaseMap = (current) => BASE_MAPS[(BASE_MAPS.findIndex(([id]) =>
 function Credits({ geo, source }) {
   const credits = source?.credits || {};
   const parts = [view.baseMap === 'live' ? 'Map © OpenStreetMap contributors' : null, view.baseMap === 'satellite' ? credits.satellite : credits.osmap, geo.tier === 'lidar' ? credits.lidar : null];
-  return <div id="map-credit" className="muted map-note">{parts.filter(Boolean).join('. ')}. Masts are notional.</div>;
+  return createPortal(<div id="map-credit" className="muted map-note">{parts.filter(Boolean).join('. ')}. Masts are notional.</div>, document.body); // always on screen, outside the scrolling panel
 }
 
 export function MapControls() {
