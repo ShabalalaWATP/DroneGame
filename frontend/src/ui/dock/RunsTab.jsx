@@ -1,6 +1,6 @@
 // Every finished run, newest first. Results are reported by this browser, so they are a record for you, not proof of a score.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { money } from '../../sim/economy.js';
 import { useArmed, useGame, useLoad, useTick } from '../hooks.js';
 
@@ -15,6 +15,11 @@ export function RunsTab({ active }) {
   const pending = saver.pending();
   const { data, error, reload } = useLoad(() => api.runs.page(PAGE, offset), active, [offset, saver.saved()]);
   const remove = useArmed();
+
+  // this page has emptied, because its last run was deleted: show what is now the last page
+  useEffect(() => {
+    if (data && !data.items.length && offset > 0) setOffset(Math.floor(Math.max(data.total - 1, 0) / PAGE) * PAGE);
+  }, [data, offset]);
 
   const deleteRun = async (id) => {
     try { await api.runs.remove(id); setNote('Run deleted.'); await reload(); } catch (e) { setNote(e.message); }
@@ -32,7 +37,7 @@ export function RunsTab({ active }) {
       {pending > 0 && <div id="runs-pending" className="saved-error">{pending} run{pending > 1 ? 's' : ''} kept in this browser, waiting to be saved. <button id="runs-retry" className="mini" onClick={retry}>Save now</button></div>}
       {note && <div id="runs-note" className="saved-note">{note}</div>}
       {error && <div id="runs-error" className="saved-error">{error} <button className="mini" onClick={reload}>Try again</button></div>}
-      {data && !data.items.length && !error && <div className="muted">No runs recorded yet. A run is recorded once its first wave has started.</div>}
+      {data && !total && !error && <div className="muted">No runs recorded yet. A run is recorded once its first wave has started.</div>}
       {data && data.items.length > 0 && (
         <>
           <table className="mini" id="runs-list">

@@ -184,6 +184,7 @@ export function buildWorldView(scene, data, siteMat) {
     group.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
       if (o.material && o.material !== siteMat) o.material.dispose();
+      if (o.isInstancedMesh) o.dispose();
     });
   }
   return { group, mesh, dispose };

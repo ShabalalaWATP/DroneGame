@@ -84,8 +84,9 @@ export function exportFigures() {
 export function importFigures(json) {
   for (const kind of KINDS) {
     for (const [id, vals] of Object.entries(json[kind] || {})) {
-      if (!RESEARCHED[kind][id]) continue;
-      for (const [k, v] of Object.entries(vals)) if (k in RESEARCHED[kind][id] && Number.isFinite(v)) setFigure(kind, id, k, v);
+      // own properties only: the JSON is untrusted, and "constructor" would otherwise reach the Object function
+      if (!Object.hasOwn(RESEARCHED[kind], id)) continue;
+      for (const [k, v] of Object.entries(vals)) if (Object.hasOwn(RESEARCHED[kind][id], k) && Number.isFinite(v)) setFigure(kind, id, k, v);
     }
   }
   if (json.world && Number.isFinite(json.world.rangeScale)) WORLD.rangeScale = json.world.rangeScale;

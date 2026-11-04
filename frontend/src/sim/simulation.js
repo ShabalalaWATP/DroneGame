@@ -69,7 +69,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   }
 
   // Start the run again from the beginning, on the same seed. 'keep' rebuilds the laydown the run started with (or the
-  // current one, before any wave); 'clear' starts empty.
+  // current one, before any wave); 'clear' starts empty; 'load' also starts empty, for a saved laydown about to be restored.
   function resetRun(mode = 'keep', begin = false) {
     endRun();
     const spec = mode === 'keep' ? w.startLaydown || laydown.captureLaydown(w) : null;
@@ -87,7 +87,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     seedAll(state.seed);
     w.net.init();
     if (spec) laydown.restoreLaydown(w, spec);
-    emit('reset', { kept: !!spec, begin });
+    emit('reset', { kept: !!spec, begin, loading: mode === 'load' });
   }
 
   // The first wave starts from a clean rebuild, so time spent building (sensor sweeps, random draws, messages) cannot affect the run.
@@ -115,7 +115,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     if (problem) return problem;
     endRun();
     setWorld(world);
-    resetRun('clear');
+    resetRun('load');
     laydown.restoreLaydown(w, spec);
     return null;
   }
@@ -173,7 +173,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     importFigures: (figures) => importFigures(figures),
     setRangeScale: (v) => { WORLD.rangeScale = v; applyRangeScale(); },
     setFpvGap: (v) => { WAVES.fpvGap = v; },
-    setAdapt: (key, v) => { if (key in RESEARCHED.adapt) ADAPT[key] = v; },
+    setAdapt: (key, v) => { if (Object.hasOwn(RESEARCHED.adapt, key)) ADAPT[key] = v; },
   });
 
   // FNV-1a over every message sent, plus the headline numbers: a fingerprint of a run.

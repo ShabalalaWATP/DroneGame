@@ -43,7 +43,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
 
   // ---------- saving finished runs ----------
   const saver = createRunSaver({ api, storage, notify: toast, onChange: bump });
-  let closing = false;
+  let closing = false; // no request while closing: if it arrived, the kept copy would be saved a second time
   sim.on('runEnded', (run) => { if (closing) saver.keep(run); else saver.save(run); });
   // shortcut: a page restored from the back/forward cache keeps playing, but that run was already recorded when it closed. Clear runEnded on pageshow if that ever matters.
   const pageClosing = () => { closing = true; sim.endRun(); closing = false; };
@@ -73,11 +73,12 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   sim.on('approvalDecided', () => {
     if (pausedForApproval && !net.pendingRequests.length && !(replay && replay.active())) { pausedForApproval = false; setSpeed(clock.lastSpeed || 1); }
   });
-  sim.on('reset', ({ kept, begin }) => {
+  sim.on('reset', ({ kept, begin, loading }) => {
     if (replay) replay.reset();
     if (gameView) gameView.clear();
     simAcc = 0; pausedForApproval = false;
-    if (!begin) { setSpeed(1); toast(kept ? 'Run reset: same laydown and seed' : 'New laydown: the site is empty'); }
+    if (!begin) setSpeed(1);
+    if (!begin && !loading) toast(kept ? 'Run reset: same laydown and seed' : 'New laydown: the site is empty');
     bump();
   });
 

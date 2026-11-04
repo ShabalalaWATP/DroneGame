@@ -5,8 +5,8 @@ export default defineConfig({
     include: ['tests/**/*.test.{js,jsx}'],
     environment: 'node',
     coverage: {
-      // src/render and the canvas it draws on need WebGL, so they are checked with a browser smoke test instead
-      include: ['src/sim/**/*.js', 'src/ui/**/*.{js,jsx}'],
+      // src/render draws through WebGL, so it is measured only where tests reach it and otherwise checked by hand in a browser: there is no automated browser test
+      include: ['src/game.js', 'src/api/**/*.js', 'src/sim/**/*.js', 'src/ui/**/*.{js,jsx}'],
       reporter: ['text-summary', 'text'],
       thresholds: { statements: 90, branches: 80, functions: 90, lines: 90 },
     },

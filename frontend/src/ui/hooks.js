@@ -30,16 +30,18 @@ export function useAnimation(active, draw, minMs = 0) {
   }, [active, minMs]);
 }
 
-// Fetch while `active`, keeping the last good data if a later fetch fails.
+// Fetch while `active`, keeping the last good data if a later fetch fails. Only the newest request's answer counts.
 export function useLoad(load, active, deps = []) {
   const latest = useRef(load);
   latest.current = load;
+  const newest = useRef(0);
   const [state, setState] = useState({ data: null, error: null });
   const reload = useCallback(async () => {
+    const request = ++newest.current;
     try {
       const data = await latest.current();
-      setState({ data, error: null });
-    } catch (e) { setState((s) => ({ data: s.data, error: e.message })); }
+      if (request === newest.current) setState({ data, error: null });
+    } catch (e) { if (request === newest.current) setState((s) => ({ data: s.data, error: e.message })); }
   }, []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (active) reload(); }, [active, reload, ...deps]);

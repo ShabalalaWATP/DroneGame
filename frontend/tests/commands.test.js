@@ -168,7 +168,7 @@ describe('reset', () => {
     sim.state.warnedWire = true;
     events.length = 0;
     sim.commands.startWave();
-    expect(events).toEqual([{ kept: true, begin: true }]);
+    expect(events).toEqual([{ kept: true, begin: true, loading: false }]);
   });
 });
 

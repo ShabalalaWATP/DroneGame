@@ -6,15 +6,15 @@ import { fmtTime, useGame, useTick } from './hooks.js';
 const MARKER = { kill: '#66bb6a', leak: '#ff5252', spotter: '#ffd600', lost: '#ff9100' };
 
 function Markers({ rec, n }) {
-  // only needs redrawing when a new snapshot arrives
+  // only needs redrawing when the history or the events change; a full history keeps its length but drops its oldest frames
+  const t0 = n ? rec.frames[0].t : 0;
   return useMemo(() => {
-    const total = n ? rec.frames[n - 1].t - rec.frames[0].t : 0;
+    const total = n ? rec.frames[n - 1].t - t0 : 0;
     if (!total) return null;
-    const t0 = rec.frames[0].t;
-    return rec.events.filter((e) => MARKER[e.type]).map((e, i) => (
+    return rec.events.filter((e) => MARKER[e.type] && e.t >= t0).map((e, i) => (
       <i key={i} style={{ left: `${((100 * (e.t - t0)) / total).toFixed(2)}%`, background: MARKER[e.type] }} title={`${e.text} (${fmtTime(e.t)})`} />
     ));
-  }, [rec, n]);
+  }, [rec, n, t0, rec.events.length]);
 }
 
 export function Timeline() {

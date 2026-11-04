@@ -51,9 +51,9 @@ export function createStructureViews(scene, sim, labels) {
   function dispose(s, v) {
     v.label.remove();
     scene.remove(v.holder);
-    v.ringObj.dispose();
+    // the model, ring and pulse all sit under the holder, and buildModel makes new geometry and materials for each system
+    v.holder.traverse((o) => { if (o.geometry) { o.geometry.dispose(); o.material.dispose(); } });
     if (v.beam) { scene.remove(v.beam); v.beam.geometry.dispose(); v.beam.material.dispose(); }
-    if (v.pulse) { v.pulse.geometry.dispose(); v.pulse.material.dispose(); }
     views.delete(s);
   }
 
