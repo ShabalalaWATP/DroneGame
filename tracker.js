@@ -233,7 +233,7 @@ export function createTracker(newId) {
   function estimate(tr, t) {
     const dt = Math.max(t - tr.t, 0);
     const p = v.add(tr.pos, v.mul(tr.vel, dt));
-    const err = Math.sqrt(posError(tr) ** 2 + (TRACKER.accel * dt * dt) / 2);
+    const err = Math.sqrt(posError(tr) ** 2 + ((TRACKER.accel * dt * dt) / 2) ** 2);
     return { east: p[0], north: p[1], up: p[2], err, vel: tr.vel };
   }
 

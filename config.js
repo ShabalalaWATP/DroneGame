@@ -72,7 +72,6 @@ export const FUSION = {
   statusInterval: 5,     // StatusReport period for every node
   taskInterval: 1,       // how often the fusion node re-evaluates tasking
   fusedInterval: 1,      // fused DetectionReport period to the C2 GUI
-  trackTimeout: 3,       // a track with no sensor update for this long is dropped
   warnZone: 2500,        // WARNING alert when a track comes this close to the site
   critZone: 800,         // CRITICAL alert inside this
   rejectBackoff: 3,      // after a rejected task, don't retry that effector for this long
