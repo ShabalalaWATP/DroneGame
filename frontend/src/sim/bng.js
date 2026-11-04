@@ -1,6 +1,25 @@
-// British National Grid: grid references, and turning a GPS position into easting and northing.
+// British National Grid: grid references, typed positions, and turning a GPS position into easting and northing.
 
 const LETTERS = 'ABCDEFGHJKLMNOPQRSTUVWXYZ'; // the grid has no I
+const EAST_NORTH = /^\s*E?\s*(\d{4,7}(?:\.\d+)?)\s*E?\s*[,\s]\s*N?\s*(\d{4,7}(?:\.\d+)?)\s*N?\s*$/i;
+const LAT_LON = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*°?\s*([NS]?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*°?\s*([EW]?)\s*$/i;
+
+export const onGrid = (e, n) => e >= 0 && e < 700000 && n >= 0 && n < 1300000;
+
+// A grid reference, eastings then northings in metres, or latitude then longitude in decimal degrees.
+// Gives { e, n }, which may be off the grid (check with onGrid), or null if it cannot be read.
+export function parsePosition(text) {
+  const grid = parseGridRef(text);
+  if (grid) return grid;
+  const metres = EAST_NORTH.exec(text || '');
+  if (metres) return { e: Number(metres[1]), n: Number(metres[2]) };
+  const degrees = LAT_LON.exec(text || '');
+  if (!degrees) return null;
+  const [, lat, ns, lon, ew] = degrees;
+  if ((lat.startsWith('-') && ns) || (lon.startsWith('-') && ew)) return null; // "-1.7 W" could mean either side of Greenwich
+  const latitude = (/s/i.test(ns) ? -1 : 1) * Number(lat), longitude = (/w/i.test(ew) ? -1 : 1) * Number(lon);
+  return Math.abs(latitude) > 90 || Math.abs(longitude) > 180 ? null : wgs84ToBng(latitude, longitude);
+}
 
 export function parseGridRef(text) {
   const match = /^\s*([A-HJ-Za-hj-z]{2})\s*(\d*)\s*(\d*)\s*$/.exec(text || '');
@@ -16,7 +35,7 @@ export function parseGridRef(text) {
 }
 
 export function gridRef(e, n, figures = 6) {
-  if (!(e >= 0 && e < 700000 && n >= 0 && n < 1300000)) return 'off the grid';
+  if (!onGrid(e, n)) return 'off the grid';
   const a = Math.floor((19 - Math.floor(n / 100000)) / 5) * 5 + Math.floor((Math.floor(e / 100000) + 10) / 5);
   const b = ((19 - Math.floor(n / 100000)) * 5) % 25 + Math.floor(e / 100000) % 5;
   const part = (v) => String(Math.floor((v % 100000) / 10 ** (5 - figures / 2))).padStart(figures / 2, '0');

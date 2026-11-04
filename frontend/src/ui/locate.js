@@ -1,6 +1,6 @@
 // Where this laptop is, from the browser. The position stays in this browser unless the player makes it their site.
 
-import { wgs84ToBng } from '../sim/bng.js';
+import { onGrid, wgs84ToBng } from '../sim/bng.js';
 
 const REASONS = {
   1: 'Location is blocked. Allow it for this site in the browser, and turn on location in Windows settings.',
@@ -28,7 +28,7 @@ export function locateMe(geolocation = globalThis.navigator?.geolocation) {
 }
 
 // The national grid only means something around Great Britain.
-export const inBritain = ({ e, n }) => e >= 0 && e < 700000 && n >= 0 && n < 1300000;
+export const inBritain = ({ e, n }) => onGrid(e, n);
 
 // Most laptops have no GPS chip, and estimate from nearby Wi-Fi, so the player should see how good the fix is.
 export const accuracyText = (metres) => (metres > 2000 ? `only good to about ${Math.round(metres / 1000)} km` : `good to about ${Math.round(metres)} m`);

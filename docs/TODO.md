@@ -42,8 +42,9 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 **Feature D: wizard** (the guided steps, zone and debrief are built)
 
-- [ ] Tuning one unit from the wizard, as in wireframe frame 7b. Waits for A3.
-- [ ] Setting the site's location: click a map, or type latitude and longitude, a BNG grid reference, eastings and northings, or MGRS. Waits for M4. MGRS is not in the mapping plan, and latitude and longitude means running the pack's fit backwards.
+- [ ] Tuning one unit from the wizard, as in wireframe frame 7b. Kept as a to-do by choice: A3 is built, so nothing blocks it.
+- [x] Setting the site's location on the start card: click a map, use this laptop's location, or type a BNG grid reference, decimal latitude and longitude, or eastings and northings.
+- [ ] Typing the site's location as MGRS. Not in the mapping plan, and not small: it needs the lettering of MGRS squares and a UTM conversion that the code does not have.
 - [ ] The Ask box, for typing your own questions. Not built, and the one part still to decide: it needs a language model, so it would go through FastAPI, off by default and blocked on real-site worlds.
 
 **Later: named real systems**
