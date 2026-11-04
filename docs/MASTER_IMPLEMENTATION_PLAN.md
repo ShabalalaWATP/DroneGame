@@ -222,12 +222,18 @@ Every phase leaves the game working and ends with a commit or small series of co
 
 This is the one phase that deliberately changes results, so it gets its own re-baselined digests.
 
-- [ ] An effector only acquires a real drone close to the track's estimated position, not any drone the track was tied to
-- [ ] Display and behaviour text must come from the track, not from the true drone
-- [ ] Rerun the balance table. The review measured a defence that depends on this bug, so expect a sharp drop.
-- [ ] Tune only enough to restore a playable game, mainly radar clutter. A full rebalance (lasers, budget, the wave 4 wall) is separate work.
+- [x] An effector only acquires a real drone close to the track's estimated position, not any drone the track was tied to
+- [x] Display and behaviour text must come from the track, not from the true drone
+- [x] Rerun the balance table. The review measured a defence that depends on this bug, so expect a sharp drop.
+- [x] Tune only enough to restore a playable game, mainly radar clutter. A full rebalance (lasers, budget, the wave 4 wall) is separate work.
 
 **Done when:** engagements happen only near real drones, balance results are recorded in the development story, and new digests are committed with the reason.
+
+**Result:** the plan expected radar clutter to be the problem. Measuring showed trees were: they caused 80-86% of radar misses inside its range, and clutter only 4%, because a 6 m mast sits below the 12-20 m canopy. Engagements now happen only within 300 m of a real drone, against up to 8.5 km before.
+
+- **Changed:** masts raised to 25 m (radar) and 15 m (compact radar and camera), clutter penalty 0.3, and bearing-only tracks need three different sensors to confirm.
+- **Wave lost, seeds 1 / 7 / 42, before and after this phase:** Mixed 7/6/6 to 12/13/13. 3 lasers 7/8/4 to 8/9/8. One of everything 10/11/11 to 12/11/12. 8 interceptors and 6 jammers stay at 4/4/4.
+- **Still open for the rebalance:** 5 lasers now reach the 30-wave cap on all three seeds, so that laydown never loses. With RF detectors in the mix, only about half of confirmed tracks sit on a real drone.
 
 ### Phase 5: React frontend
 

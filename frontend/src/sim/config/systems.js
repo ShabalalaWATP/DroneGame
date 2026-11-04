@@ -3,9 +3,10 @@ import { WORLD } from './world.js';
 // Costs are in US dollars. `cost` is what a system costs to buy and deploy; `shotCost` is charged every time a
 // consumable (interceptor drone, missile, laser shot) is used. The whole run draws on one fixed budget (ECONOMY).
 // Each system's `ref.cost` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
+// `mount` is how high a sensor sits on its mast (m), an assumption: below the 12-20 m tree tops, trees hide most low flyers.
 export const STRUCTURES = {
   radar: {
-    name: 'Radar', short: 'RDR', key: '1', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 6, falseAlarm: 0.1, // chance of a false alarm per scan
+    name: 'Radar', short: 'RDR', key: '1', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 25, falseAlarm: 0.1, // chance of a false alarm per scan
     health: 30, signature: 1.0, emits: [{ label: 'X-band radar (assumed 9.2\u20139.5 GHz)', f: [[9.2, 9.5]] }], // radar band: assumption
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
@@ -32,7 +33,7 @@ export const STRUCTURES = {
     },
   },
   radar_s: {
-    name: 'Compact radar', short: 'RDC', key: '2', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 4, falseAlarm: 0.15,
+    name: 'Compact radar', short: 'RDC', key: '2', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 15, falseAlarm: 0.15,
     health: 30, signature: 0.8, emits: [{ label: 'K-band radar 24.45\u201324.65 GHz', f: [[24.45, 24.65]] }], // published for EchoGuard (US)
     lowAlt: 30, lowRange: 300,
     desc: 'Small solid-state radar. Cheap and short range, so you can afford several, but it sees less.',
@@ -81,7 +82,7 @@ export const STRUCTURES = {
     },
   },
   camera: {
-    name: 'EO/IR camera', short: 'EO', key: '4', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 4, falseAlarm: 0.03,
+    name: 'EO/IR camera', short: 'EO', key: '4', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 15, falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [], // passive
     // A narrow field of view (degrees, total) that has to be pointed. Idle, it sweeps; the fusion node cues it to
     // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.

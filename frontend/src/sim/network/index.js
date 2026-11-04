@@ -4,8 +4,8 @@
 //
 // Simplifications:
 //  - Detections come with Gaussian noise and a detection probability; the fusion node associates them to tracks by
-//    gating (it does not know which drone a detection came from, so it can make mistakes). The simulation does keep
-//    the true drone alongside each track, only so the displays and the effectors can use it; it is never put in a message.
+//    gating (it does not know which drone a detection came from, so it can make mistakes, and can believe in ghosts).
+//    An effector is cued to a track's estimated position and engages only a real drone it finds there.
 //  - Registration `task` definitions are minimal.
 
 import * as S from '../sapient.js';
@@ -61,7 +61,7 @@ export function createNetwork(ctx) {
   const isTracked = (d) => !!d.track;
   function onDroneRemoved(d) {
     d.track = null;
-    for (const tr of tracker.tracks.values()) if (tr.truth === d) { tr.truth = null; tr.drone = null; } // the track outlives the drone briefly, then drops
+    for (const tr of tracker.tracks.values()) if (tr.drone === d) tr.drone = null; // the track outlives the drone briefly, then drops
   }
 
   // Demo of the middleware error path: a detection report missing its mandatory report_id.

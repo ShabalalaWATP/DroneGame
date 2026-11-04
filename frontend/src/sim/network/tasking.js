@@ -35,17 +35,17 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
       control: 'CONTROL_START',
       command: { request: 'Engage', command_parameter: tr.id },
     }, `Engage ${tr.short}`, `Engage track ${tr.short} (${tr.airframe || 'unclassified'})`);
-    if (sent.dropped) { s.rejected = { id: tr.id, until: T() + FUSION.rejectBackoff }; return; } // the task never arrived
+    if (sent.dropped) { s.rejected.set(tr.id, T() + FUSION.rejectBackoff); return; } // the task never arrived
     // the effector acquires whatever real target is at the track; a false or mis-placed track has none
-    const res = ctx.acceptTask(s, tr.truth);
+    const res = ctx.acceptTask(s, tr.drone);
     if (res.ok) {
-      s.task = { id, drone: tr.truth, trackId: tr.id, activeAt: T() + sent.delay }; // it can act once the task has arrived
+      s.task = { id, drone: tr.drone, trackId: tr.id, activeAt: T() + sent.delay }; // it can act once the task has arrived
       sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
       sendStatus(s);
     } else {
       sendTaskAck(s, id, 'TASK_STATUS_REJECTED', res.reasons);
       if (res.permanent) s.denied.add(tr.id); // it can never take this track; don't ask again
-      else s.rejected = { id: tr.id, until: T() + FUSION.rejectBackoff }; // try a different target next time
+      else s.rejected.set(tr.id, T() + FUSION.rejectBackoff); // try a different target next time
     }
   }
 
@@ -53,7 +53,7 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
   function eligible(s, tr) {
     const def = s.def;
     if (s.denied.has(tr.id) || authority().isPending(s, tr)) return false;
-    if (s.rejected && T() < s.rejected.until && tr.id === s.rejected.id) return false;
+    if (T() < (s.rejected.get(tr.id) ?? 0)) return false;
     if (!takesAirframe(def, tr.airframe)) return false; // already known to be beyond this effector
     if (def.engagePolicy === 'fixed-wing' && tr.airframe !== 'Fixed wing') {
       if (tr.airframe === 'Multirotor') return false; // a known quadcopter is never worth the round

@@ -57,6 +57,7 @@ export const TRACKER = {
   accel: 6,            // process noise: assumed manoeuvre acceleration, m/s^2
   velSigma: 45,        // initial velocity uncertainty, m/s
   confirmHits: 3,      // updates needed to confirm a track
+  confirmSensors: 3,   // a track with no range measurement also needs this many different sensors: two bearings always cross somewhere
   tentativeTimeout: 2.5, // a tentative track with no update for this long is dropped (s)
   confirmedTimeout: 5,   // a confirmed track with no update for this long is dropped (s)
   coastAfter: 1.6,     // a confirmed track not updated for this long is "coasting" (s)
@@ -110,7 +111,7 @@ export function createTracker(newId) {
     const tr = {
       id: newId(), pos, vel: [0, 0, 0], t, firstT: t, lastT: t, hits: 1,
       P11: Ppos, P12: m3.I(0), P22: m3.I(TRACKER.velSigma * TRACKER.velSigma),
-      status: 'tentative', short: null, truth: null, sources: new Map(),
+      status: 'tentative', short: null, sources: new Map(), nodes: new Set(), ranged: false,
     };
     tracks.set(tr.id, tr);
     return tr;
@@ -185,7 +186,7 @@ export function createTracker(newId) {
         mid = [mid[0], mid[1], (c.from[2] + m.from[2]) / 2 + 60];
         P = [sig * sig, 0, 0, 0, sig * sig, 0, 0, 0, 150 * 150];
       }
-      return { mid, P };
+      return { mid, P, other: c.node };
     }
     return null;
   }
@@ -204,14 +205,15 @@ export function createTracker(newId) {
       tr = makeTrack(z, R, t);
     } else {
       const fix = tryTriangulate(m);
-      if (fix) tr = makeTrack(fix.mid, fix.P, t);
+      if (fix) { tr = makeTrack(fix.mid, fix.P, t); tr.nodes.add(fix.other); }
       else cands.push({ ...m, id: ++candSeq });
     }
     if (tr) {
       tr.lastT = t;
-      tr.truth = m.truth;
       (tr.scanned = tr.scanned || new Map()).set(m.node, m.scan);
-      if (tr.status === 'tentative' && tr.hits >= TRACKER.confirmHits) { tr.status = 'confirmed'; tr.justConfirmed = true; }
+      tr.nodes.add(m.node);
+      tr.ranged ||= hasRange(m);
+      if (tr.status === 'tentative' && tr.hits >= TRACKER.confirmHits && (tr.ranged || tr.nodes.size >= TRACKER.confirmSensors)) { tr.status = 'confirmed'; tr.justConfirmed = true; }
     }
     return tr;
   }

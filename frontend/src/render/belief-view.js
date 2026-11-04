@@ -1,7 +1,7 @@
 // What the fusion node believes. Each track is drawn where the fusion node thinks the drone is, with a circle for its
 // position error. Bearings that no track claims (RF, camera) are drawn as rays from the sensor; where two cross, the
 // tracker may start a track there, which can be a ghost if the rays came from different drones. With the truth overlay
-// on, a line joins each track to the real drone it last matched.
+// on, a line joins each track to the real drone at its position; a ghost has none.
 //
 // A track's diamond is coloured by what the fusion node thinks it is: white = unclassified, red = multirotor,
 // magenta = fixed-wing. Grey = tentative (might be a false alarm); coasting tracks are drawn dimmer.

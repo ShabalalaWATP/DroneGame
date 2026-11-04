@@ -114,7 +114,6 @@ export function createSensors(core, feed) {
       range_bearing: rb, detection_confidence: round(conf, 2),
       classification: classification(s, d),
     };
-    if (d && def.id !== 'rf') report.behaviour = [{ type: d.mode === 'orbit' ? 'Loitering' : 'Approaching', confidence: 0.7 }];
     if (def.sapient.signal) {
       report.signal = [{
         amplitude: round(-45 - 20 * Math.log10(Math.max(r.rng, 100) / 100) + gauss() * 2, 1),
@@ -135,7 +134,7 @@ export function createSensors(core, feed) {
       sent,
       meas: {
         node: s.nodeId, color: def.color, from, az: rad(azM), el: n.el != null ? rad(elM) : null, range: n.range != null ? rngM : null,
-        sigAz: rad(n.az), sigEl: n.el != null ? rad(n.el) : null, sigRange: n.range || 0, t: T(), scan: s.scanId, truth: d,
+        sigAz: rad(n.az), sigEl: n.el != null ? rad(n.el) : null, sigRange: n.range || 0, t: T(), scan: s.scanId,
       },
       source: { name: s.name, objectId, ts: S.timestamp(), conf, rb, from: { east: from[0], north: from[1], up: from[2] }, color: def.color, vel, cls: report.classification, rangeErr: n.range, hasRange: n.range != null },
     };

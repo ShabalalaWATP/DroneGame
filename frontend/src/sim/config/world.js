@@ -64,7 +64,7 @@ export const SENSING = {
   refSize: 0.35,         // m, a small quadcopter
   pdEdge: 1.35, pdSlope: 6,
   rangeCap: 2.2,         // detections beyond this many "reaches" are ignored
-  clutterPenalty: 0.1,   // detection chance multiplier for a low flyer inside radar ground clutter
+  clutterPenalty: 0.3,   // detection chance multiplier for a low flyer inside radar ground clutter
 };
 
 // SAPIENT fusion / C2 behaviour (seconds of simulated time, metres)
@@ -81,6 +81,9 @@ export const FUSION = {
   // shot costs at least authorityThreshold dollars, 'all' asks for every engagement.
   authority: 'auto', authorityThreshold: 50000, authorityTimeout: 20, // timeout in seconds, then the request lapses
   killConfirmDelay: 2.5, // after an effector reports a kill, sensors must lose the track for this long to confirm it (s)
+  acquireRadius: 300,    // an effector cued to a track's estimate finds a real drone within this distance of it, or nothing (m)
+  // A track is called loitering when it keeps moving but mostly sideways to the site for this long.
+  loiterAfter: 10, loiterMinSpeed: 8, loiterRadial: 0.3, // s, m/s, fraction of its speed that may be towards or away from the site
 };
 
 // How the attack arrives. FPV drones come one at a time, each from its own direction, this many seconds apart.

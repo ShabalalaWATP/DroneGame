@@ -80,7 +80,7 @@ export function createRegistration(core, raiseAlert) {
     s.reportT = rand() * (def.sapient.interval || 1);
     s.objIds = new Map();
     if (def.fov) { s.point = { az: rand() * 360, el: 3 }; s.cue = null; s.lookedAt = new Map(); } // a camera has an aim
-    s.task = null; s.rejected = null; s.denied = new Set();
+    s.task = null; s.rejected = new Map(); s.denied = new Set();
     s.uplink = null; s.cellBand = 'B8'; s.offline = false; s.lastHeard = T(); s.modePending = null; // no terminal wired yet
     if (def.bands) s.jamBands = new Set(def.bands);
     names.set(s.nodeId, s.name);

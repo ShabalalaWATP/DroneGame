@@ -59,7 +59,7 @@ export function createAuthority(core, { raiseAlert, ackAlert }, approveEngagemen
       if (!gone && T() - p.t0 < FUSION.authorityTimeout) continue;
       pending.splice(i, 1);
       ackAlert(p.alertId, 'ALERT_ACK_STATUS_CANCELLED');
-      p.s.rejected = { id: p.tr.id, until: T() + 10 }; // may ask again after a pause
+      p.s.rejected.set(p.tr.id, T() + 10); // may ask again after a pause
       if (ctx.onApprovalDecided) ctx.onApprovalDecided(p, null);
     }
   }

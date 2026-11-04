@@ -5,13 +5,12 @@ import { FUSION } from '../config/index.js';
 import { round, classDepth } from './core.js';
 
 export function createFusion(core, { raiseAlert }) {
-  const { ctx, T, tracker, fusion, gui, send, siteDist } = core;
+  const { ctx, mpu, T, tracker, fusion, gui, send, siteDist } = core;
   let trackSeq = 0, fusedT = 0;
 
   function feed(s, f) {
     const tr = tracker.ingest(f.meas, T());
     if (!tr) return;
-    tr.drone = tr.truth; // for the displays: the real drone this track last matched (null for a false alarm)
     tr.sources.set(s.nodeId, { ...f.source, lastT: T() });
     if (!tr.cls || classDepth(f.source.cls) >= classDepth(tr.cls)) tr.cls = f.source.cls; // classification is remembered
   }
@@ -28,8 +27,34 @@ export function createFusion(core, { raiseAlert }) {
       else tr.airframe = 'Unknown';
     }
     for (const d of ctx.drones) d.track = null;
-    for (const tr of tracker.tracks.values()) if (tr.status !== 'tentative' && tr.truth && !tr.truth.dead && !tr.truth.track) tr.truth.track = tr;
+    for (const tr of tracker.tracks.values()) {
+      tr.drone = droneAt(tr);
+      if (tr.status !== 'tentative' && tr.drone && !tr.drone.track) tr.drone.track = tr;
+      tr.loiterSince = isCircling(tr) ? tr.loiterSince ?? T() : null;
+    }
   }
+
+  // The real drone a seeker or the truth overlay would find at a track's estimated position, if any. A ghost has none.
+  // Never used to form the fusion node's picture: it only tells a seeker what is really there.
+  function droneAt(tr) {
+    const m = mpu();
+    let best = null, bd = FUSION.acquireRadius;
+    for (const d of ctx.drones) {
+      const dist = Math.hypot(tr.est.east - d.pos.x * m, tr.est.north + d.pos.z * m, tr.est.up - d.pos.y * m);
+      if (dist < bd) { bd = dist; best = d; }
+    }
+    return best;
+  }
+
+  // Moving, but neither closing on the site nor leaving it: what a spotter on station looks like to the fusion node.
+  function isCircling(tr) {
+    const dist = siteDist(tr);
+    if (!dist || tr.speed < FUSION.loiterMinSpeed) return false;
+    const e = tracker.estimate(tr, T());
+    const radial = (tr.est.east * e.vel[0] + tr.est.north * e.vel[1]) / dist;
+    return Math.abs(radial) < FUSION.loiterRadial * tr.speed;
+  }
+  const isLoitering = (tr) => tr.loiterSince != null && T() - tr.loiterSince >= FUSION.loiterAfter;
 
   function fusedReport(tr) {
     const srcs = [...tr.sources.entries()].filter(([, v]) => T() - v.lastT <= 3);
@@ -37,7 +62,7 @@ export function createFusion(core, { raiseAlert }) {
     body.location = S.location(tr.est.east, tr.est.north, tr.est.up, Math.max(tr.estErr, 5));
     body.detection_confidence = round(Math.min(0.99, 0.4 + 0.12 * tr.hits), 2);
     if (tr.cls) body.classification = tr.cls;
-    body.behaviour = [{ type: tr.drone && tr.drone.mode === 'orbit' ? 'Loitering' : 'Approaching', confidence: 0.7 }];
+    body.behaviour = [{ type: isLoitering(tr) ? 'Loitering' : 'Approaching', confidence: 0.7 }];
     if (srcs.length) body.derived_detection = srcs.map(([id, v]) => ({ timestamp: v.ts, node_id: id, object_id: v.objectId }));
     const e = tracker.estimate(tr, T());
     body.enu_velocity = { east_rate: round(e.vel[0], 2), north_rate: round(e.vel[1], 2), up_rate: round(e.vel[2], 2) };
@@ -71,7 +96,7 @@ export function createFusion(core, { raiseAlert }) {
       const dist = siteDist(tr);
       if (!tr.warned && dist < FUSION.warnZone) { tr.warned = true; raiseAlert('warning', `Track ${tr.short} inside ${FUSION.warnZone} m of the site`, null, 'DISCRETE_PRIORITY_MEDIUM', tr); }
       if (!tr.crit && dist < FUSION.critZone) { tr.crit = true; raiseAlert('critical', `Track ${tr.short} inside ${FUSION.critZone} m of the site`, null, 'DISCRETE_PRIORITY_HIGH', tr); }
-      if (!tr.loiterAlert && tr.drone && tr.drone.mode === 'orbit') {
+      if (!tr.loiterAlert && isLoitering(tr)) {
         tr.loiterAlert = true;
         raiseAlert('warning', `Track ${tr.short} loitering at standoff range: probable spotter`, null, 'DISCRETE_PRIORITY_MEDIUM', tr);
       }
