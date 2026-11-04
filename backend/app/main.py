@@ -13,7 +13,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.db.connection import open_database
 from app.routes.api import router
+from app.routes.packs import router as packs_router
 from app.security import ALLOWED_HOSTS, RequestGuard, SecurityHeaders
+from app.services.packs import PackBuilder, PackLibrary
 from app.services.records import NotFound
 
 BACKEND = Path(__file__).parent.parent
@@ -32,7 +34,10 @@ def create_app(db_path: Path | None = None, game: Path = DEFAULT_GAME) -> FastAP
     # Interactive docs are off because they load scripts from a CDN, and this works offline. The schema is at /api/v1/openapi.json.
     app = FastAPI(title="Site Guard", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url="/api/v1/openapi.json")
     app.state.db_path = path
+    app.state.packs = PackLibrary()
+    app.state.pack_builder = PackBuilder(app.state.packs)
     app.include_router(router)
+    app.include_router(packs_router)
 
     @app.exception_handler(NotFound)
     async def not_found(_: Request, __: NotFound) -> JSONResponse:
