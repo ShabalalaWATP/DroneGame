@@ -38,11 +38,12 @@ A review found these bugs by running the game:
 
 **Phase 7: saving.** A laydown saved in one session, reloaded and played with the same inputs gave the same digest. Stopping the server mid-session showed runs being kept safely and saved on its return.
 
-**Phase 8: cut-over.** FastAPI serves the built game on one port, and the strict Content Security Policy held across every tab with no violations.
+**Phase 8: cut-over.** FastAPI serves the built game on one port, and the strict Content Security Policy held across every tab with no violations. A clean clone was installed and played from the README alone. Two independent reviews then found real bugs that 489 passing tests had missed: importing figures could overwrite `Object.keys`, a run could be reported as kept when it had been lost, closing the page mid-save lost the run, deleting the last row on the last page stranded the Runs tab, and systems and ground leaked GPU memory. Each was reproduced with a failing test before it was fixed, and the GPU fixes were confirmed by counting live WebGL buffers in a browser.
 
 ## What kept proving useful
 
 - **Measuring instead of predicting.** Twice the measurement overturned the plan's explanation. Tracks being mislabelled was the first guess in Phase 4, and they turned out to be ghosts.
+- **Independent review.** Reviewers given the code, not the conclusions, found what the author's own tests were written not to see.
 - **Breaking things on purpose.** Twice a test that looked solid passed with the fix removed. One read its limit from the setting being broken, and another edited a drone that was never engaged in its window.
 - **Digests as a safety net.** They caught stale browser files during Phase 1, when a re-run gave exactly the old values.
 - **Being honest about test setups.** Digests that looked broken in Phase 5 came from a page on the wrong terrain seed.
@@ -50,12 +51,13 @@ A review found these bugs by running the game:
 ## Mistakes worth remembering
 
 - A `git add -A` in Phase 3 committed another author's draft of `docs/REAL_MAPPING_PLAN.md`. Later commits staged only named paths.
+- An early test for prototype pollution used an object literal, where `__proto__` sets the prototype instead of adding a key, so it passed on vulnerable code. `JSON.parse` is what real input goes through, and it reproduced the bug.
 - A test in Phase 5 looped forever waiting for a spotter that had been shot down, which hung the run for over eight minutes.
 
-## Numbers at the end of Phase 7
+## Numbers at the end of Phase 8
 
 | | Before | After |
 |---|---|---|
-| Automated tests | 0 | 477 |
-| Largest source file | 1,469 lines | 245 lines |
+| Automated tests | 0 | 509 |
+| Largest source file | 1,469 lines | 246 lines |
 | Commands to run | 1 | 1, after a one-time build |

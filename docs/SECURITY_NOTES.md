@@ -39,6 +39,8 @@ These were also checked by hand on a running server, on 2026-11-04:
 - Real sockets for chunked bodies, a bogus `Content-Length`, path traversal and the LAN address.
 - A play-through in a real browser with a `securitypolicyviolation` listener running, which recorded no violations.
 
+An independent security review on the same date found one low-severity bug, now fixed: an imported figures file could overwrite built-in JavaScript objects through keys such as `constructor`. Figure import and the enemy learning command now accept only their own known keys, tested through `JSON.parse` because that is what real input goes through. The backend still accepts those keys in stored figures. They are harmless there, because it only stores them.
+
 `npm audit` and `pip-audit` reported nothing on that date. Neither is run automatically, because there is no CI until a remote exists.
 
 ## Accepted limits
@@ -48,6 +50,7 @@ These were also checked by hand on a running server, on 2026-11-04:
 - **No record limits.** Someone with access could fill the disk, which is acceptable for local use.
 - **The database is not encrypted.** It holds no personal data beyond what the player types as names.
 - **Kept runs sit in browser storage** until the server returns, readable by anything running on the same origin.
+- **A run can occasionally be saved twice,** if the page closes after the server stored it but before its answer arrived, or if two tabs retry together. The player can delete the extra row. The saver prefers a duplicate to a lost run.
 - **`Cross-Origin-Resource-Policy` and the rest of the headers rely on a modern browser.**
 
 ## Before hosting
