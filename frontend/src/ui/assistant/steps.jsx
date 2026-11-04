@@ -9,7 +9,8 @@ import { closeZone, ringZone, undoZonePoint } from '../../zone.js';
 import { zoneScores } from '../coverage.js';
 import { useGame } from '../hooks.js';
 import { Spotlight } from './Spotlight.jsx';
-import { answer, effectorColumns, effectorFor, sensorChecklist, suggestSpot, unanswered } from './guide.js';
+import { answer, effectorColumns, effectorFor, sensorChecklist, unanswered } from './guide.js';
+import { suggestSpot } from './spots.js';
 
 const WEAK = 0.5; // below this share of the zone, the wizard calls a drone type a weak spot
 const RF_DEAF = Object.values(DRONES).filter((d) => !d.rfEmitter).map((d) => d.name).join(' and ');
@@ -24,9 +25,11 @@ function GoodSpot({ def, label = 'Show me a good spot' }) {
   const game = useGame();
   const show = () => {
     if (game.getTool() !== def.id) game.setTool(def.id);
-    const spot = suggestSpot(game.sim, def);
+    const spot = suggestSpot(game.sim, def, view.zone);
     game.setViewOption('spot', spot);
-    if (!spot) game.toast(`Nowhere nearby will take a ${def.name}, or the budget is too low`);
+    if (!spot) { game.toast(`Nowhere nearby will take a ${def.name}, or the budget is too low`); return; }
+    const popup = document.querySelector('#wizard'), panel = document.querySelector('#hud-top-right');
+    if (popup && panel) game.reveal(spot.x, spot.z, (popup.getBoundingClientRect().right + panel.getBoundingClientRect().left) / 2, innerHeight / 2); // the popup must not hide it
   };
   return <button className="wz-go" onClick={show}>{label}</button>;
 }
@@ -35,6 +38,8 @@ function Refusal() {
   const why = useGame().lastRefusal();
   return why ? <p className="wz-warn wz-small">Last try: {why}.</p> : null;
 }
+
+const SpotReason = () => (view.spot && view.spot.why ? <p id="wz-spot-why" className="wz-small">{view.spot.why}</p> : null);
 
 function ZoneStep({ next }) {
   const game = useGame();
@@ -79,6 +84,7 @@ function SensorsStep({ next }) {
           </div>
         ))}
       </div>
+      <SpotReason />
       <Refusal />
       <div className="wz-actions">
         {now ? <GoodSpot def={now.def} /> : <button className="wz-go" onClick={next}>Next</button>}
@@ -111,6 +117,7 @@ function EffectorsStep({ next }) {
       <p className="wz-small wz-muted">Last: kept for close calls, at {money(STRUCTURES.missile.shotCost)} a shot against a {money(DRONES.fpv.cost)} drone. Far: spotters orbit {km(spotter.loiterDist)} out and a laser reaches {km(STRUCTURES.laser.range)}.</p>
       {gap && <p className="wz-warn">Nothing answers {gap.name} yet. {fix.name} would.</p>}
       <p>{money(sim.state.budget)} left. Every shot comes out of this too, and nothing is earned back.</p>
+      <SpotReason />
       <Refusal />
       <div className="wz-actions">
         {fix ? <GoodSpot def={fix} /> : <button className="wz-go" onClick={next}>Next</button>}

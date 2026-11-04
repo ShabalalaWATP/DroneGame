@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { BUILD, DRONES, STRUCTURES, resetAllFigures } from '../src/sim/config/index.js';
 import { createSimulation } from '../src/sim/simulation.js';
 import { coverageGrid, zoneScores, zoneShare } from '../src/ui/coverage.js';
-import { STEP_IDS, answer, effectorFor, firstOpen, sensorChecklist, stepStatus, suggestSpot, unanswered, undone } from '../src/ui/assistant/guide.js';
+import { STEP_IDS, answer, effectorFor, firstOpen, sensorChecklist, stepStatus, unanswered, undone } from '../src/ui/assistant/guide.js';
+import { suggestSpot } from '../src/ui/assistant/spots.js';
 import { addZonePoint, closeZone, inZone, ringZone, undoZonePoint, withZone, zoneFromSpec } from '../src/zone.js';
 import { MIXED, play, setUp } from './support/scenarios.js';
 

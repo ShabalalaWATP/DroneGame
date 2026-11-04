@@ -86,6 +86,7 @@ describe('placing systems', () => {
     expect($('.wz-tag.now').parentElement.textContent).toContain('radar');
     click('Show me a good spot');
     expect(game.getTool()).toBe('radar');
+    expect($('#wz-spot-why').textContent).toContain('the build area');
     const { x, z } = view.spot;
     expect(game.sim.canPlace(x, z, game.sim.structures[0]?.def ?? { cost: 0 })).toBe(true);
     act(() => { game.commands.place('radar', x, z); });

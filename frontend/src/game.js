@@ -4,7 +4,8 @@ import * as THREE from 'three';
 import { STRUCTURES, WORLD, firstClass } from './sim/config/index.js';
 import { createSimulation, SIM_STEP } from './sim/simulation.js';
 import { createGameView } from './render/game-view.js';
-import { PLACING_PICK_PX, createPlacement, pickStructure, selectionFrom } from './render/placement.js';
+import { hereU } from './sim/units.js';
+import { PLACING_PICK_PX, createPlacement, pickStructure, selectionFrom, slideToShow } from './render/placement.js';
 import { createReplay } from './render/replay-view.js';
 import { droneTemplate } from './render/models.js';
 import { trackColour } from './render/belief-view.js';
@@ -133,6 +134,19 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     select(chosen);
     return true;
   }
+  // If this ground point is hidden behind a panel or off the screen, slide the camera so it appears at (px, py) instead.
+  function reveal(x, z, px, py) {
+    if (!gameView) return;
+    const { camera, controls } = gameView, y = hereU(x, z);
+    const at = new THREE.Vector3(x, y, z).project(camera);
+    const showing = document.elementFromPoint(((at.x + 1) / 2) * innerWidth, ((1 - at.y) / 2) * innerHeight);
+    if (showing && showing.id === 'game') return;
+    const slide = slideToShow(camera, x, y, z, px, py);
+    if (!slide) return;
+    camera.position.x += slide.x; camera.position.z += slide.z;
+    controls.target.x += slide.x; controls.target.z += slide.z;
+  }
+
   // Starting wave 1 rebuilds every system, with a new id and perhaps a new callsign. Only its position is sure to be the same.
   sim.on('reset', () => {
     const was = view.selected;
@@ -208,7 +222,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   return {
     packs, loadPack, ensureWorld, mapSource, cursor: () => placement?.cursor() ?? null,
     sim, commands, clock, setSpeed, reviewClock, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
-    getTool: () => tool, setTool, toolChoice, cycleTool, lastRefusal: () => refusal, select, getSelected,
+    getTool: () => tool, setTool, toolChoice, cycleTool, lastRefusal: () => refusal, select, getSelected, reveal,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },
     getReplay: () => replay,

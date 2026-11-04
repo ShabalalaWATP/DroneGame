@@ -99,6 +99,14 @@ Started with measurements rather than code. Two test areas showed lidar works an
 
 The real maps were built on their own branch while the wizard, unit editing and the zone went on `main`, so the two met in one merge. Both were kept. The earlier OpenStreetMap demo stays for generated ground only, as a real world has its own map controls, and the start screen gained the map picker under the wizard's welcome.
 
+## Better placement advice
+
+Alex said the wizard's placement advice did not work well, and measuring agreed. It scored spots mostly on ground height, so on three test terrains interceptors and missiles were pushed about 2.4 km out to the build limit, three systems shared one ridge, and one approach had no sensor cover. It also ignored the zone the player had drawn.
+
+It now tries spots across the build zone and asks the simulation's own detection and line-of-sight checks what each would see or reach in the zone. It judges the two weakest drone types, low flyers first when equally covered, and says why it chose the spot. A camera is valued where another sensor can cue it. On the same terrains, long-reach weapons stay within about 1.5 km and nothing bunches. The honest result is that a medium radar sees only about 9% of the build area against a low FO Strike, which the old advice never showed.
+
+A real browser found one more problem no test could: the suggested ring landed behind the wizard's popup, so the camera now slides it into clear view.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

@@ -9,6 +9,16 @@ import { LABEL_LIFT, ringThickness } from './structure-view.js';
 const PICK_PX = 16;
 export const PLACING_PICK_PX = 8; // tighter while placing, so a click near a system can still place beside it
 const _base = new THREE.Vector3(), _top = new THREE.Vector3();
+const _ray = new THREE.Raycaster(), _ndc = new THREE.Vector2(), _level = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), _hit = new THREE.Vector3();
+
+// How far to slide the camera over the ground so this point appears at this place on the screen, or null if the view never reaches it.
+export function slideToShow(camera, x, y, z, px, py, width = innerWidth, height = innerHeight) {
+  _ndc.set((px / width) * 2 - 1, -(py / height) * 2 + 1);
+  _ray.setFromCamera(_ndc, camera);
+  _level.constant = -y;
+  if (!_ray.ray.intersectPlane(_level, _hit)) return null;
+  return { x: x - _hit.x, z: z - _hit.z };
+}
 
 // The system nearest a point on the screen, measured to the line from its base up to its name tag, or null if none is close.
 // Measured on the screen, because at a low camera angle a ground point lands well behind a tall model.

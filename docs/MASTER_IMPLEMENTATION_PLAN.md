@@ -702,6 +702,7 @@ A popup that guides a new player from an empty site to the first wave. Built, ap
 
 **Rules:**
 
+- **Suggested spots** come from `ui/assistant/spots.js`: it tries spots across the build zone, and scores what each would see or reach in the zone using the simulation's own checks, weakest drone types first. It says why, and the camera slides the spot into view if a panel hides it.
 - **It only reads the game,** and anything that changes it goes through `commands`. A test runs the same game with the wizard reading it throughout and compares digests.
 - **It only uses what the player could see:** the config and the laydown, never `state.queue` or true drone positions. The debrief reads the truth, because the run is over.
 - **Progress comes from the game,** not from stored state, so loading a laydown or selling a radar moves it. Skipped steps are remembered until the run ends.
