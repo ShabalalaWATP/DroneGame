@@ -1,0 +1,49 @@
+/* The map rail beside the minimap, and the switcher that opens from it. */
+#map-rail { position: fixed; left: 254px; bottom: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+#map-rail button { width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; background: rgba(12, 20, 34, 0.92); color: #dbe4f0; border: 1px solid #2f4468; border-radius: 8px; position: relative; overflow: hidden; }
+#map-rail button:hover { background: #243759; }
+#map-rail button.on { border-color: #4fc3f7; color: #4fc3f7; }
+#map-switch .map-thumb { width: 100%; height: 100%; border-radius: 0; }
+
+.map-thumb { display: block; width: 100%; aspect-ratio: 1.5; object-fit: cover; border-radius: 5px; background: #1b2a45; }
+.thumb-live { background: linear-gradient(115deg, transparent 46%, #f4c95d 46% 52%, transparent 52%), linear-gradient(20deg, transparent 62%, #ffffff 62% 66%, transparent 66%), #dfe8d5; }
+.thumb-generated { background: linear-gradient(150deg, #3c5a38, #8c8064); }
+
+#map-panel { left: 304px; bottom: 12px; width: 326px; max-height: calc(100vh - 24px); overflow-y: auto; display: flex; flex-direction: column; gap: 8px; z-index: 4; font-size: 12px; }
+.map-panel-head { display: flex; align-items: center; gap: 8px; }
+.map-panel-head b { font-size: 14px; color: #fff; }
+.map-panel-head button { margin-left: auto; padding: 0 8px; font-size: 16px; }
+
+#map-types { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.map-card { display: flex; flex-direction: column; gap: 3px; padding: 3px; text-align: left; background: #111c30; border: 2px solid #263754; border-radius: 8px; color: #cbd6ea; position: relative; overflow: hidden; }
+.map-card:hover:not(:disabled) { border-color: #5c7bb0; }
+.map-card.on { border-color: #4fc3f7; color: #fff; background: #1b2a45; }
+.map-card:disabled { cursor: not-allowed; }
+.map-card:disabled .map-thumb { opacity: 0.3; filter: grayscale(1); }
+.map-card-name { font-size: 11px; font-weight: 600; line-height: 14px; padding: 0 2px 1px; }
+.map-card-why { font-size: 10px; line-height: 12px; padding: 0 2px; color: #ffb74d; }
+
+#map-overlays { display: flex; flex-wrap: wrap; gap: 4px; }
+.map-chip { padding: 3px 9px; font-size: 11px; border-radius: 12px; background: #111c30; border: 1px solid #2f4468; color: #9fb2cf; }
+.map-chip.on { background: #17405a; border-color: #4fc3f7; color: #fff; }
+.map-chip:disabled { opacity: 0.75; cursor: default; }
+
+.topo-legend { height: 8px; border-radius: 4px; background: linear-gradient(90deg, #78aa6e 0%, #bed282 30%, #ebdc96 55%, #cda069 80%, #a5785a 100%); }
+.topo-range { display: flex; justify-content: space-between; color: #dbe4f0; font-weight: 600; }
+
+#map-goto { display: flex; gap: 4px; }
+#map-goto input { flex: 1; min-width: 0; background: #0b1424; color: #fff; border: 1px solid #2f4468; border-radius: 4px; padding: 3px 6px; }
+#map-message button { display: block; margin-top: 4px; }
+#map-bubble { left: 304px; bottom: 64px; max-width: 280px; padding: 8px 10px; z-index: 4; } /* above the timeline */
+#map-bubble-close { float: right; margin-left: 8px; padding: 0 6px; }
+#map-bubble .map-note { margin: 0; font-size: 12px; }
+
+/* something is on its way: the choice is made, and the old map stays until the new one is ready */
+.loading::after { content: ''; position: absolute; top: 50%; left: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; border-radius: 50%; animation: map-spin 0.8s linear infinite; }
+@keyframes map-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .loading::after { animation-duration: 3s; } }
+
+@media (max-width: 760px) {
+  #map-rail { left: 190px; }
+  #map-panel, #map-bubble { left: 12px; right: 12px; bottom: 200px; width: auto; max-width: none; max-height: calc(100vh - 224px); }
+}

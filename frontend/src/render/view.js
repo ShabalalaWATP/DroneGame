@@ -4,11 +4,15 @@ export const view = {
   labels: true, // name tags on every system and drone
   rings: true, // range rings on every system
   trackHi: false, // colour tracks by classification instead of drawing them faint and grey
-  baseMap: 'os', // a real world's picture: 'os', 'satellite', 'relief' or 'live'
+  baseMap: 'os', // a real world's picture: 'os', 'satellite', 'hybrid', 'topo', 'relief' or 'live'
   mapRoads: false, // roads and names on the map: with satellite, this is the hybrid view
   mapGrid: true, // the national grid on the map
+  mapContours: false, // height lines on the map
+  mapPanel: false, // the map switcher is open
+  mapLoading: false, // a new map picture is on its way
+  startAt: null, // a real place the start screen should open on: { e, n, note }
   planView: false, // the camera looks straight down
-  me: null, // the player's own position, once asked for: { x, z } in scene units
+  me: null, // the player's own position, once asked for: { x, z, accuracy } in scene units
   replayT: null, // simulated time being reviewed while rewinding, or null when live
   selected: null, // the system the Unit panel is showing
   osm: false, // demo: OpenStreetMap tiles as the picture on the ground

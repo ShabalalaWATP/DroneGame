@@ -6,7 +6,8 @@ import { WORLD } from '../sim/config/index.js';
 import { gridRef, parseGridRef } from '../sim/bng.js';
 import { siteProblem, snap, worldId } from '../sim/world-pack.js';
 import { useGame } from './hooks.js';
-import { accuracyText, locateMe } from './locate.js';
+import { view } from '../render/view.js';
+import { accuracyText, inBritain, locateMe } from './locate.js';
 
 const covers = (entry, e, n) => Math.abs(e - entry.east) <= entry.half - WORLD.radius && Math.abs(n - entry.north) <= entry.half - WORLD.radius;
 const SIZE = 420;
@@ -108,6 +109,12 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
 
   const refresh = async () => { const found = await game.packs.list(); setListing(found); return found; };
   useEffect(() => { if (wantReal && !listing) refresh(); }, [wantReal]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { // sent here from a game, to open a map of a place outside that world
+    if (!view.startAt) return;
+    const point = view.startAt;
+    view.startAt = null;
+    goTo(point, point.note);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const choosePack = async (chosen, point) => {
     setEntry(chosen); setDecoded(null); setSite(null); onWorld(null); setNote('Loading the map...');
@@ -141,7 +148,7 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
     setNote('Finding your location...');
     try {
       const fix = await locateMe();
-      if (!(fix.e >= 0 && fix.e < 700000 && fix.n >= 0 && fix.n < 1300000)) { setNote('You appear to be outside Great Britain, which these maps cover.'); return; }
+      if (!inBritain(fix)) { setNote('You appear to be outside Great Britain, which these maps cover.'); return; }
       await goTo(fix, `Your location, ${accuracyText(fix.accuracy)}.`);
     } catch (e) { setNote(e.message); }
   };

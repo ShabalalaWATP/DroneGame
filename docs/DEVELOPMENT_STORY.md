@@ -107,6 +107,10 @@ It now tries spots across the build zone and asks the simulation's own detection
 
 A real browser found one more problem no test could: the suggested ring landed behind the wizard's popup, so the camera now slides it into clear view.
 
+## Map switcher and topography
+
+The map choice then moved out of the crowded control panel into a switcher beside the minimap, with previews drawn from the pack. A topographic map and contours came from the height grid already in every world, so they needed no new data. Marching squares runs over a lightly smoothed copy, as raw lidar makes contours fizz. Two faults turned up on the way: a stale paint could draw over a newer choice of map, and a failed live map could undo a later choice. Location now falls back to a Wi-Fi estimate if high accuracy times out, and a position outside the world offers a map of that place instead of stopping there.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

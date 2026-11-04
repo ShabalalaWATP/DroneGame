@@ -4,6 +4,8 @@ Status: **working in the game.** M0 to M4 are done, and most of M5. See [What is
 
 ## What is built
 
+The map switcher sits beside the minimap, with a preview of each map. The topographic map and contours are worked out in the browser from the world's own height grid, so they need no download and work offline. The live map has no preview, so nothing is sent to OpenStreetMap until the player chooses it. Location is one reading each time the button is pressed, not continuous tracking.
+
 | Part | State |
 |---|---|
 | Pack builder, `tools/mapbuild/` | Done, with lidar, satellite, roads and names. Downloads the OS files it needs, and checks their checksums. |

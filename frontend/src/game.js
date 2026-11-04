@@ -241,13 +241,24 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
         }
       }
       if (key === 'planView' && gameView) gameView.viewFromAbove(value);
-      if (['baseMap', 'mapRoads', 'mapGrid'].includes(key) && gameView) {
+      if (['baseMap', 'mapRoads', 'mapGrid', 'mapContours'].includes(key) && gameView) {
+        view.mapLoading = true;
         gameView.refreshMap().then((live) => {
+          if (live?.stale) return;
+          view.mapLoading = false;
+          bump();
           if (live?.total && live.failed === live.total) { view.baseMap = 'os'; toast('The live map could not load: it needs an internet connection'); gameView.refreshMap(); bump(); }
           else if (live?.failed) toast(`${live.failed} of ${live.total} map tiles could not load`);
         });
       }
       bump();
+    },
+    // Back to the start screen, to choose another world. A point makes it open on that place.
+    leaveWorld(point = null) {
+      if (tool) setTool(tool);
+      Object.assign(view, { startAt: point, zone: null, me: null, selected: null, mapPanel: false, planView: false });
+      if (gameView) gameView.viewFromAbove(false);
+      commands.leave();
     },
     // a figure was edited in the Sources tab: redraw anything built from it
     figuresChanged() {
