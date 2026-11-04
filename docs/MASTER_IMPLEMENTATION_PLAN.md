@@ -284,9 +284,9 @@ This is the one restructure phase that deliberately changes results, so it gets 
 
 ## Planned gameplay features
 
-Status: agreed 2026-11-04, and rechecked the same day against the refactored code. Stages C1, A1 and A2 are built; everything else is not started. These change game rules, so they are separate from the behaviour-preserving restructure.
+Status: agreed 2026-11-04, and rechecked the same day against the refactored code. Stages C1, A1, A2 and A3 are built; everything else is not started. These change game rules, so they are separate from the behaviour-preserving restructure.
 
-**When they land:** the restructure phases are complete, so nothing here is waiting on them. Each stage gets its own branch from `main`. The order from here is B1 with C2, B2, B3, A3, A4, A5, A6, A7. A1 and A2 were built ahead of the magazines because the sizes were what the player wanted to see first. Raise `GAME_VERSION` at every stage that re-baselines digests, so the Saved tab warns about older laydowns.
+**When they land:** the restructure phases are complete, so nothing here is waiting on them. Each stage gets its own branch from `main`. The order from here is B1 with C2, B2, B3, A4, A5, A6, A7. Raise `GAME_VERSION` at every stage that re-baselines digests, so the Saved tab warns about older laydowns.
 
 **Evidence:** vendor figures are marketing claims. They came from search summaries, because the vendor PDFs could not be opened, so check each one against its source when it enters the code. Every figure gets a `ref` entry with its confidence, and anything unsourced is labelled ASSUMPTION in the Sources tab.
 
@@ -448,8 +448,8 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 | Custom names are new untrusted text | Registration, alerts, labels and panels | Trim, limit length and require unique callsigns, including against later automatic numbering. React and `textContent` already escape them on output. |
 | The coverage map will not refresh on edits, and rings are always full circles | `coverageGrid` and the drawing in `ui/dock/plan-canvas.js`, `render/structure-view.js`, `render/placement.js`, `ui/minimap.js` | Include unit settings in the cache key, and draw arcs in all four views |
 | Laydowns only save position, wiring and bands. Edits made before the first wave are not in the command log, because starting wave 1 clears it and rebuilds from the saved laydown. | `captureLaydown` and `restoreLaydown` in `sim/laydown.js` | Add name, callsign and settings. Pass them to `addStructure` before `registerNode`, because the registration message carries the name and range. Then charge the budget. |
-| Default callsigns renumber when wave 1 starts | `captureLaydown` sorts, `registerNode` counts | Save custom names from A3. Saving default callsigns too changes digests, so do it at the first re-baseline. |
-| The API refuses the new data: `PlacedSystem` forbids unknown fields, and `SystemId` is a fixed list | `backend/app/schemas.py`, `backend/tests/fixtures/` | A2 extended `SystemId`, and laydowns saved earlier still load. A3 adds optional fields, so older saves keep loading, and regenerates fixtures with `tests/support/write-fixtures.js`. |
+| Default callsigns renumber when wave 1 starts | `captureLaydown` sorts, `registerNode` counts | A3 saves custom names, and automatic numbering skips callsigns that saved units will need. Saving default callsigns too changes digests, so do it at the first re-baseline. |
+| The API refuses the new data: `PlacedSystem` forbids unknown fields, and `SystemId` is a fixed list | `backend/app/schemas.py` | Done in A2 and A3. The new fields are optional and left out of records when empty, so older saves load and records keep their shape. The running server must be restarted to pick up schema changes. |
 | Unit types are hard-coded by id. `buildModel` has no default case, so a new id would draw a bare base. | `def.id === 'jammer'` and similar in `sim/drones.js`, `sim/targeting.js`, `sim/network/core.js`, `sim/network/tasking.js`, `ui/dock/spectrum-canvas.js`, `ui/dock/plan-canvas.js`, `STRUCTURES.jammer.slow` in `sim/drones.js`, `render/models.js`, `render/structure-view.js` | Use `kind`, and a `model` field for drawing. Keep ids `radar`, `radar_s`, `rf`, `camera` and `jammer`, so figure exports and test scenarios still load |
 | The catalogue will pass the 350-line limit that `frontend/tests/boundary.test.js` enforces | `sim/config/systems.js` | Split sensors from effectors. `test_the_names_the_api_accepts_match_the_game` in `backend/tests/test_security.py` reads `systems.js` by name, so it must read both files. |
 | Edits must be reproducible | `commands` in `sim/simulation.js` | Add `configureUnit` and `renameUnit` as logged commands, for edits after wave 1 starts. Only keys in the field table are written, because `s.def[key]` with `__proto__` would change the unit's prototype. `configureUnit` re-sends registration, since capabilities include range. |
@@ -460,11 +460,24 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 |---|---|---|
 | A1 (built) | Per-unit `def` and `kind` in place of id checks. Laydown data, API fields and the Cost tab's per-unit prices moved to A3, because nothing can write them until then. Sell, refund and lost value already read each unit's own price. | Reference digests are unchanged |
 | A2 (built) | Two commits. First: S, M and L catalogue entries, the API's `SystemId`, models, and the toolbar: 7 systems, with a repeat hotkey press cycling the class. Second: the renames. | The first leaves digests unchanged. The second re-baselines them: all five reference digests changed, and kills, leaks, health and budget are identical in every scenario, because only names in messages moved. `GAME_VERSION` is 0.2.0. |
-| A3 | Editing in the Unit panel (Feature C): rename, Sell, and fields from one table that drives the UI, limits and price changes. Refuse edits you cannot afford. Also the work moved from A1: names and settings in laydowns, optional API fields, recalculating units after figure edits, and each unit's own price in `LaydownTable` and `costProblem`. | Tests cover limits, pricing, rename, reset and sell |
+| A3 (built) | The Configure side of the Unit panel: rename, Sell, and fields from one table in `sim/unit-config.js` that drives the UI, limits and price changes. Refuses edits you cannot afford. Also names and settings in laydowns, optional API fields, and each unit's own price in `LaydownTable` and `costProblem`. Unit values are worked out when read, so figure edits reach them with no recalculation step. | Tests cover limits, pricing, rename, reset and sell. Reference digests are unchanged, and a run with custom settings replays to its own digest. |
 | A4 | Radar physics in a new `sim/sensor-model.js`, arcs, tracker fixes and map drawing. Small radars drop from 360° to 120°, a deliberate balance change. | Digests are re-baselined with the reason recorded |
 | A5 | Environment and EO physics | Tests confirm the pixel maths and night behaviour |
 | A6 | RF, libraries and jammer physics | Tests confirm band matching, jam range and self-interference |
 | A7 | Balance using `tools/balance.js`. Optionally, later waves move to non-standard bands such as 3.3 GHz, as reported in Ukraine. | Results are recorded and the game is playable |
+
+**What A3 can edit today:** only fields that already change the game, as design rule 1 requires. The limits, prices and threshold factors are assumptions in `sim/unit-config.js`.
+
+| Kind | Fields |
+|---|---|
+| Radar | Mast height (paid), transmit power, scan period 0.5–1.5 s, detection threshold |
+| RF detector | Mast height (paid), detection threshold |
+| EO/IR camera | Mast height (paid), field of view (medium and large), dwell, detection threshold |
+| RF jammer | Transmit power, and active bands, which stay live during a run |
+| Interceptor, missile | Time between shots (paid) |
+| Laser | Beam damage (paid) |
+
+Radar 2D or 3D, panels, band, arcs and blanking, clutter filter and micro-Doppler wait for A4. Camera channels, resolution, focal length and rangefinder wait for A5. RF bands, sensitivity, direction finding and libraries, and jammer antennas, technique and trigger, wait for A6. Each needs rules that do not exist yet, so editing it now would change nothing.
 
 **Left out:** track capacity limits, GNSS spoofing and protocol takeover, operator geolocation, separating drones that are very close together, reusable custom presets, and changing hardware during a run.
 
@@ -637,7 +650,7 @@ Sensor range means about 86% chance of detection per scan at that distance, with
 |---|---|---|
 | State | `view.selected` holds the unit, set through `game.select(s)`. It is view state, not a command, so it is never logged and cannot change a run. | `render/view.js`, `game.js` |
 | Picking | Project each unit to the screen and take the nearest within about 16 px of the line from its base to its name tag. Name tags take no pointer events, so their boxes are checked first, because players will click them. The existing `sell` lookup is not reused, because it measures from a ground point, which lands well behind a tall model at a low camera angle. A plain function, so it can be tested in Node without WebGL. | `render/placement.js` |
-| Clicks | A click with no tool active selects, and a click on empty ground clears. A name tag also opens the panel with a placement tool active, because nothing can be placed on a system. The Sell tool uses the same picking, and falls back to the ground point under the click. The zone tool always uses the ground point. The first placement shows a one-time hint, and the Legend mentions it too. The existing 5 px drag test keeps camera moves from selecting. | `render/placement.js`, `game.js`, `ui/Panels.jsx` |
+| Clicks | A click with no tool active selects, and a click on empty ground clears. A system or its name tag also opens the panel with a placement tool active, within a tighter 8 px, because clicking a model otherwise bought a second system on the ground behind it. The Sell tool uses the same picking, and falls back to the ground point under the click. The zone tool always uses the ground point. The first placement shows a one-time hint, and the Legend mentions it too. The existing 5 px drag test keeps camera moves from selecting. | `render/placement.js`, `game.js`, `ui/Panels.jsx` |
 | Rebuild at the first wave | Starting wave 1 replaces every unit object and changes its node id (measured), so a held reference goes stale and the panel would show a dead unit. On the `reset` event, find the unit again by position, which is restored exactly. Do not match by callsign or id. | `game.js` |
 | Sold or destroyed | `getSelected()` clears it when the unit is no longer in `sim.structures`. The destroyed toast already explains why. | `game.js` |
 | Rewinding | Mode, target, rounds and health come from the snapshot being reviewed, not the live unit, and the panel is tagged with the review time. Adding `health` and `rounds` to `takeSnapshot` is safe, because snapshots do not feed the digest. | `sim/recorder.js`, `render/replay-view.js` |
@@ -669,6 +682,29 @@ Stage A3 then adds rename, editing and Sell to the same panel.
 - **Jammer:** [DroneGun MkIII](https://www.asx.com.au/asxpdf/20190715/pdf/446lzqk0qszn9n.pdf), [DroneGun Tactical](https://athlonoutdoors.com/?p=132292), [power per band guide](https://www.rfwireless-world.com/vendors/rf-components/anti-drone-jammer-manufacturers-and-providers)
 - **Magazines:** [Raytheon Coyote launchers](https://Www.Wikipedia.org/wiki/Raytheon_Coyote), [The Myth of the Infinite Magazine](https://www.laserwars.net/p/laser-weapon-infinite-magazine-myth)
 - **Messages and enemy bands:** [SAPIENT status_report.proto](https://raw.githubusercontent.com/dstl/SAPIENT-Proto-Files/main/bsi_flex_335_v2_0/status_report.proto), [non-standard FPV bands](https://newsukraine.rbc.ua/news/ukraine-faces-new-threat-as-russia-rolls-1781645404.html)
+
+### Feature D: Wizard
+
+A popup that guides a new player from an empty site to the first wave. Built, apart from the items in `docs/TODO.md`. The wireframe is a Design canvas, which Alex edits directly to steer it.
+
+| Step | Done when | Reads |
+|---|---|---|
+| 1 Zone | A zone is closed, or the player skips | `view.zone` |
+| 2 Sensors | A radar and one other kind are placed | `sim.structures` |
+| 3 Effectors | Every drone type has an answer | `engages`, `jamResist`, `engagePolicy` in the config |
+| 4 Network | Nothing is unwired, and the fusion node has a terminal | `sim.unwired()`, `net.fusion.uplinks` |
+| 5 Coverage | The player moves on | `coverageGrid`, clipped to the zone |
+| 6 Rehearse | The player moves on | `state.sandbox` |
+| 7 Refine (optional) | The player moves on | The Sources tab |
+| 8 Pre-flight | The first wave starts | All of the above |
+
+**Rules:**
+
+- **It only reads the game,** and anything that changes it goes through `commands`. A test runs the same game with the wizard reading it throughout and compares digests.
+- **It only uses what the player could see:** the config and the laydown, never `state.queue` or true drone positions. The debrief reads the truth, because the run is over.
+- **Progress comes from the game,** not from stored state, so loading a laydown or selling a radar moves it. Skipped steps are remembered until the run ends.
+- **The zone is a planning aid.** It lives in `view`, never in `sim/`, and saves in the laydown's `spec`. Making it a rule would change targeting and re-baseline every digest.
+- **No tips during a wave,** so a run plays like a simulation. It closes when the first wave starts.
 
 ## Feature parity checklist
 

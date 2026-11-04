@@ -50,7 +50,8 @@ An independent security review on the same date found one low-severity bug, now 
 - **No record limits.** Someone with access could fill the disk, which is acceptable for local use.
 - **The database is not encrypted.** It holds no personal data beyond what the player types as names.
 - **Kept runs sit in browser storage** until the server returns, readable by anything running on the same origin.
-- **A run can occasionally be saved twice,** if the page closes after the server stored it but before its answer arrived, or if two tabs retry together. The player can delete the extra row. The saver prefers a duplicate to a lost run.
+- **A run can occasionally be saved twice,** if the page closes or the connection drops after the server stored it but before its answer arrived, or if two tabs retry together. The player can delete the extra row. The saver prefers a duplicate to a lost run.
+- **The OpenStreetMap demo layer contacts an outside server.** It is off by default and uses a fixed area. Turning it on sends tile requests, with this site's origin as the referrer, to `tile.openstreetmap.org`, which the Content Security Policy now allows for images only. Do not reuse it for a real site, as the requests reveal the area being viewed.
 - **`Cross-Origin-Resource-Policy` and the rest of the headers rely on a modern browser.**
 
 ## Before hosting

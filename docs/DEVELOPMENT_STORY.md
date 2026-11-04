@@ -54,6 +54,21 @@ A review found these bugs by running the game:
 - An early test for prototype pollution used an object literal, where `__proto__` sets the prototype instead of adding a key, so it passed on vulnerable code. `JSON.parse` is what real input goes through, and it reproduced the bug.
 - A test in Phase 5 looped forever waiting for a spotter that had been shot down, which hung the run for over eight minutes.
 
+## After Phase 8
+
+A whole-repo audit found four bugs that the test suites had missed, each now fixed with a test that failed first:
+
+- The coverage map kept showing the previous laydown, because node ids repeat after a reload and its cache key held little else.
+- A connection dropping while the server's answer arrived deleted the browser's kept copy of a run.
+- Going back to live from a replay restarted the clock, even with a weapons decision still waiting.
+- The message export said it saved every message, but the log keeps only the newest 5,000.
+
+## The wizard
+
+Alex steered this one by editing a wireframe canvas directly: moving the button, marking which decisions they agreed, and striking out in-wave tips because the run should feel like a simulation. The first plan had an AI chat box at its centre. It became a scripted guide, because the browser can only reach its own backend, the game has to work offline, and a coverage gap on a real site should not leave the machine. The chat box stays undecided in `docs/TODO.md`.
+
+Only a real browser showed one bug: the highlight ring landed inside the popup. The popup's blur makes it the frame that fixed-position children are measured from, which jsdom does not model. The ring now draws straight into the page.
+
 ## Clicking a system to see what it is
 
 Stage C1 of the planned features: click a sensor or effector on the map, or its button in the Nodes tab, and a panel shows what it is doing, its health, range, ammunition, network link, position and cost. Selection is view state and not a command, so it is never logged and cannot change a run. The reference digests did not move.
@@ -69,6 +84,14 @@ The change came in two checks. Adding the sizes and the kind checks left all fiv
 Checking sources changed two figures. The large radar's assumed 5 km became 4.3 km, scaled from a reported 9 km against a 0.2 m² drone. The large camera became 1.6 km at a fixed 2° view, because range and view have to be set as a pair until the zoom is modelled. Laydown fields and API fields moved to A3, because nothing could write them yet.
 
 The small detector needed testing against the tracker: its ±30° bearing looked likely to fill it with ghost tracks. It does not. Alone, small detectors track almost nothing, and beside a radar they do no harm.
+
+## Editing one system
+
+Stage A3: the Unit panel gains a Configure side for renaming a unit, changing its fields within its size's limits, and selling it. Only fields that already change the game are offered, and arcs, bands and lens choices wait for the stages that give them rules.
+
+A unit's values are worked out when read, from the catalogue and its own settings, so edits in the Sources tab still reach it and no unit can drift out of step. With nothing changed, the saved laydown and the reference digests are exactly as before.
+
+The user reported they still could not click a system. It turned out to be worse: with a placement tool on, clicking a model bought a second one on the ground behind it, because the ground point was far enough away to be legal. My earlier check had pressed Esc first. The running server also had to be restarted, or it would have refused saves using the new sizes and settings, which no test of the code on disk could show.
 
 ## Numbers at the end of Phase 8
 
