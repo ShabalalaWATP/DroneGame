@@ -19,6 +19,7 @@ import { Sandbox } from '../src/ui/Sandbox.jsx';
 import { Overlay } from '../src/ui/Overlay.jsx';
 import { Timeline } from '../src/ui/Timeline.jsx';
 import { MIXED, setUp, play } from './support/scenarios.js';
+import { createFakeApi, createFakeStorage } from './support/fake-api.js';
 
 let game;
 const show = (ui) => render(<GameContext.Provider value={game}>{ui}</GameContext.Provider>);
@@ -28,7 +29,7 @@ const armed = (laydown = MIXED) => { setUp(game.sim, { seed: '1', laydown }); re
 
 beforeEach(() => {
   HTMLCanvasElement.prototype.getContext = () => null;
-  game = createGame({ seed: '1', terrainSeed: '1' });
+  game = createGame({ seed: '1', terrainSeed: '1', api: createFakeApi(), storage: createFakeStorage() });
   Object.assign(view, { truth: true, labels: true, rings: true, trackHi: false, replayT: null });
   FUSION.authority = 'auto';
 });
@@ -44,7 +45,7 @@ function setUpSpotter() {
 
 describe('HUD', () => {
   it('shows the run, and shows a hostile seed as text', () => {
-    game = createGame({ seed: '<img src=x onerror=alert(1)>', terrainSeed: '<b>t</b>' });
+    game = createGame({ seed: '<img src=x onerror=alert(1)>', terrainSeed: '<b>t</b>', api: createFakeApi(), storage: createFakeStorage() });
     show(<Hud />);
     expect($('#status img')).toBeNull();
     expect($('#status').textContent).toContain('<img src=x onerror=alert(1)>');
@@ -134,9 +135,9 @@ describe('control panel', () => {
   it('resets, opens the sandbox, and does nothing before deployment', () => {
     const onSandbox = vi.fn(), onToggleDock = vi.fn(), onToggleTuning = vi.fn();
     panel({ onSandbox, onToggleDock, onToggleTuning });
-    fireEvent.click($('#btn-clear'));
-    fireEvent.click($('#btn-reset'));
+    fireEvent.click($('#btn-clear')); // not deployed yet, so this does nothing
     expect($('#btn-clear').textContent).toBe('New laydown');
+    fireEvent.click($('#btn-reset'));
     armed();
     fireEvent.click($('#btn-sandbox'));
     expect(onSandbox).toHaveBeenCalled();

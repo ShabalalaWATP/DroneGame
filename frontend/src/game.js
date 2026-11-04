@@ -9,10 +9,16 @@ import { createReplay } from './render/replay-view.js';
 import { droneTemplate } from './render/models.js';
 import { trackColour } from './render/belief-view.js';
 import { view } from './render/view.js';
+import { createApi } from './api/client.js';
+import { createRunSaver } from './api/run-saver.js';
 
 const PANEL_INTERVAL = 100; // ms between panel refreshes: panels never update per frame
 
-export function createGame({ seed, terrainSeed }) {
+// Seeds are saved, so they obey the limits the backend enforces.
+// eslint-disable-next-line no-control-regex
+export const cleanSeed = (text) => (text || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 64) || '1';
+
+export function createGame({ seed, terrainSeed, api = createApi(), storage = globalThis.localStorage }) {
   const sim = createSimulation({ seed, terrainSeed });
   const { state, net } = sim;
 
@@ -34,6 +40,13 @@ export function createGame({ seed, terrainSeed }) {
   const toast = (msg) => { for (const fn of toastListeners) fn(msg); };
   sim.on('toast', toast);
   sim.on('gameOver', bump);
+
+  // ---------- saving finished runs ----------
+  const saver = createRunSaver({ api, storage, notify: toast, onChange: bump });
+  let closing = false;
+  sim.on('runEnded', (run) => { if (closing) saver.keep(run); else saver.save(run); });
+  // shortcut: a page restored from the back/forward cache keeps playing, but that run was already recorded when it closed. Clear runEnded on pageshow if that ever matters.
+  const pageClosing = () => { closing = true; sim.endRun(); closing = false; };
   sim.on('sandbox', bump);
 
   // ---------- filled in once the canvas exists ----------
@@ -106,7 +119,7 @@ export function createGame({ seed, terrainSeed }) {
   }
 
   return {
-    sim, commands, clock, setSpeed, subscribe, getTick, bump, attach, debug,
+    sim, commands, clock, setSpeed, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
     getTool: () => tool, setTool,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },

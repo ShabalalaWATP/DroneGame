@@ -18,6 +18,7 @@ import { drawSpectrum, jamConflicts } from '../src/ui/dock/spectrum-canvas.js';
 import { createMinimap } from '../src/ui/minimap.js';
 import { terrainState } from '../src/sim/terrain.js';
 import { MIXED, setUp, play } from './support/scenarios.js';
+import { createFakeApi, createFakeStorage } from './support/fake-api.js';
 
 // a 2D context that accepts every drawing call
 const fakeContext = () => new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}), set: (t, k, v) => { t[k] = v; return true; } });
@@ -41,7 +42,7 @@ const running = (laydown = MIXED, steps = 2400) => {
 
 beforeEach(() => {
   HTMLCanvasElement.prototype.getContext = fakeContext;
-  game = createGame({ seed: '1', terrainSeed: '1' });
+  game = createGame({ seed: '1', terrainSeed: '1', api: createFakeApi(), storage: createFakeStorage() });
   Object.assign(view, { truth: true, labels: true, rings: true, trackHi: false, replayT: null });
 });
 afterEach(() => { cleanup(); resetAllFigures(); });

@@ -6,17 +6,18 @@ import { useGame, useTick } from './hooks.js';
 import { NumberInput } from './NumberInput.jsx';
 
 export function Tuning({ open }) {
-  const field = (label, obj, key, step, min = 0) => (
-    <label>{label}<NumberInput value={obj[key]} step={step} min={min} onCommit={(v) => { obj[key] = v; }} /></label>
+  const { commands } = useGame();
+  const adaptField = (label, key, step) => (
+    <label>{label}<NumberInput value={ADAPT[key]} step={step} onCommit={(v) => commands.setAdapt(key, v)} /></label>
   );
   return (
     <div id="tuning" className={`panel${open ? '' : ' hidden'}`}>
       <div className="label">GAME</div>
-      {field('Time scale (x)', WORLD, 'timeScale', 0.5, 0.5)}
+      <label>Time scale (x)<NumberInput value={WORLD.timeScale} step={0.5} min={0.5} onCommit={(v) => { WORLD.timeScale = v; }} /></label>
       <div className="muted" style={{ margin: '6px 0' }}>Ranges, prices and drone figures are in the SAPIENT panel, Sources tab.</div>
       <div className="label">ENEMY LEARNING (per wave)</div>
-      {field('Evade gain', ADAPT, 'evadePerWave', 0.01)}
-      {field('Jam resist gain', ADAPT, 'jamResistPerWave', 0.01)}
+      {adaptField('Evade gain', 'evadePerWave', 0.01)}
+      {adaptField('Jam resist gain', 'jamResistPerWave', 0.01)}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 // How React components reach the game.
 
-import { createContext, useContext, useEffect, useRef, useSyncExternalStore } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 export const GameContext = createContext(null);
 export const useGame = () => useContext(GameContext);
@@ -28,6 +28,36 @@ export function useAnimation(active, draw, minMs = 0) {
     id = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(id);
   }, [active, minMs]);
+}
+
+// Fetch while `active`, keeping the last good data if a later fetch fails.
+export function useLoad(load, active, deps = []) {
+  const latest = useRef(load);
+  latest.current = load;
+  const [state, setState] = useState({ data: null, error: null });
+  const reload = useCallback(async () => {
+    try {
+      const data = await latest.current();
+      setState({ data, error: null });
+    } catch (e) { setState((s) => ({ data: s.data, error: e.message })); }
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (active) reload(); }, [active, reload, ...deps]);
+  return { ...state, reload };
+}
+
+// Two clicks for anything that throws work away. confirm(key, fn) gives a click handler; armed is the key waiting for its second click.
+export function useArmed(ms = 3000) {
+  const [armed, setArmed] = useState(null);
+  const timer = useRef(0);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const confirm = (key, fn) => () => {
+    clearTimeout(timer.current);
+    if (armed === key) { setArmed(null); fn(); return; }
+    setArmed(key);
+    timer.current = setTimeout(() => setArmed(null), ms);
+  };
+  return { armed, confirm };
 }
 
 export const hex = (c) => '#' + c.toString(16).padStart(6, '0');

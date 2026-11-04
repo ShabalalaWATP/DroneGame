@@ -3,13 +3,11 @@
 // resets it to the researched value. "Export" saves just your changes as JSON so an experiment can be repeated.
 
 import { useRef, useState } from 'react';
-import {
-  COMMS, DRONES, FIGURE_FIELDS, RESEARCHED, STRUCTURES, WAVES, WORLD,
-  applyRangeScale, exportFigures, importFigures, resetAllFigures, resetFigure, setFigure,
-} from '../../sim/config/index.js';
+import { COMMS, DRONES, FIGURE_FIELDS, RESEARCHED, STRUCTURES, WAVES, WORLD, exportFigures } from '../../sim/config/index.js';
 import { download, hex, useGame } from '../hooks.js';
 import { NumberInput } from '../NumberInput.jsx';
 import { SourceLinks } from './SourceLinks.jsx';
+import { FigureSets } from './FigureSets.jsx';
 
 const BASIS_LABEL = { research: 'published', price: 'price', assumption: 'ASSUMPTION', rule: 'game rule' };
 const isAssumption = (text) => /ASSUMPTION/i.test(text || '');
@@ -28,6 +26,7 @@ export function basisOf(kind, def, key) {
 }
 
 function Figures({ kind, id, def, onChange }) {
+  const { commands } = useGame();
   return (
     <div className="figs">
       {Object.keys(RESEARCHED[kind][id]).map((key) => {
@@ -35,10 +34,10 @@ function Figures({ kind, id, def, onChange }) {
         return (
           <label className={`fig ${basis}`} key={key}>
             <span className="fl">{meta.label}</span>
-            <NumberInput data-key={key} value={def[key]} step={meta.step} onCommit={(v) => { setFigure(kind, id, key, v); onChange(); }} />
+            <NumberInput data-key={key} value={def[key]} step={meta.step} onCommit={(v) => { commands.setFigure(kind, id, key, v); onChange(); }} />
             <span className="fu">{meta.unit}</span>
             <span className={`fb ${basis}`}>{BASIS_LABEL[basis]}</span>
-            <button className={`fr${def[key] === base ? ' hidden' : ''}`} title={`Reset to ${base}`} onClick={(e) => { e.preventDefault(); resetFigure(kind, id, key); onChange(); }}>↺</button>
+            <button className={`fr${def[key] === base ? ' hidden' : ''}`} title={`Reset to ${base}`} onClick={(e) => { e.preventDefault(); commands.resetFigure(kind, id, key); onChange(); }}>↺</button>
           </label>
         );
       })}
@@ -49,15 +48,16 @@ function Figures({ kind, id, def, onChange }) {
 const Row = ({ k, children }) => <div><span className="k">{k}</span> {children}</div>;
 const Conf = ({ text }) => <span className={`conf${isAssumption(text) ? ' assume' : ''}`}>{text}</span>;
 
-export function SourcesTab() {
+export function SourcesTab({ active }) {
   const game = useGame();
+  const { commands } = game;
   const [, setVersion] = useState(0);
   const changed = () => { setVersion((n) => n + 1); game.figuresChanged(); };
   const file = useRef(null);
   const importFile = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
-    try { importFigures(JSON.parse(await f.text())); changed(); } catch { game.toast('That file is not a valid figures export.'); }
+    try { commands.importFigures(JSON.parse(await f.text())); changed(); } catch { game.toast('That file is not a valid figures export.'); }
     e.target.value = '';
   };
   return (
@@ -65,14 +65,15 @@ export function SourcesTab() {
       <div className="sys note">
         Every number here can be changed and takes effect at once. <b>published</b> and <b>price</b> figures come from the sources shown (mostly vendor claims; check them before relying on them), <b>ASSUMPTION</b> had no verified figure, <b>game rule</b> is a balance setting. Message formats follow <a href="https://github.com/dstl/SAPIENT-Proto-Files" target="_blank" rel="noopener noreferrer">BSI Flex 335 v2.0</a>.
         <div className="src-tools">
-          <label>Range scale <NumberInput id="src-rangescale" value={WORLD.rangeScale} step={0.1} min={0.1} onCommit={(v) => { if (v > 0) { WORLD.rangeScale = v; applyRangeScale(); changed(); } }} /> x published</label>
-          <label>FPV gap <NumberInput id="src-fpvgap" value={WAVES.fpvGap} step={1} min={1} onCommit={(v) => { if (v > 0) WAVES.fpvGap = v; }} /> s</label>
-          <button id="src-reset" onClick={() => { resetAllFigures(); changed(); }}>Reset all</button>
+          <label>Range scale <NumberInput id="src-rangescale" value={WORLD.rangeScale} step={0.1} min={0.1} onCommit={(v) => { if (v > 0) { commands.setRangeScale(v); changed(); } }} /> x published</label>
+          <label>FPV gap <NumberInput id="src-fpvgap" value={WAVES.fpvGap} step={1} min={1} onCommit={(v) => { if (v > 0) commands.setFpvGap(v); }} /> s</label>
+          <button id="src-reset" onClick={() => { commands.resetAllFigures(); changed(); }}>Reset all</button>
           <button id="src-export" onClick={() => download('site-guard-figures.json', JSON.stringify(exportFigures(), null, 2), 'application/json')}>Export changes</button>
           <button id="src-import" onClick={() => file.current.click()}>Import</button>
           <input type="file" id="src-file" ref={file} accept="application/json" hidden onChange={importFile} />
         </div>
       </div>
+      <FigureSets active={active} onApplied={changed} />
       <h4 className="src-h">Defences</h4>
       {Object.values(STRUCTURES).map((d) => (
         <div className="sys" key={d.id}>

@@ -222,3 +222,15 @@ body.track-hi .tlabel { color: #ffcc66; font-size: 11px; opacity: 1; }
   .tool { padding: 2px 8px 2px 9px; }
   .tool .k { display: none; }
 }
+
+.saved-form { display: flex; gap: 6px; margin: 4px 0 8px; }
+.saved-form input { flex: 1; min-width: 0; background: #0b1424; color: #fff; border: 1px solid #2f4468; border-radius: 4px; padding: 4px 8px; font-size: 12px; }
+.saved-form button { padding: 3px 10px; font-size: 12px; white-space: nowrap; }
+.saved-note { margin: 4px 0 8px; font-size: 12px; color: #9fb2cf; }
+.saved-error { margin: 4px 0 8px; padding: 6px 8px; font-size: 12px; color: #ffcc80; background: #33230a; border: 1px solid #6b4a12; border-radius: 4px; }
+.saved-actions { white-space: nowrap; }
+#saved-list, #runs-list { font-size: 12px; }
+#saved-list button:first-child, #runs-list button { margin-left: 0; }
+.runs-paging { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; font-size: 12px; }
+.runs-paging button.mini { margin: 0; }
+.figset-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; }

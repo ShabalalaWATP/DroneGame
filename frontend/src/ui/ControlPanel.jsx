@@ -1,9 +1,9 @@
 // Top right: starting waves, game speed, view toggles, engagement authority, and opening the other panels.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { FUSION } from '../sim/config/index.js';
 import { view } from '../render/view.js';
-import { useGame, useTick } from './hooks.js';
+import { useArmed, useGame, useTick } from './hooks.js';
 
 const SPEEDS = [[0, '❚❚', 'Pause (Space)'], [1, '1x'], [2, '2x'], [3, '3x']];
 
@@ -15,19 +15,7 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
 
   useEffect(() => { document.body.classList.toggle('track-hi', view.trackHi); });
 
-  // two clicks, since it throws the laydown away
-  const [armed, setArmed] = useState(false);
-  const armTimer = useRef(0);
-  const clearLaydown = () => {
-    if (!state.started) return;
-    if (!armed) {
-      setArmed(true);
-      armTimer.current = setTimeout(() => setArmed(false), 3000);
-      return;
-    }
-    clearTimeout(armTimer.current); setArmed(false);
-    commands.reset('clear');
-  };
+  const clear = useArmed(); // it throws the laydown away
 
   const toggle = (id, key, label, title) => (
     <label title={title}><input type="checkbox" id={id} checked={view[key]} onChange={(e) => game.setViewOption(key, e.target.checked)} /> {label}</label>
@@ -58,7 +46,7 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
       </button>
       <div className="row">
         <button id="btn-reset" title="Start the run again with the same laydown, wiring and seed" onClick={() => { if (state.started) commands.reset('keep'); }}>Reset run</button>
-        <button id="btn-clear" title="Remove everything and start with an empty site" onClick={clearLaydown}>{armed ? 'Sure? Click again' : 'New laydown'}</button>
+        <button id="btn-clear" title="Remove everything and start with an empty site" onClick={state.started ? clear.confirm('clear', () => commands.reset('clear')) : undefined}>{clear.armed ? 'Sure? Click again' : 'New laydown'}</button>
       </div>
       <button id="btn-sapient" onClick={onToggleDock}>SAPIENT</button>
       <button id="btn-tuning" onClick={onToggleTuning}>Tuning</button>

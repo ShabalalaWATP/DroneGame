@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { enemyCost, money } from '../sim/economy.js';
+import { cleanSeed } from '../game.js';
 import { useGame, useTick } from './hooks.js';
 
 function StartCard() {
@@ -9,7 +10,7 @@ function StartCard() {
   const [seed, setSeed] = useState(sim.state.seed);
   const [terrain, setTerrain] = useState(sim.state.terrainSeed);
   const deploy = () => {
-    const s = seed.trim() || '1', t = terrain.trim() || '1';
+    const s = cleanSeed(seed.trim()), t = cleanSeed(terrain.trim());
     commands.deploy(s, t);
     history.replaceState(null, '', `?seed=${encodeURIComponent(s)}&terrain=${encodeURIComponent(t)}`);
   };
@@ -26,12 +27,12 @@ function StartCard() {
       </ul>
       <div className="seed-row">
         <label htmlFor="seed-input">Scenario seed</label>
-        <input id="seed-input" type="text" spellCheck="false" value={seed} onChange={(e) => setSeed(e.target.value)} />
+        <input id="seed-input" type="text" spellCheck="false" maxLength={64} value={seed} onChange={(e) => setSeed(e.target.value)} />
         <button id="btn-seed-random" title="Pick a random seed" onClick={() => setSeed(String(Math.floor(Math.random() * 900000) + 100000))}>Random</button>
       </div>
       <div className="seed-row">
         <label htmlFor="terrain-input">Terrain seed</label>
-        <input id="terrain-input" type="text" spellCheck="false" value={terrain} onChange={(e) => setTerrain(e.target.value)} />
+        <input id="terrain-input" type="text" spellCheck="false" maxLength={64} value={terrain} onChange={(e) => setTerrain(e.target.value)} />
       </div>
       <p className="muted seed-note">The same scenario seed and laydown give the same attack every time. The terrain seed changes the ground (hills, woods, power lines) without changing the attack.</p>
       <button id="btn-deploy" className="primary" onClick={deploy}>Deploy</button>
@@ -40,13 +41,14 @@ function StartCard() {
 }
 
 function GameOverCard() {
-  const { sim, commands } = useGame();
+  const { sim, commands, saver } = useGame();
   const { state, ledger } = sim;
   return (
     <div className="card">
       <h1>SITE LOST</h1>
       <p>You held out for <b>{Math.max(state.wave - 1, 0)}</b> full wave(s).</p>
       <p>Kills <b>{state.kills}</b> · Enemy attack cost <b>{money(enemyCost(ledger.launched))}</b> · Defence spend <b>{money(ledger.capex + ledger.consumables)}</b></p>
+      {saver.message() && <p id="save-status" className="muted">{saver.message()}</p>}
       <button id="btn-restart" className="primary" onClick={() => commands.reset('keep')}>Retry with the same laydown</button>{' '}
       <button id="btn-restart-clear" onClick={() => commands.reset('clear')}>New laydown</button>
     </div>

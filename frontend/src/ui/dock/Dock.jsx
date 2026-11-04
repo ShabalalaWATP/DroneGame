@@ -9,10 +9,13 @@ import { SpectrumTab } from './SpectrumTab.jsx';
 import { LearnTab } from './LearnTab.jsx';
 import { CostTab } from './CostTab.jsx';
 import { SourcesTab } from './SourcesTab.jsx';
+import { SavedTab } from './SavedTab.jsx';
+import { RunsTab } from './RunsTab.jsx';
 
 const TABS = [
   ['messages', 'Messages', MessagesTab], ['nodes', 'Nodes', NodesTab], ['plan', 'Plan', PlanTab], ['network', 'Network', NetworkTab],
   ['spectrum', 'Spectrum', SpectrumTab], ['learn', 'Learn', LearnTab], ['cost', 'Cost', CostTab, 'cost'], ['systems', 'Sources', SourcesTab, 'systems'],
+  ['saved', 'Saved', SavedTab], ['runs', 'Runs', RunsTab],
 ];
 
 export function Dock({ open, onClose }) {
