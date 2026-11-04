@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { GAME_VERSION } from '../../sim/config/index.js';
 import { view } from '../../render/view.js';
 import { withZone, zoneFromSpec } from '../../zone.js';
+import { parseWorldId, worldLabel } from '../../sim/world-pack.js';
 import { useArmed, useGame, useLoad } from '../hooks.js';
 
 const when = (iso) => new Date(iso).toLocaleString();
@@ -35,10 +36,11 @@ export function SavedTab({ active }) {
   };
   const loadRow = (row) => attempt(async () => {
     const saved = await api.laydowns.get(row.id);
-    const problem = commands.loadLaydown(saved.spec, saved.world);
+    const problem = (await game.ensureWorld(saved.world)) || commands.loadLaydown(saved.spec, saved.world);
     if (problem) return problem;
     game.setViewOption('zone', zoneFromSpec(saved.spec));
-    history.replaceState(null, '', `?seed=${encodeURIComponent(sim.state.seed)}&terrain=${encodeURIComponent(saved.world)}`);
+    // a real world's site never goes in a URL, as URLs end up in history and logs
+    history.replaceState(null, '', parseWorldId(saved.world) ? `?seed=${encodeURIComponent(sim.state.seed)}` : `?seed=${encodeURIComponent(sim.state.seed)}&terrain=${encodeURIComponent(saved.world)}`);
     return saved.game_version === GAME_VERSION ? `Loaded "${saved.name}".` : `Loaded "${saved.name}". It was saved by version ${saved.game_version}, so it may not play the same.`;
   }, (message) => message);
 
@@ -59,7 +61,7 @@ export function SavedTab({ active }) {
             {data.map((row) => (
               <tr key={row.id}>
                 <td>{row.name}</td>
-                <td>{row.world}</td>
+                <td>{worldLabel(row.world)}</td>
                 <td>{when(row.updated_at)}</td>
                 <td className="saved-actions">
                   <button className="mini" onClick={load.confirm(row.id, () => loadRow(row))}>{load.armed === row.id ? 'Replace run?' : 'Load'}</button>

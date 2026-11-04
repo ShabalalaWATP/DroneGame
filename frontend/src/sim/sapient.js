@@ -7,6 +7,8 @@
 // illustrative, not taken from the standard.
 
 import { GEO } from './config/index.js';
+import { terrainState } from './terrain.js';
+import { latLonOf } from './world-pack.js';
 import { idRand, EPOCH_MS } from './rng.js';
 
 export const ICD_VERSION = 'BSI Flex 335 v2.0';
@@ -48,15 +50,17 @@ const round = (x, n) => Number(x.toFixed(n));
 
 // Location (SAPIENT: x = longitude, y = latitude, z = altitude in metres) from metres east/north of the origin.
 export function location(eastM, northM, altM, errM = 0) {
-  const lat = GEO.originLat + northM / M_PER_DEG;
-  const lon = GEO.originLon + eastM / (M_PER_DEG * Math.cos((GEO.originLat * Math.PI) / 180));
+  const geo = terrainState.data?.geo; // a real world knows where it is, to full accuracy
+  const flatLat = GEO.originLat + northM / M_PER_DEG;
+  const { lat, lon } = geo ? latLonOf(geo, eastM, northM) : { lat: flatLat, lon: GEO.originLon + eastM / (M_PER_DEG * Math.cos((GEO.originLat * Math.PI) / 180)) };
+  const cosLat = Math.cos(((geo ? lat : GEO.originLat) * Math.PI) / 180);
   const loc = {
-    x: round(lon, 7), y: round(lat, 7), z: round(altM, 1),
+    x: round(lon, 7), y: round(lat, 7), z: round(geo ? altM + geo.H0 + geo.geoidSeparation : altM, 1),
     coordinate_system: 'LOCATION_COORDINATE_SYSTEM_LAT_LNG_DEG_M',
     datum: 'LOCATION_DATUM_WGS84_E',
   };
   if (errM) {
-    loc.x_error = round(errM / (M_PER_DEG * Math.cos((GEO.originLat * Math.PI) / 180)), 7);
+    loc.x_error = round(errM / (M_PER_DEG * cosLat), 7);
     loc.y_error = round(errM / M_PER_DEG, 7);
     loc.z_error = round(errM, 1);
   }

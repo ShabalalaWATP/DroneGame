@@ -2,13 +2,14 @@
 
 import argparse
 import os
+import re
 import sys
 import time
 from datetime import date
 
 import numpy as np
 
-from . import features, fit, packfile, pictures, terrain
+from . import download, features, fit, packfile, pictures, terrain
 from .grid import Window, parse_grid_ref
 
 SOURCES = {
@@ -19,12 +20,13 @@ SOURCES = {
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mapbuild", description="Build a Site Guard map pack from open data.")
-    parser.add_argument("--centre", required=True, help='the middle of the pack, as a grid reference such as "SU 22 66"')
+    parser.add_argument("--centre", required=True, help='the middle of the pack, as a grid reference such as "SU 22 66", or as easting,northing')
     parser.add_argument("--name", required=True, help="the name shown in the game")
     parser.add_argument("--data", required=True, help="the folder of OS downloads: terrain50, openmap_su, vmd_su and so on")
     parser.add_argument("--out", required=True, help="the .sgmap file to write")
     parser.add_argument("--size", type=int, default=30, help="the width of the pack in km (default 30)")
     parser.add_argument("--lidar-km", type=int, default=14, help="the width of the middle part to fetch lidar for, in km. 0 for none. England only.")
+    parser.add_argument("--fetch", action="store_true", help="download any OS files that are missing from --data")
     parser.add_argument("--no-satellite", action="store_true", help="leave out the satellite picture")
     args = parser.parse_args(argv)
     if args.size % 2 or args.lidar_km % 2 or not 16 <= args.size <= 60 or args.lidar_km > args.size:
@@ -32,8 +34,10 @@ def main(argv: list[str] | None = None) -> int:
 
     began = time.time()
     say = lambda text: print(f"[{time.time() - began:5.0f}s] {text}", flush=True)
-    east, north = parse_grid_ref(args.centre)
+    east, north = map(int, args.centre.split(",")) if re.fullmatch(r"\d{1,6},\d{1,7}", args.centre) else parse_grid_ref(args.centre)
     window = Window(east // 1000 * 1000, north // 1000 * 1000, args.size * 500)
+    if args.fetch:
+        download.ensure(args.data, window.squares(), say)
 
     t50, no_tile = terrain.terrain50(args.data, window)
     say(f"Terrain 50: {window.side} x {window.side} posts, {t50.min():.1f} to {t50.max():.1f} m, {no_tile.mean():.1%} with no tile")

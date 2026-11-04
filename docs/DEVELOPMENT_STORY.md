@@ -93,6 +93,12 @@ A unit's values are worked out when read, from the catalogue and its own setting
 
 The user reported they still could not click a system. It turned out to be worse: with a placement tool on, clicking a model bought a second one on the ground behind it, because the ground point was far enough away to be legal. My earlier check had pressed Esc first. The running server also had to be restarted, or it would have refused saves using the new sizes and settings, which no test of the code on disk could show.
 
+## Real maps
+
+Started with measurements rather than code. Two test areas showed lidar works and is worth having, that a third of tall cover sits outside OS woodland outlines, and that a whole pack is about a third of the size first estimated. The design held: Three.js stays the only renderer, the rules read the same grids, and generated worlds still give the same digests. A hand test also caught what unit tests had not: the server lists a pack's full fingerprint, and the store compared it with the short form.
+
+The real maps were built on their own branch while the wizard, unit editing and the zone went on `main`, so the two met in one merge. Both were kept. The earlier OpenStreetMap demo stays for generated ground only, as a real world has its own map controls, and the start screen gained the map picker under the wizard's welcome.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

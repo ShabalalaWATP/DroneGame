@@ -8,6 +8,7 @@ import { tally } from './economy.js';
 import { pickTarget, hitStructure } from './targeting.js';
 
 const _v = new Vector3();
+const SPOTTER_CLEARANCE = 30; // metres
 
 // In the sandbox the enemy adapts to the level chosen there instead of to the wave number.
 const effWave = ({ state }) => (state.sandbox ? state.sbLevel : state.wave);
@@ -85,6 +86,7 @@ function impact(w, d) {
 // Spotter: flies out to its standoff radius, orbits for loiterTime, then leaves. Returns false if it was removed.
 function moveSpotter(w, d, spd, dt) {
   const r = u(d.def.loiterDist);
+  d.pos.y = Math.max(d.pos.y, hereU(d.pos.x, d.pos.z) + u(SPOTTER_CLEARANCE)); // it holds one height, which real mountains can reach
   if (d.mode === 'approach') {
     if (hdist(d.pos, SITE_POS) <= r) {
       d.mode = 'orbit'; d.angle = Math.atan2(d.pos.z, d.pos.x); d.orbitT = 0;

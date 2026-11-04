@@ -8,3 +8,6 @@ htmlcov/
 .pytest_cache/
 backend/data/
 .claude/
+
+# map packs can hold a real site, and are built locally
+*.sgmap

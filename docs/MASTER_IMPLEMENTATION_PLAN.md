@@ -150,6 +150,8 @@ All under `/api/v1`, JSON only.
 | `GET, DELETE /runs/{id}` | Read, delete |
 | `GET, POST /figure-sets` | List, create |
 | `GET, DELETE /figure-sets/{id}` | Read, delete |
+| `GET /packs`, `GET /packs/{name}` | List map packs, fetch one |
+| `GET, POST /packs/build` | Progress of a map build, start one |
 
 Run results are reported by the browser, so they cannot be trusted as proof of a score. They are labelled as such, and there is no leaderboard.
 

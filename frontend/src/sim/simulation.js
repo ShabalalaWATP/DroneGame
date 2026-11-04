@@ -6,6 +6,7 @@
 import { ADAPT, ECONOMY, FUSION, RESEARCHED, SITE, WAVES, WORLD, applyRangeScale, exportFigures, importFigures, resetAllFigures, resetFigure, setFigure } from './config/index.js';
 import { seedAll } from './rng.js';
 import { generateTerrain, terrainState } from './terrain.js';
+import { cutWorld, parseWorldId, siteProblem } from './world-pack.js';
 import { bus } from './sapient.js';
 import { createNetwork } from './network/index.js';
 import { createRecorder, takeSnapshot, SNAPSHOT_EVERY } from './recorder.js';
@@ -23,6 +24,7 @@ export const SIM_STEP = 0.05; // fixed simulation step in game seconds, so a run
 // shortcut: bus, clock, terrainState and the random streams are module-level singletons, so only one simulation can exist at a time. Pass them in if parallel runs are ever needed.
 export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   const listeners = new Map();
+  const packs = new Map(); // real-world map packs the rules can cut from, by hash
   const emit = (event, payload) => { for (const fn of listeners.get(event) || []) fn(payload); };
   const on = (event, fn) => { if (!listeners.has(event)) listeners.set(event, new Set()); listeners.get(event).add(fn); };
   const off = (event, fn) => { listeners.get(event)?.delete(fn); };
@@ -111,7 +113,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
 
   // Replace the current run with a saved laydown, on the ground it was made for. Returns the reason if it can't.
   function loadLaydown(spec, world) {
-    const problem = laydown.costProblem(spec);
+    const problem = worldProblem(world) || laydown.costProblem(spec);
     if (problem) return problem;
     endRun();
     setWorld(world);
@@ -122,15 +124,28 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   function setWorld(terrainSeed) {
     if (terrainSeed === state.terrainSeed) return;
     state.terrainSeed = terrainSeed;
-    terrainState.data = generateTerrain(terrainSeed);
+    const real = parseWorldId(terrainSeed);
+    terrainState.data = real ? cutWorld(packs.get(real.hash), real.e0, real.n0, terrainSeed) : generateTerrain(terrainSeed);
     emit('terrain');
+  }
+  // Why this world can't be used, or null. Nothing has changed if it can't.
+  function worldProblem(world) {
+    const real = parseWorldId(world);
+    if (!real) return null;
+    const pack = packs.get(real.hash);
+    return pack ? siteProblem(pack, real.e0, real.n0) : 'The map pack for this world is not loaded.';
   }
 
   // Nothing has happened yet, so re-seeding, restarting the network and rebuilding the ground are all safe.
   function deploy(newSeed, newTerrainSeed) {
+    const problem = worldProblem(newTerrainSeed);
+    if (problem) return problem;
+    const realInvolved = !!parseWorldId(newTerrainSeed) || !!parseWorldId(state.terrainSeed);
     if (newSeed !== state.seed) { state.seed = newSeed; seedAll(newSeed); w.net.init(); }
     setWorld(newTerrainSeed);
+    if (realInvolved) { seedAll(state.seed); w.net.init(); } // the nodes must register with this world's position and bearing datum
     state.started = true;
+    return null;
   }
 
   // ---------- commands ----------
@@ -188,6 +203,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   }
 
   return {
+    registerPack(pack) { packs.set(pack.hash, pack); },
     state, drones: w.drones, structures: w.structures, missiles: w.missiles, ledger: w.ledger, net: w.net, rec: w.rec, bus,
     commands, log, on, off, step, digest, endRun, stepCount: () => stepCount,
     currentLaydown: () => w.startLaydown || laydown.captureLaydown(w),

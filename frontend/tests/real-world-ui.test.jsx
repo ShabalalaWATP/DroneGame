@@ -1,0 +1,306 @@
+// @vitest-environment jsdom
+// Pack files, the start screen's world picker, the laptop's location and the map controls, against a real simulation.
+
+import { Blob as NodeBlob } from 'node:buffer';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createGame } from '../src/game.js';
+import { createPackStore, decodePack } from '../src/api/pack-store.js';
+import { resetAllFigures } from '../src/sim/config/index.js';
+import { parseWorldId } from '../src/sim/world-pack.js';
+import { view } from '../src/render/view.js';
+import { tilesOver } from '../src/render/map-texture.js';
+import { GameContext } from '../src/ui/hooks.js';
+import { Overlay } from '../src/ui/Overlay.jsx';
+import { MapControls, nextBaseMap } from '../src/ui/MapControls.jsx';
+import { ControlPanel } from '../src/ui/ControlPanel.jsx';
+import { SavedTab } from '../src/ui/dock/SavedTab.jsx';
+import { ringZone } from '../src/zone.js';
+import { accuracyText, locateMe } from '../src/ui/locate.js';
+import { encodePack, CENTRE } from './support/fixture-pack.js';
+import { createFakeApi, createFakeStorage } from './support/fake-api.js';
+
+globalThis.Blob = NodeBlob; // jsdom's Blob has no stream(), which every browser's does
+
+const $ = (q) => document.querySelector(q);
+const settle = (ms = 50) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
+const until = async (test) => { for (let i = 0; i < 100 && !test(); i++) await settle(30); expect(test()).toBeTruthy(); };
+const fixAt = (latitude, longitude, accuracy = 40) => ({ getCurrentPosition: (ok) => ok({ coords: { latitude, longitude, accuracy } }) });
+const useGeolocation = (value) => Object.defineProperty(navigator, 'geolocation', { configurable: true, value });
+const NEAR = [51.3954, -1.6808], FAR = [56.8, -5.0]; // NEAR is about SU 223 663
+
+describe('reading a pack file', () => {
+  it('reads a good one, with its pictures', async () => {
+    const data = new Uint8Array([1, 2, 3]);
+    const { pack, pictures } = await decodePack(await encodePack({ pictures: [{ layer: 'osmap', west: 1, top: 2, width: 3, height: 4, type: 'image/png', data }, { layer: 'evil', west: 1, top: 2, width: 3, height: 4, type: 'text/html', data }] }));
+    expect(pack.header.name).toBe('Fixture');
+    expect(pack.grids.ground.length).toBe(801 * 801);
+    expect(pack.features.names[0][0]).toBe('Testville');
+    expect(pictures.map((p) => p.layer)).toEqual(['osmap']);
+  });
+  const damaged = async (change) => decodePack(await encodePack({ change }));
+  it('refuses what is not a pack', async () => {
+    await expect(decodePack(new ArrayBuffer(4))).rejects.toThrow(/not a Site Guard/);
+    await expect(decodePack(new TextEncoder().encode('hello world, not a pack').buffer)).rejects.toThrow(/not a Site Guard/);
+    const other = new Uint8Array(await encodePack());
+    other[5] = 9;
+    await expect(decodePack(other.buffer)).rejects.toThrow(/different version/);
+  });
+  it('refuses a fingerprint that does not match the grids', async () => {
+    await expect(damaged((h) => { h.gridsSha256 = 'f'.repeat(64); })).rejects.toThrow(/fingerprint/);
+  });
+  it('stops at the declared size, so a small file cannot expand without limit', async () => {
+    await expect(damaged((h) => { h.sections[1].rawLength = 10; })).rejects.toThrow(/longer/);
+    await expect(damaged((h) => { h.sections[1].rawLength = 801 * 801 + 5; })).rejects.toThrow(/shorter/);
+    await expect(damaged((h) => { h.sections[0].rawLength = 2 ** 40; })).rejects.toThrow(/unreasonable/);
+  });
+  it('refuses sections outside the file, or missing', async () => {
+    await expect(damaged((h) => { h.sections[0].offset = 1e12; })).rejects.toThrow(/damaged/);
+    await expect(damaged((h) => { h.sections.pop(); })).rejects.toThrow(/missing/);
+  });
+});
+
+describe('the pack store', () => {
+  it('lists what the server has, loads once, and survives a stopped server', async () => {
+    const buffer = await encodePack();
+    const { pack } = await decodePack(buffer);
+    const api = { packs: { list: async () => [{ file: 'a.sgmap', hash: pack.header.gridsSha256, name: 'A', east: CENTRE.east, north: CENTRE.north, half: 8000 }] } };
+    const fetchFile = vi.fn(async () => ({ ok: true, arrayBuffer: async () => buffer }));
+    const store = createPackStore({ api, idb: null, fetchFile });
+    const { packs } = await store.list();
+    expect(packs[0].hash).toBe(pack.hash);
+    await store.load(packs[0]);
+    await store.load(packs[0]);
+    expect(fetchFile).toHaveBeenCalledTimes(1);
+    expect(store.get(pack.hash).pack.header.name).toBe('Fixture');
+    const down = createPackStore({ api: { packs: { list: async () => { throw new Error('down'); } } }, idb: null });
+    expect(await down.list()).toEqual({ packs: [], serverDown: true });
+  });
+  it('notices a pack that has changed, or cannot be fetched', async () => {
+    const buffer = await encodePack();
+    const store = createPackStore({ api: {}, idb: null, fetchFile: async () => ({ ok: true, arrayBuffer: async () => buffer }) });
+    await expect(store.load({ hash: 'b'.repeat(32), file: 'a.sgmap' })).rejects.toThrow(/changed/);
+    const gone = createPackStore({ api: {}, idb: null, fetchFile: async () => ({ ok: false }) });
+    await expect(gone.load({ hash: 'b'.repeat(32), file: 'a.sgmap' })).rejects.toThrow(/could not be fetched/);
+  });
+});
+
+describe('the laptop location', () => {
+  it('gives the grid position and accuracy', async () => {
+    const fix = await locateMe(fixAt(...NEAR, 45));
+    expect(fix.accuracy).toBe(45);
+    expect(Math.abs(fix.e - 422300)).toBeLessThan(100);
+    expect(Math.abs(fix.n - 166300)).toBeLessThan(100);
+    expect(accuracyText(45)).toBe('good to about 45 m');
+    expect(accuracyText(9000)).toBe('only good to about 9 km');
+  });
+  it.each([[1, /blocked/], [2, /could not work out/], [3, /too long/], [9, /could not be found/]])('explains failure %i', async (code, message) => {
+    await expect(locateMe({ getCurrentPosition: (_, no) => no({ code }) })).rejects.toThrow(message);
+  });
+  it('explains a browser with no location', async () => {
+    await expect(locateMe(null)).rejects.toThrow(/cannot share/);
+  });
+});
+
+describe('map tiles over a world', () => {
+  it('finds the tiles and their corners on the grid', () => {
+    const tiles = tilesOver({ north: 51.47, south: 51.35, east: -1.62, west: -1.82 });
+    expect(tiles.length).toBeGreaterThan(50);
+    expect(tiles.length).toBeLessThan(250);
+    const { origin, right, down } = tiles[0];
+    expect(right.e).toBeGreaterThan(origin.e); // east along a row
+    expect(down.n).toBeLessThan(origin.n); // south down a column
+    expect(Math.hypot(right.e - origin.e, right.n - origin.n)).toBeGreaterThan(1000); // zoom 14 tiles are about 1.5 km here
+    expect(Math.hypot(right.e - origin.e, right.n - origin.n)).toBeLessThan(2000);
+  });
+});
+
+describe('choosing a world', () => {
+  let game, buffer, entry;
+  const show = (ui) => render(<GameContext.Provider value={game}>{ui}</GameContext.Provider>);
+  const type = (q, value) => fireEvent.change($(q), { target: { value } });
+
+  beforeEach(async () => {
+    HTMLCanvasElement.prototype.getContext = () => null;
+    buffer = await encodePack();
+    const { pack } = await decodePack(buffer);
+    entry = { file: 'a.sgmap', hash: pack.header.gridsSha256, name: 'Fixture', east: CENTRE.east, north: CENTRE.north, half: 8000, tier: 'lidar', lidarHalf: 7000 };
+    const api = createFakeApi();
+    api.packs = { list: vi.fn(async () => [entry]), build: vi.fn(async () => ({ running: true, message: 'Starting' })), buildStatus: vi.fn(async () => ({ running: false, ok: true, message: 'Finished' })) };
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, arrayBuffer: async () => buffer })));
+    vi.stubGlobal('indexedDB', undefined);
+    game = createGame({ seed: '1', terrainSeed: '1', api, storage: createFakeStorage() });
+    Object.assign(view, { baseMap: 'os', mapRoads: false, mapGrid: true, planView: false, me: null, osm: false, zone: null, wizard: 'closed' });
+    history.replaceState(null, '', '/');
+  });
+  afterEach(() => { cleanup(); resetAllFigures(); vi.unstubAllGlobals(); });
+
+  it('still deploys generated ground as before, seed in the address', () => {
+    show(<Overlay />);
+    fireEvent.click($('#btn-deploy'));
+    expect(game.sim.state.started).toBe(true);
+    expect(location.search).toContain('terrain=1');
+  });
+  it('asks for a map and start point before a real deploy, then keeps the site out of the address', async () => {
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    expect($('#btn-deploy').disabled).toBe(true);
+    await until(() => $('#pack-list').options.length === 2);
+    type('#pack-list', entry.hash.slice(0, 32));
+    await until(() => $('#site-info')?.textContent.includes('SU 2200 6600'));
+    fireEvent.click($('#btn-deploy'));
+    expect(game.sim.state.started).toBe(true);
+    expect(parseWorldId(game.sim.state.terrainSeed)).toMatchObject({ e0: CENTRE.east, n0: CENTRE.north });
+    expect(location.search).toBe('?seed=1');
+  }, 30000);
+  it('starts at this laptop when a pack covers it', async () => {
+    useGeolocation(fixAt(...NEAR));
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    fireEvent.click($('#use-my-location'));
+    await until(() => $('#site-info')?.textContent.includes('Start point'));
+    expect($('#world-note').textContent).toContain('Your location, good to about 40 m');
+    const { e0, n0 } = (() => { fireEvent.click($('#btn-deploy')); return parseWorldId(game.sim.state.terrainSeed); })();
+    expect(Math.abs(e0 - 422300)).toBeLessThan(100);
+    expect(Math.abs(n0 - 166300)).toBeLessThan(100);
+  }, 30000);
+  it('offers to build a map when none covers the laptop, and uses it when built', async () => {
+    useGeolocation(fixAt(...FAR));
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    fireEvent.click($('#use-my-location'));
+    await until(() => $('#pack-build'));
+    expect($('#pack-build').textContent).toContain('NN');
+    fireEvent.click($('#pack-lidar'));
+    fireEvent.click($('#pack-build-go'));
+    await until(() => game.api.packs.build.mock.calls.length);
+    expect(game.api.packs.build.mock.calls[0][0]).toMatchObject({ lidar: false });
+    expect(game.api.packs.build.mock.calls[0][0].north).toBeGreaterThan(700000);
+  }, 30000);
+  it('says when the laptop is outside Great Britain, or a location is refused', async () => {
+    useGeolocation(fixAt(40, -100));
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    fireEvent.click($('#use-my-location'));
+    await until(() => $('#world-note')?.textContent.includes('outside Great Britain'));
+    useGeolocation({ getCurrentPosition: (_, no) => no({ code: 1 }) });
+    fireEvent.click($('#use-my-location'));
+    await until(() => $('#world-note')?.textContent.includes('blocked'));
+  }, 30000);
+  it('takes a typed start point, and refuses a bad one', async () => {
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    await until(() => $('#pack-list').options.length === 2);
+    type('#site-ref', 'not a ref');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#world-note')?.textContent.includes('not a grid reference'));
+    type('#site-ref', 'SU 225 665');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#site-info')?.textContent.includes('SU 2250 6650'));
+    type('#site-ref', 'SU 240 660'); // in the pack, but with no room for a whole world
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#pack-build'));
+    expect($('#btn-deploy').disabled).toBe(true);
+  }, 30000);
+
+  describe('the map controls', () => {
+    const deployed = async () => {
+      const decoded = await game.loadPack({ ...entry, hash: entry.hash.slice(0, 32) });
+      expect(game.commands.deploy('1', `pack:${decoded.pack.hash}:422000:0166000:real`)).toBeNull();
+    };
+    const fakeView = () => ({ centreOn: vi.fn(), refreshMap: vi.fn(async () => null), viewFromAbove: vi.fn() });
+
+    it('offers only plan view on generated ground', () => {
+      show(<MapControls />);
+      expect($('#map-plan')).toBeTruthy();
+      expect($('#map-base')).toBeNull();
+    });
+    it('shows options that cannot be used as greyed out, with the reason', async () => {
+      await deployed();
+      show(<MapControls />);
+      const sat = [...$('#map-base').options].find((o) => o.value === 'satellite');
+      expect(sat.disabled).toBe(true);
+      expect(sat.textContent).toContain('not in this pack');
+      expect($('#map-credit').textContent).toContain('OS credit');
+      expect(nextBaseMap('live')).toBe('os');
+    });
+    it('centres on this laptop, marks it, and says when it is outside the world', async () => {
+      await deployed();
+      const v = fakeView();
+      game.getView = () => v;
+      useGeolocation(fixAt(...NEAR));
+      show(<MapControls />);
+      fireEvent.click($('#map-me'));
+      await until(() => view.me);
+      expect(v.centreOn).toHaveBeenCalledWith(view.me.x, view.me.z);
+      expect($('#map-message').textContent).toContain('You are at SU');
+      useGeolocation(fixAt(...FAR));
+      fireEvent.click($('#map-me'));
+      await until(() => $('#map-message').textContent.includes('outside this world'));
+      expect(view.me).toBeNull();
+      fireEvent.click($('#map-site'));
+      expect(v.centreOn).toHaveBeenCalledWith(0, 0);
+    }, 30000);
+    it('goes to a typed grid reference, and places the chosen system there', async () => {
+      await deployed();
+      const v = fakeView();
+      game.getView = () => v;
+      show(<MapControls />);
+      type('#map-ref', 'nonsense');
+      fireEvent.submit($('#map-goto'));
+      expect($('#map-message').textContent).toContain('not a grid reference');
+      type('#map-ref', 'NN 166 712');
+      fireEvent.submit($('#map-goto'));
+      expect($('#map-message').textContent).toContain('outside this world');
+      type('#map-ref', 'SU 225 665');
+      fireEvent.submit($('#map-goto'));
+      expect(v.centreOn).toHaveBeenCalledWith(25, -25);
+      game.setTool('rf');
+      fireEvent.submit($('#map-goto'));
+      expect(game.sim.structures[0].pos).toMatchObject({ x: 25, z: -25 });
+      await settle();
+      expect($('#map-message').textContent).toContain('Placed at SU 225 665');
+    }, 30000);
+
+    it('offers the OpenStreetMap demo on generated ground only', async () => {
+      const panel = show(<ControlPanel />);
+      expect($('#osm-toggle')).toBeTruthy();
+      panel.unmount();
+      await deployed();
+      view.osm = true; // left on from generated ground
+      show(<ControlPanel />);
+      expect($('#osm-toggle')).toBeNull();
+      expect($('#osm-credit')).toBeNull();
+      expect($('#map-base')).toBeTruthy();
+    }, 30000);
+    it('keeps the wizard closed when a real deploy is refused', async () => {
+      show(<Overlay />);
+      fireEvent.click($('#world-real'));
+      expect($('#btn-guide').disabled).toBe(true);
+      await until(() => $('#pack-list').options.length === 2);
+      type('#pack-list', entry.hash.slice(0, 32));
+      await until(() => !$('#btn-guide').disabled);
+      vi.spyOn(game.commands, 'deploy').mockReturnValue('That start point is not allowed');
+      fireEvent.click($('#btn-guide'));
+      expect(view.wizard).toBe('closed');
+      expect(game.sim.state.started).toBe(false);
+    }, 30000);
+    it('saves and reloads a real world with its zone, keeping the site out of the address', async () => {
+      await deployed();
+      view.zone = ringZone(1000);
+      const points = view.zone.points;
+      show(<SavedTab active />);
+      type('#save-name', 'Real');
+      fireEvent.click($('#save-laydown'));
+      await until(() => $('#saved-list'));
+      view.zone = null;
+      const load = [...document.querySelectorAll('#saved-list button')].find((b) => b.textContent === 'Load');
+      fireEvent.click(load);
+      await act(async () => { fireEvent.click(load); });
+      await until(() => view.zone);
+      expect(view.zone).toEqual({ points, closed: true });
+      expect(parseWorldId(game.sim.state.terrainSeed)).toMatchObject({ e0: CENTRE.east, n0: CENTRE.north });
+      expect(location.search).toBe('?seed=1');
+    }, 30000);
+  });
+});

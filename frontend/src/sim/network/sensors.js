@@ -4,7 +4,7 @@ import * as S from '../sapient.js';
 import { TERRAIN, SENSING } from '../config/index.js';
 import { rand, gauss } from '../rng.js';
 import { terrainState } from '../terrain.js';
-import { RB_UNITS, RB_DATUM, round, clamp } from './core.js';
+import { RB_UNITS, rbDatum, round, clamp } from './core.js';
 
 // How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
 // the radar's low-flyer range is multiplied by this.
@@ -105,7 +105,7 @@ export function createSensors(core, feed) {
     rb.azimuth_error = n.az;
     if (n.range != null) rb.range_error = n.range;
     rb.coordinate_system = RB_UNITS;
-    rb.datum = RB_DATUM;
+    rb.datum = rbDatum();
 
     const kind = def.kind || def.id;
     const conf = !d ? 0.3 + rand() * 0.2

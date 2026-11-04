@@ -2,6 +2,7 @@
 
 import { SITE, ECONOMY, DRONES, ADAPT } from '../sim/config/index.js';
 import { enemyCost, money } from '../sim/economy.js';
+import { parseWorldId, worldLabel } from '../sim/world-pack.js';
 import { useGame, useTick } from './hooks.js';
 
 const pct = (v) => (v > 0 ? Math.max(100 * Math.min(v / ECONOMY.budget, 1), 0.6) : 0).toFixed(2) + '%'; // a sliver stays visible
@@ -39,7 +40,7 @@ export function Hud() {
         Enemy attack cost {money(enemyCost(ledger.launched))} · shots fired {money(ledger.consumables)}
         {ledger.consumables > 0 && destroyed > 0 && ` · $${(ledger.consumables / destroyed).toFixed(2)} per $1 destroyed`}<br />
         Enemy evasion (1.00 = easy to hit): FPV {adapted('fpv')} · FW {adapted('fw')}<br />
-        Seed {state.seed} · Terrain {state.terrainSeed}
+        Seed {state.seed} · {parseWorldId(state.terrainSeed) ? worldLabel(state.terrainSeed) : `Terrain ${state.terrainSeed}`}
       </div>
     </div>
   );

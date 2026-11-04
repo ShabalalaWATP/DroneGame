@@ -4,9 +4,11 @@ import * as S from '../sapient.js';
 import { WORLD, FUSION_DEF } from '../config/index.js';
 import { createTracker } from '../tracker.js';
 import { createComms } from '../comms.js';
+import { terrainState } from '../terrain.js';
 
 export const RB_UNITS = 'RANGE_BEARING_COORDINATE_SYSTEM_DEGREES_M';
-export const RB_DATUM = 'RANGE_BEARING_DATUM_TRUE';
+// A real world's scene is aligned to the national grid, so its bearings are measured from grid north.
+export const rbDatum = () => (terrainState.data?.geo ? 'RANGE_BEARING_DATUM_GRID' : 'RANGE_BEARING_DATUM_TRUE');
 export const deg = (r) => (r * 180) / Math.PI;
 export const round = (x, n = 3) => Number(x.toFixed(n));
 export const clamp = (x, a, b) => Math.min(Math.max(x, a), b);

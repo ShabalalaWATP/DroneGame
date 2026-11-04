@@ -52,13 +52,9 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 **Real-world mapping** (see `docs/REAL_MAPPING_PLAN.md`)
 
-- [x] M0: prove the data
-- [x] M1: separate the world from its source
-- [ ] M2: pack builder and loader, including England lidar
-- [ ] M3: draw the real world, with satellite, hybrid and the map controls
-- [ ] M4: choose the world, place the site and effectors
-- [ ] M5: online extras
-- [ ] M6: Wales and Scotland lidar, and real features
+- [x] M0 to M4, and the map building and live layer from M5
+- [ ] Model site, live OS map and place search (these need an OS API key), Wales and Scotland lidar, sharper aerial photos, and a test on a dense city
+- [ ] Read coordinate limits from the world. The backend still checks against the fixed `WORLD_LIMIT` in `backend/app/schemas.py`, one of the mapping plan's small asks of the rebuild, and it matters once real worlds differ in size.
 
 ## Known limits to fix if they start to matter
 

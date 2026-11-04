@@ -52,6 +52,10 @@ An independent security review on the same date found one low-severity bug, now 
 - **Kept runs sit in browser storage** until the server returns, readable by anything running on the same origin.
 - **A run can occasionally be saved twice,** if the page closes or the connection drops after the server stored it but before its answer arrived, or if two tabs retry together. The player can delete the extra row. The saver prefers a duplicate to a lost run.
 - **The OpenStreetMap demo layer contacts an outside server.** It is off by default and uses a fixed area. Turning it on sends tile requests, with this site's origin as the referrer, to `tile.openstreetmap.org`, which the Content Security Policy now allows for images only. Do not reuse it for a real site, as the requests reveal the area being viewed.
+- **Real maps add outside contact, only when asked.** Live OpenStreetMap is off by default, and turning it on sends tile requests to `tile.openstreetmap.org`, which the Content Security Policy now allows for images only. Building a pack sends requests to OS, the Environment Agency and AWS. Each reveals the area of interest, so use a pack built beforehand, and no live layer, for a sensitive site.
+- **The laptop's location stays in the browser** unless the player deploys there. It is never put in a URL. Deploying there stores the site's grid reference in the unencrypted database and in kept runs, as with any real site.
+- **Map packs are untrusted files.** The browser checks the header, section bounds, declared sizes during decompression, the fingerprint and every height before use. Names from a pack are only drawn on a canvas. Packs stay out of git.
+- **The map builder runs as a separate process,** with a list of arguments and no shell, one at a time, from validated numbers. The server only serves plain `.sgmap` names from its own folder.
 - **`Cross-Origin-Resource-Policy` and the rest of the headers rely on a modern browser.**
 
 ## Before hosting

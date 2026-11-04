@@ -101,5 +101,5 @@ export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getT
     } else ghost.visible = false;
   }
 
-  return { refresh, update };
+  return { refresh, update, cursor: () => (mouseOnGround ? { x: mouseGround.x, z: mouseGround.z } : null) };
 }
