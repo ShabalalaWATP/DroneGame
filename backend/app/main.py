@@ -1,4 +1,4 @@
-"""The application: stores saved laydowns, run history and tuning. It takes no part in live play."""
+"""The application: stores saved laydowns, run history and tuning, and serves the built game. It takes no part in live play."""
 
 import os
 from collections.abc import AsyncIterator
@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.db.connection import open_database
@@ -15,10 +16,12 @@ from app.routes.api import router
 from app.security import ALLOWED_HOSTS, RequestGuard, SecurityHeaders
 from app.services.records import NotFound
 
-DEFAULT_DB = Path(__file__).parent.parent / "data" / "siteguard.db"
+BACKEND = Path(__file__).parent.parent
+DEFAULT_DB = BACKEND / "data" / "siteguard.db"
+DEFAULT_GAME = BACKEND.parent / "frontend" / "dist"
 
 
-def create_app(db_path: Path | None = None) -> FastAPI:
+def create_app(db_path: Path | None = None, game: Path = DEFAULT_GAME) -> FastAPI:
     path = db_path or Path(os.environ.get("SITE_GUARD_DB", DEFAULT_DB))
 
     @asynccontextmanager
@@ -39,6 +42,14 @@ def create_app(db_path: Path | None = None) -> FastAPI:
     async def invalid(_: Request, exc: RequestValidationError) -> JSONResponse:
         # says what is wrong and where, without echoing the input back
         return JSONResponse({"detail": [{"loc": e["loc"], "msg": e["msg"]} for e in exc.errors()]}, status_code=422)
+
+    # Only the built game is served, never the project folder, so the database and source stay out of reach.
+    if game.is_dir():
+        app.mount("/", StaticFiles(directory=game, html=True))
+    else:
+        @app.get("/", include_in_schema=False)
+        async def not_built() -> JSONResponse:
+            return JSONResponse({"detail": "The game has not been built yet. Run: npm --prefix frontend run build"}, status_code=503)
 
     app.add_middleware(RequestGuard)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)  # stops DNS rebinding

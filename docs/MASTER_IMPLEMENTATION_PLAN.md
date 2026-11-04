@@ -273,10 +273,10 @@ This is the one phase that deliberately changes results, so it gets its own re-b
 
 ### Phase 8: Cut-over and documentation
 
-- [ ] FastAPI serves the built frontend, with one documented command to build and one to run
-- [ ] Replace `README.txt` with a proper README
-- [ ] Write the README, `docs/DEVELOPMENT_STORY.md`, `docs/SECURITY_NOTES.md` and ADRs for the simulation location and for choosing `sqlite3`
-- [ ] Add CI only if a remote exists by then
+- [x] FastAPI serves the built frontend, with one documented command to build and one to run
+- [x] Replace `README.txt` with a proper README
+- [x] Write the README, `docs/DEVELOPMENT_STORY.md`, `docs/SECURITY_NOTES.md` and ADRs for the simulation location and for choosing `sqlite3`
+- [x] Add CI only if a remote exists by then
 - [ ] Run the security and code quality reviewers over the whole branch
 
 **Done when:** a clean clone can be installed and played by following only the README.

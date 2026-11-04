@@ -173,8 +173,52 @@ class TestHeaders:
         assert client.get("/redoc").status_code == 404
 
     def test_nothing_else_is_served(self, client, db_path):
-        for path in ["/", f"/{db_path.name}", "/data/test.db", "/app/main.py", "/../pyproject.toml", "/.git/config"]:
+        for path in [f"/{db_path.name}", "/data/test.db", "/app/main.py", "/../pyproject.toml", "/.git/config"]:
             assert client.get(path).status_code == 404, path
+
+
+class TestServingTheGame:
+    @pytest.fixture
+    def game(self, tmp_path):
+        folder = tmp_path / "dist"
+        (folder / "assets").mkdir(parents=True)
+        (folder / "index.html").write_text("<!doctype html><title>Site Guard</title>", encoding="utf-8")
+        (folder / "assets" / "index.js").write_text("console.log(1)", encoding="utf-8")
+        (tmp_path / "secret.db").write_text("private", encoding="utf-8")
+        return folder
+
+    @pytest.fixture
+    def site(self, game, tmp_path):
+        with TestClient(create_app(tmp_path / "data" / "t.db", game=game), base_url="http://localhost") as c:
+            yield c
+
+    def test_the_game_and_the_api_share_one_origin(self, site):
+        page = site.get("/")
+        assert page.status_code == 200 and "Site Guard" in page.text
+        assert site.get("/assets/index.js").status_code == 200
+        assert site.get(f"{API}/health").json() == {"status": "ok"}
+        assert site.post(f"{API}/laydowns", json=laydown()).status_code == 201
+
+    def test_the_page_gets_the_protections_too(self, site):
+        headers = site.get("/").headers
+        assert "script-src 'self'" in headers["content-security-policy"]
+        assert "unsafe-inline" not in headers["content-security-policy"]
+        assert headers["x-content-type-options"] == "nosniff"
+        assert site.get("/", headers={"host": "evil.example"}).status_code == 400
+
+    @pytest.mark.parametrize("path", ["/secret.db", "/../secret.db", "/..%2Fsecret.db", "/%2e%2e/secret.db", "/assets/../../secret.db", "/data/t.db", "/app/main.py", "/assets/"])
+    def test_only_the_built_game_is_reachable(self, site, path):
+        response = site.get(path)
+        assert "private" not in response.text
+        assert response.status_code == 404, path
+
+    def test_writes_cannot_reach_the_files(self, site):
+        assert site.post("/index.html", content="{}", headers={"content-type": "application/json"}).status_code == 405
+
+    def test_says_how_to_build_when_it_is_not_built(self, client):
+        response = client.get("/")
+        assert response.status_code == 503
+        assert "npm --prefix frontend run build" in response.json()["detail"]
 
 
 def test_the_database_path_can_come_from_the_environment(tmp_path, monkeypatch):

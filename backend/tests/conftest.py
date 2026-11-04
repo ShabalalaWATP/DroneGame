@@ -40,5 +40,5 @@ def db_path(tmp_path):
 
 @pytest.fixture
 def client(db_path):
-    with TestClient(create_app(db_path), base_url="http://localhost", raise_server_exceptions=True) as c:
+    with TestClient(create_app(db_path, game=db_path.parent / "no-game"), base_url="http://localhost") as c:
         yield c
