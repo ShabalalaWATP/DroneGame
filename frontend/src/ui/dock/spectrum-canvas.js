@@ -1,12 +1,12 @@
 // Who uses which frequencies, and where your jamming overlaps your own links.
 
-import { COMMS, SPECTRUM, overlaps } from '../../sim/config/index.js';
+import { COMMS, SPECTRUM, STRUCTURES, overlaps } from '../../sim/config/index.js';
 import { hex } from '../hooks.js';
 import { nodeList } from './network-canvas.js';
 
 const F0 = 0.05, F1 = 30;
 
-const jammersOf = (net) => [...net.nodes.values()].filter((n) => n.def.id === 'jammer');
+const jammersOf = (net) => [...net.nodes.values()].filter((n) => n.def.kind === 'jammer');
 
 function usedCellBands(net) { // cellular band id -> nodes using it
   const used = new Map();
@@ -46,7 +46,7 @@ export function drawSpectrum(cv, net) {
     { label: 'Your cellular', items: [...usedBands].map(([id, list]) => ({ label: `${COMMS.cellular.bands[id].label.split(' (')[0]} · ${list.length}`, f: COMMS.cellular.bands[id].f, colour: '#ffab40', active: true })) },
     { label: 'Your Starlink', items: starlinkUsed ? [{ label: 'Ku uplink', f: [COMMS.starlink.band[0]], colour: '#b388ff', active: true }, { label: 'Ku downlink', f: [COMMS.starlink.band[1]], colour: '#b388ff', active: true }] : [] },
     { label: 'Your radars', items: radars.map((r) => ({ label: r.short, f: r.def.emits[0].f, colour: hex(r.def.color), active: true })) },
-    { label: 'RF detector hears', items: nodes.some((n) => n.def.id === 'rf') ? [{ label: '70 MHz – 6 GHz', f: [SPECTRUM.detectorListens], colour: '#00e676', active: true, faint: true }] : [] },
+    { label: 'RF detector hears', items: [...new Set(nodes.filter((n) => n.def.kind === 'rf').map((n) => n.def.id))].map((id) => ({ label: STRUCTURES[id].name, f: STRUCTURES[id].listens, colour: '#00e676', active: true, faint: true })) },
   ];
   const rh = (H - T0 - B) / rows.length;
   for (const { j, id, cid } of jamConflicts(net)) { // red stripes where jamming overlaps your cellular

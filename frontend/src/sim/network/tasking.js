@@ -103,7 +103,7 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
     cueCameras(live);
     for (const s of nodes.values()) {
       if (s.def.role !== 'effector' || s.offline) continue; // an effector we have lost contact with can't be tasked
-      if (s.def.id === 'jammer') {
+      if (s.def.kind === 'jammer') {
         const want = live.some((tr) => distToTrack(s, tr) <= s.def.range) ? 'Jam' : 'Standby';
         if (s.mode !== want && s.modePending !== want) {
           const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { mode_change: want } }, `Mode ${want}`, `Switch ${s.name} to ${want}`);

@@ -1,7 +1,7 @@
 // Keyboard shortcuts. Typing into a field never triggers them.
 
 import { useEffect } from 'react';
-import { STRUCTURES } from '../sim/config/index.js';
+import { TOOLBAR } from '../sim/config/index.js';
 import { view } from '../render/view.js';
 import { useGame } from './hooks.js';
 
@@ -25,8 +25,8 @@ export function useHotkeys() {
       if (e.key === 't' || e.key === 'T') { game.setViewOption('truth', !view.truth); return; }
       if (e.key === 'l' || e.key === 'L') { game.setViewOption('labels', !view.labels); return; }
       if (e.key === 'x' || e.key === 'X') { game.setTool('sell'); return; }
-      const def = Object.values(STRUCTURES).find((d) => d.key === e.key);
-      if (def) game.setTool(def.id);
+      const group = TOOLBAR.find((g) => g.key === e.key);
+      if (group) game.cycleTool(group);
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);

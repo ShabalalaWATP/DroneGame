@@ -9,7 +9,6 @@ export const SPECTRUM = {
     video58: { label: 'Video 5.8 GHz', f: [[5.650, 5.925]], note: 'Common FPV video downlink' },
     gnss: { label: 'GNSS L1/L2', f: [[1.215, 1.255], [1.559, 1.610]], note: 'GPS and similar navigation signals' },
   },
-  detectorListens: [0.07, 6], // the RF detector sweeps 70 MHz to 6 GHz (trade reference)
 };
 export const overlaps = (a, b) => a.some(([a0, a1]) => b.some(([b0, b1]) => a0 < b1 && b0 < a1));
 

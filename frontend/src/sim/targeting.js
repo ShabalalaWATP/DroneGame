@@ -10,7 +10,7 @@ import { removeDrone, spotterBonus } from './drones.js';
 function emitterScore(s) {
   const def = s.def;
   let sig = def.signature || 0;
-  if (def.id === 'jammer' && s.mode !== 'Jam') sig *= 0.1; // a jammer is quiet until it is jamming
+  if (def.kind === 'jammer' && s.mode !== 'Jam') sig *= 0.1; // a jammer is quiet until it is jamming
   if (s.uplink) sig += COMMS[s.uplink].signature;
   return sig;
 }

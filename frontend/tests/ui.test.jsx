@@ -4,7 +4,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGame } from '../src/game.js';
-import { FUSION, WORLD, ADAPT, resetAllFigures, STRUCTURES } from '../src/sim/config/index.js';
+import { FUSION, WORLD, ADAPT, resetAllFigures, TOOLBAR } from '../src/sim/config/index.js';
 import { view } from '../src/render/view.js';
 import { GameContext } from '../src/ui/hooks.js';
 import { useHotkeys } from '../src/ui/useHotkeys.js';
@@ -74,7 +74,7 @@ describe('toolbar', () => {
     expect($('.tool.active').textContent).toContain('Sell');
     game.sim.state.budget = 10;
     refresh();
-    expect(document.querySelectorAll('.tool.poor').length).toBe(Object.keys(STRUCTURES).length);
+    expect(document.querySelectorAll('.tool.poor').length).toBe(TOOLBAR.length);
   });
 });
 

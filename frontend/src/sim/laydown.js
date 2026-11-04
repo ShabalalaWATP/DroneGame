@@ -7,8 +7,16 @@ import { terrainState } from './terrain.js';
 import { u, hdist, hereU } from './units.js';
 import { buyTerminal, money } from './economy.js';
 
+// A unit's own definition sits over the catalogue's, so figure edits still reach it and one unit can change alone.
+function unitDef(catalogue) {
+  const def = Object.create(catalogue);
+  def.sapient = { ...catalogue.sapient };
+  if (catalogue.sapient.noise) def.sapient.noise = { ...catalogue.sapient.noise };
+  return def;
+}
+
 export function addStructure(w, id, x, z) {
-  const def = STRUCTURES[id];
+  const def = unitDef(STRUCTURES[id]);
   const y = hereU(x, z);
   const s = { def, health: def.health || 30, pos: new Vector3(x, y, z), cd: 0, aim: 0, beamTarget: null };
   w.structures.push(s);

@@ -1,0 +1,163 @@
+// @vitest-environment jsdom
+// Small, medium and large systems: the catalogue, the toolbar and its hotkeys, and each unit's own definition.
+
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createGame } from '../src/game.js';
+import { STRUCTURES, TOOLBAR, firstClass, resetAllFigures } from '../src/sim/config/index.js';
+import { GameContext } from '../src/ui/hooks.js';
+import { Toolbar } from '../src/ui/Toolbar.jsx';
+import { useHotkeys } from '../src/ui/useHotkeys.js';
+import { play, setUp } from './support/scenarios.js';
+import { createFakeApi, createFakeStorage } from './support/fake-api.js';
+
+let game;
+const $ = (sel) => document.querySelector(sel);
+const group = (kind) => TOOLBAR.find((g) => g.kind === kind);
+
+beforeEach(() => {
+  game = createGame({ seed: '1', terrainSeed: '1', api: createFakeApi(), storage: createFakeStorage() });
+  game.getReplay = () => null;
+});
+afterEach(() => { cleanup(); resetAllFigures(); });
+
+describe('the catalogue', () => {
+  it('puts every system in exactly one toolbar row, of its own kind', () => {
+    const listed = TOOLBAR.flatMap((g) => g.classes);
+    expect([...listed].sort()).toEqual(Object.keys(STRUCTURES).sort());
+    for (const g of TOOLBAR) for (const id of g.classes) expect(STRUCTURES[id].kind).toBe(g.kind);
+  });
+
+  it('offers the medium size first, and orders sizes small to large', () => {
+    for (const g of TOOLBAR.filter((row) => row.classes.length > 1)) {
+      expect(g.classes.map((id) => STRUCTURES[id].size)).toEqual(['S', 'M', 'L']);
+      expect(STRUCTURES[firstClass(g)].size).toBe('M');
+      const [s, m, l] = g.classes.map((id) => STRUCTURES[id]);
+      expect(s.range).toBeLessThan(m.range);
+      expect(m.range).toBeLessThan(l.range);
+      expect(s.cost).toBeLessThan(m.cost);
+      expect(m.cost).toBeLessThan(l.cost);
+    }
+  });
+
+  // Every system plays a real wave, so a new one cannot break the simulation unnoticed.
+  it.each(Object.keys(STRUCTURES))('%s plays through a wave', (id) => {
+    setUp(game.sim, { seed: '1', laydown: [[id, 600, 0], ['radar', -600, 0]] });
+    play(game.sim, 1);
+    expect(game.sim.state.wave).toBe(1);
+    expect(game.sim.state.waveActive).toBe(false);
+  }, 60000);
+
+  it.each(['jammer_s', 'jammer', 'jammer_l'])('%s jams, and its kills count as jamming', (id) => {
+    setUp(game.sim, { seed: '1', laydown: [[id, 300, 300], [id, -300, 300], [id, 300, -300], [id, -300, -300], ['radar', -500, 0]] });
+    play(game.sim, 1);
+    expect(game.sim.ledger.killedBy.jammer.fpv).toBeGreaterThan(0);
+  }, 60000);
+});
+
+describe('the toolbar', () => {
+  const show = () => render(<GameContext.Provider value={game}><Toolbar /></GameContext.Provider>);
+
+  it('has one row per kind, and picks a size with its button', () => {
+    show();
+    expect(document.querySelectorAll('.tool-row').length).toBe(TOOLBAR.length);
+    expect(document.querySelectorAll('.tool-sizes button').length).toBe(12);
+    fireEvent.click($('[data-tool="radar_l"]'));
+    expect(game.getTool()).toBe('radar_l');
+    expect($('.tool.active').textContent).toContain('$2.5M');
+    expect($('[data-tool="radar_l"]').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('the row\'s own button offers the size last picked, and switches it off', () => {
+    show();
+    fireEvent.click($('[data-tool="rf_s"]'));
+    fireEvent.click($('[data-tool="rf_s"]'));
+    expect(game.getTool()).toBeNull();
+    fireEvent.click(document.querySelectorAll('.tool-row')[1].querySelector('.tool'));
+    expect(game.getTool()).toBe('rf_s');
+    fireEvent.click(document.querySelectorAll('.tool-row')[1].querySelector('.tool'));
+    expect(game.getTool()).toBeNull();
+  });
+
+  it('remembers a size the wizard picks, and marks a single-size system for its spotlight', () => {
+    show();
+    act(() => game.setTool('jammer_l'));
+    expect(game.toolChoice(group('jammer'))).toBe('jammer_l');
+    expect($('[data-tool="interceptor"]').className).toContain('tool');
+  });
+});
+
+describe('the hotkeys', () => {
+  const Keys = () => { useHotkeys(); return null; };
+  const press = (key) => fireEvent.keyDown(window, { key });
+  const show = () => render(<GameContext.Provider value={game}><Keys /></GameContext.Provider>);
+
+  it('picks medium, then cycles through the sizes', () => {
+    show();
+    press('1');
+    expect(game.getTool()).toBe('radar');
+    press('1');
+    expect(game.getTool()).toBe('radar_l');
+    press('1');
+    expect(game.getTool()).toBe('radar_s');
+    press('1');
+    expect(game.getTool()).toBe('radar');
+  });
+
+  it('goes back to the size last used, and another kind\'s key moves to that kind', () => {
+    show();
+    press('2');
+    press('2');
+    press('4');
+    expect(game.getTool()).toBe('jammer');
+    press('2');
+    expect(game.getTool()).toBe('rf_l');
+  });
+
+  it('switches a single-size system off on the second press', () => {
+    show();
+    press('7');
+    expect(game.getTool()).toBe('laser');
+    press('7');
+    expect(game.getTool()).toBeNull();
+  });
+});
+
+describe('each unit\'s own definition', () => {
+  const two = () => {
+    setUp(game.sim, { seed: '1', laydown: [['radar', 600, 0], ['radar', -600, 0]] });
+    return game.sim.structures;
+  };
+
+  it('an edit to one unit moves neither another unit nor the catalogue', () => {
+    const [a, b] = two();
+    a.def.cost = 1;
+    a.def.sapient.interval = 5;
+    a.def.sapient.noise.az = 9;
+    for (const other of [b.def, STRUCTURES.radar]) {
+      expect(other.cost).toBe(900000);
+      expect(other.sapient.interval).toBe(1);
+      expect(other.sapient.noise.az).toBe(0.6);
+    }
+  });
+
+  it('a figure edit reaches units already placed', () => {
+    const [a] = two();
+    game.commands.setFigure('structures', 'radar', 'published', 3000);
+    expect(a.def.range).toBe(3000);
+    game.commands.setRangeScale(2);
+    expect(a.def.range).toBe(6000);
+    game.commands.setRangeScale(1);
+  });
+
+  it('refunds and counts use the unit\'s own price', () => {
+    const [a] = two();
+    a.def.cost = 1000;
+    const budget = game.sim.state.budget;
+    game.commands.wireNode(a, null);
+    const unwired = game.sim.state.budget;
+    expect(unwired).toBeGreaterThanOrEqual(budget);
+    game.commands.sell(a.pos.x, a.pos.z);
+    expect(game.sim.state.budget).toBe(unwired + 1000);
+  });
+});

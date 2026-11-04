@@ -6,7 +6,10 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, JsonValue, StringConstraints
 
 # Names the game uses. A test compares these with the frontend's config, so they cannot drift apart.
-SystemId = Literal["radar", "radar_s", "rf", "camera", "jammer", "interceptor", "missile", "laser"]
+SystemId = Literal[
+    "radar", "radar_s", "radar_l", "rf", "rf_s", "rf_l", "camera", "camera_s", "camera_l",
+    "jammer", "jammer_s", "jammer_l", "interceptor", "missile", "laser",
+]
 Uplink = Literal["starlink", "cellular"]
 CellBand = Literal["B8", "B3", "n78"]
 JamBand = Literal["control900", "control24", "video58", "gnss"]

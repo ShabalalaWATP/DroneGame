@@ -1,10 +1,9 @@
 // 3D models for the systems and the drones.
 
 import * as THREE from 'three';
-import { STRUCTURES, DRONES } from '../sim/config/index.js';
+import { DRONES } from '../sim/config/index.js';
 
-export function buildModel(id) {
-  const def = STRUCTURES[id];
+export function buildModel(def) {
   const g = new THREE.Group();
   const parts = {};
   const mat = (c, e = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.3, emissive: c, emissiveIntensity: e });
@@ -13,7 +12,7 @@ export function buildModel(id) {
   const mast = (h) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.25, h, 10), mat(0x6b7480)); m.position.y = 0.6 + h / 2; g.add(m); };
   const head = new THREE.Group(); parts.head = head; g.add(head);
 
-  switch (id) {
+  switch (def.model || def.id) {
     case 'radar': {
       mast(3); head.position.y = 3.8;
       head.add(new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 0.15), mat(def.color, 0.3)));

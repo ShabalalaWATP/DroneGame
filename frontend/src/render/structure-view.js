@@ -30,8 +30,8 @@ export function createStructureViews(scene, sim, labels) {
   function create(s) {
     const def = s.def;
     const holder = new THREE.Group();
-    const { group: model, parts } = buildModel(def.id);
-    model.scale.setScalar(STRUCT_SCALE);
+    const { group: model, parts } = buildModel(def);
+    model.scale.setScalar(STRUCT_SCALE * (def.modelScale || 1));
     holder.add(model);
     holder.position.copy(s.pos);
     scene.add(holder);

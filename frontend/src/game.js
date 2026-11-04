@@ -1,7 +1,7 @@
 // Wires the simulation to the 3D view and runs the frame loop. React reads from here through useTick and never owns game state.
 
 import * as THREE from 'three';
-import { WORLD } from './sim/config/index.js';
+import { STRUCTURES, WORLD, firstClass } from './sim/config/index.js';
 import { createSimulation, SIM_STEP } from './sim/simulation.js';
 import { createGameView } from './render/game-view.js';
 import { createPlacement, pickStructure, selectionFrom } from './render/placement.js';
@@ -55,10 +55,20 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   let tool = null; // structure id | 'sell' | null
   let selectHinted = false; // the first placement says that systems can be clicked
 
+  const sizes = {}; // kind -> the size last picked, which the toolbar offers next
   function setTool(t) {
     tool = tool === t ? null : t;
+    if (STRUCTURES[tool]) sizes[STRUCTURES[tool].kind] = tool;
     if (placement) placement.refresh();
     bump();
+  }
+
+  const toolChoice = (group) => sizes[group.kind] || firstClass(group);
+  // A hotkey: the first press picks the kind, and pressing it again moves to the next size. With only one size, it switches off.
+  function cycleTool(group) {
+    const at = group.classes.indexOf(tool);
+    if (at < 0) setTool(toolChoice(group));
+    else setTool(group.classes.length > 1 ? group.classes[(at + 1) % group.classes.length] : tool);
   }
 
   function groundClick(x, z) {
@@ -151,7 +161,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
 
   return {
     sim, commands, clock, setSpeed, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
-    getTool: () => tool, setTool, select, getSelected,
+    getTool: () => tool, setTool, toolChoice, cycleTool, select, getSelected,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },
     getReplay: () => replay,

@@ -130,7 +130,7 @@ function positionOf(s) {
 
 function Totals({ def, ledger }) {
   const fired = ledger.shots[def.id];
-  const kills = Object.values(ledger.killedBy[def.id] || {}).reduce((a, b) => a + b, 0);
+  const kills = Object.values(ledger.killedBy[def.kind === 'jammer' ? 'jammer' : def.id] || {}).reduce((a, b) => a + b, 0);
   const n = fired ? fired.n : 0;
   const used = def.fire === 'jam' ? '' : `${def.fire === 'beam' ? `${n} s of beam` : plural(n, 'shot')} · `;
   const perKill = fired && kills ? ` · ${money(fired.cost / kills)} a kill` : '';

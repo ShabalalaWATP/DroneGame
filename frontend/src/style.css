@@ -199,6 +199,13 @@ table.mini i { display: inline-block; width: 9px; height: 9px; border-radius: 50
 .tool .s { grid-area: s; font-size: 10px; color: #ef9a9a; text-align: right; }
 .tool.active { background: #2f4468; border-color: #8fb4ff; box-shadow: 0 0 0 1px #8fb4ff inset; }
 .tool.poor .c { color: #ef5350; }
+.tool-row { position: relative; }
+.tool-row .tool { width: 100%; }
+.tool.sized { padding-bottom: 6px; }
+.tool.sized .k { display: block; }
+.tool-sizes { position: absolute; right: 6px; bottom: 3px; display: flex; gap: 2px; }
+.tool-sizes button { width: 24px; height: 18px; padding: 0; font-size: 10px; line-height: 1; }
+.tool-sizes button.chosen { background: #5c7bb0; border-color: #8fb4ff; color: #fff; font-weight: 700; }
 
 #toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); padding: 8px 16px;
   background: rgba(12, 20, 34, 0.9); border: 1px solid #3a5280; border-radius: 6px;

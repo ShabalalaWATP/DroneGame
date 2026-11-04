@@ -1,6 +1,6 @@
 // The purchase bar: which system is being placed.
 
-import { BUILD, STRUCTURES } from '../sim/config/index.js';
+import { BUILD, STRUCTURES, TOOLBAR } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
 import { hex, useGame, useTick } from './hooks.js';
 
@@ -10,19 +10,39 @@ export function Toolbar() {
   const tool = game.getTool(), budget = game.sim.state.budget;
   return (
     <div id="toolbar" className="panel">
-      {Object.values(STRUCTURES).map((def) => (
-        <button
-          key={def.id}
-          className={`tool${tool === def.id ? ' active' : ''}${budget < def.cost ? ' poor' : ''}`}
-          style={{ borderLeftColor: hex(def.color) }}
-          title={`${def.desc}\nModelled on: ${def.ref.analogues.join(', ')}\nCost ${money(def.cost)}${def.shotCost ? `, ${money(def.shotCost)} per shot` : ''}`}
-          onClick={() => game.setTool(def.id)}
-        >
-          <div className="n">{def.name}</div><div className="c">{money(def.cost)}</div>
-          {def.shotCost > 0 && <div className="s">{money(def.shotCost)}/shot</div>}
-          <div className="k">[{def.key}]</div>
-        </button>
-      ))}
+      {TOOLBAR.map((group) => {
+        const def = STRUCTURES[game.toolChoice(group)], sized = group.classes.length > 1;
+        return (
+          <div className="tool-row" key={group.kind}>
+            <button
+              data-tool={sized ? undefined : def.id}
+              className={`tool${sized ? ' sized' : ''}${group.classes.includes(tool) ? ' active' : ''}${budget < def.cost ? ' poor' : ''}`}
+              style={{ borderLeftColor: hex(def.color) }}
+              title={`${def.name}. ${def.desc}\nModelled on: ${def.ref.analogues.join(', ')}\nCost ${money(def.cost)}${def.shotCost ? `, ${money(def.shotCost)} per shot` : ''}${sized ? `\nPress ${group.key} again for the next size` : ''}`}
+              onClick={() => game.setTool(def.id)}
+            >
+              <div className="n">{group.name}</div><div className="c">{money(def.cost)}</div>
+              {def.shotCost > 0 && <div className="s">{money(def.shotCost)}/shot</div>}
+              <div className="k">[{group.key}]</div>
+            </button>
+            {sized && (
+              <div className="tool-sizes" role="group" aria-label={`${group.name} size`}>
+                {group.classes.map((id) => (
+                  <button
+                    key={id}
+                    data-tool={id}
+                    className={id === def.id ? 'chosen' : ''}
+                    aria-pressed={id === def.id}
+                    aria-label={STRUCTURES[id].name}
+                    title={`${STRUCTURES[id].name}: ${money(STRUCTURES[id].cost)}, ${(STRUCTURES[id].range / 1000).toFixed(1)} km`}
+                    onClick={() => game.setTool(id)}
+                  >{STRUCTURES[id].size}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
       <button className={`tool${tool === 'sell' ? ' active' : ''}`} title="Click a structure to sell it for a refund" onClick={() => game.setTool('sell')}>
         <div className="n">Sell</div><div className="c">{Math.round(BUILD.sellRefund * 100)}%</div><div className="k">[X]</div>
       </button>

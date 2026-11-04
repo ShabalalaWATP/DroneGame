@@ -33,7 +33,7 @@ export function createCore(ctx) {
   const routeTo = (s) => (s === fusion ? gui.nodeId : fusion.nodeId);
   fusion.uplinks = new Set(); fusion.cellBand = 'B8'; // which networks the fusion node has terminals on
   const scheduled = [];     // things that happen when a message arrives: { at, fn }, sorted by time
-  const comms = createComms({ getTime: T, nodes, fusion, gui, getJammers: () => [...nodes.values()].filter((n) => n.def.id === 'jammer') });
+  const comms = createComms({ getTime: T, nodes, fusion, gui, getJammers: () => [...nodes.values()].filter((n) => n.def.kind === 'jammer') });
 
   // Send a message: it is recorded and validated, then the comms model decides how long it takes or whether it is lost.
   const send = (msg, from, to) => {

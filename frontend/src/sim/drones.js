@@ -1,7 +1,7 @@
 // The enemy: launching drones, how they fly and get jammed, and what happens when they are destroyed or get through.
 
 import { Vector3 } from 'three';
-import { WORLD, SITE, STRUCTURES, DRONES, ADAPT } from './config/index.js';
+import { WORLD, SITE, DRONES, ADAPT } from './config/index.js';
 import { rand, gauss } from './rng.js';
 import { u, hdist, clamp, groundM, hereU, SITE_POS } from './units.js';
 import { tally } from './economy.js';
@@ -132,10 +132,10 @@ function moveStrike(w, d, spd) {
 // Returns the speed multiplier, or null if the drone crashed.
 function applyJamming(w, d, dt) {
   const links = d.def.links || {};
-  let ctrl = false, vid = false, gnss = false, killTime = Infinity;
+  let ctrl = false, vid = false, gnss = false, killTime = Infinity, ctrlSlow = 1;
   for (const s of w.structures) {
-    if (s.def.id !== 'jammer' || s.mode !== 'Jam' || s.pos.distanceTo(d.pos) > u(s.def.range)) continue;
-    if (links.control && s.jamBands.has(links.control)) ctrl = true;
+    if (s.def.kind !== 'jammer' || s.mode !== 'Jam' || s.pos.distanceTo(d.pos) > u(s.def.range)) continue;
+    if (links.control && s.jamBands.has(links.control)) { ctrl = true; ctrlSlow = Math.min(ctrlSlow, s.def.slow); }
     if (links.video && s.jamBands.has(links.video)) vid = true;
     if (links.gnss && s.jamBands.has('gnss')) gnss = true;
     killTime = Math.min(killTime, s.def.killTime);
@@ -144,7 +144,7 @@ function applyJamming(w, d, dt) {
   let slow = 1;
   const jamRate = ctrl ? 1 : vid ? 0.5 : 0;
   if (jamRate && eff > 0) {
-    slow = 1 - (1 - (ctrl ? STRUCTURES.jammer.slow : 0.7)) * eff;
+    slow = 1 - (1 - (ctrl ? ctrlSlow : 0.7)) * eff;
     d.jamT += dt * eff * jamRate;
     if (d.jamT >= killTime) {
       recordKill(w, d, 'jammer');

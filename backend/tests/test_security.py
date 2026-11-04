@@ -232,7 +232,7 @@ def test_the_database_path_can_come_from_the_environment(tmp_path, monkeypatch):
 def test_the_names_the_api_accepts_match_the_game():
     """The backend does not import the frontend, so check its config directly: this fails if a system or band is added on one side only."""
     config = Path(__file__).parent.parent.parent / "frontend" / "src" / "sim" / "config"
-    systems = (config / "systems.js").read_text(encoding="utf-8")
+    systems = (config / "sensors.js").read_text(encoding="utf-8") + (config / "effectors.js").read_text(encoding="utf-8")
     comms = (config / "comms.js").read_text(encoding="utf-8")
     assert set(re.findall(r"^  (\w+): \{$", systems, re.M)) == set(SystemId.__args__)
     assert set(Uplink.__args__) <= set(re.findall(r"^  (\w+): \{$", comms, re.M))
