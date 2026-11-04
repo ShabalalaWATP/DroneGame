@@ -99,6 +99,8 @@ Started with measurements rather than code. Two test areas showed lidar works an
 
 The real maps were built on their own branch while the wizard, unit editing and the zone went on `main`, so the two met in one merge. Both were kept. The earlier OpenStreetMap demo stays for generated ground only, as a real world has its own map controls, and the start screen gained the map picker under the wizard's welcome.
 
+The map choice then moved out of the crowded control panel into a switcher beside the minimap, with previews drawn from the pack. A topographic map and contours came from the height grid already in every world, so they needed no new data. Marching squares runs over a lightly smoothed copy, as raw lidar makes contours fizz. Two faults turned up on the way: a stale paint could draw over a newer choice of map, and a failed live map could undo a later choice. Location now falls back to a Wi-Fi estimate if high accuracy times out, and a position outside the world offers a map of that place instead of stopping there.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

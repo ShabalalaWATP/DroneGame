@@ -148,6 +148,9 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     return null;
   }
 
+  // Back to the start screen. The world stays until the next deploy replaces it.
+  function leave() { resetRun('load'); state.started = false; }
+
   // ---------- commands ----------
   const log = []; // [{ step, name, args }]: this run's operator inputs. Systems are logged by node id.
   const logged = (fns) => Object.fromEntries(Object.entries(fns).map(([name, fn]) => [name, (...args) => {
@@ -157,6 +160,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   }]));
   const commands = logged({
     deploy,
+    leave,
     place: (id, x, z) => laydown.place(w, id, x, z),
     sell: (x, z) => laydown.sell(w, x, z),
     startWave: () => startWave(w, beginRun),

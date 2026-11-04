@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { ECONOMY } from '../sim/config/index.js';
 import { enemyCost, money } from '../sim/economy.js';
 import { cleanSeed } from '../game.js';
+import { view } from '../render/view.js';
+import { parseWorldId } from '../sim/world-pack.js';
 import { Debrief } from './assistant/Debrief.jsx';
 import { useGame, useTick } from './hooks.js';
 import { WorldPicker } from './WorldPicker.jsx';
@@ -14,9 +16,10 @@ function StartCard({ openDock }) {
   const game = useGame();
   const { sim, commands } = game;
   const [seed, setSeed] = useState(sim.state.seed);
-  const [terrain, setTerrain] = useState(sim.state.terrainSeed);
+  const onRealMap = !!parseWorldId(sim.state.terrainSeed); // after leaving one, its world string is no use as a terrain seed
+  const [terrain, setTerrain] = useState(onRealMap ? '1' : sim.state.terrainSeed);
   const [realWorld, setRealWorld] = useState(null); // a world string, once a real map and start point are chosen
-  const [wantReal, setWantReal] = useState(false);
+  const [wantReal, setWantReal] = useState(!!view.startAt || onRealMap);
   const deploy = () => {
     const s = cleanSeed(seed.trim());
     if (wantReal) {

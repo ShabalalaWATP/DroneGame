@@ -16,6 +16,8 @@ import { createOsmMap } from './osm-map.js';
 import { createMapTexture } from './map-texture.js';
 import { view } from './view.js';
 
+const FLIGHT_SECONDS = 0.7;
+
 // getMapSource(world): the pictures, roads and names for a real world. The simulation never sees them.
 export function createGameView(canvas, labelLayer, sim, getMapSource = () => null) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -53,8 +55,9 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
   function refreshMap() {
     const data = terrainState.data, source = data.geo && getMapSource(sim.state.terrainSeed);
     if (!source) return Promise.resolve(null);
-    return map.paint(data, source, { baseMap: view.baseMap, roads: view.mapRoads, grid: view.mapGrid }).then((result) => {
-      if (terrainState.data === data) terrainState.hillshade = map.small;
+    if (['satellite', 'hybrid'].includes(view.baseMap) && !source.pictures.some((p) => p.layer === 'satellite')) view.baseMap = 'os'; // the last world had it, this one doesn't
+    return map.paint(data, source, { baseMap: view.baseMap, roads: view.mapRoads, grid: view.mapGrid, contours: view.mapContours }).then((result) => {
+      if (terrainState.data === data && !result.stale) terrainState.hillshade = map.small;
       return result;
     });
   }
@@ -81,15 +84,52 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
     }
     controls.enableRotate = !on;
   }
-  // Move the camera over a point, keeping its angle and distance.
-  function centreOn(x, z) {
-    const dx = x - controls.target.x, dz = z - controls.target.z, dy = groundU(x, z) - controls.target.y;
-    controls.target.x += dx; controls.target.y += dy; controls.target.z += dz;
-    camera.position.x += dx; camera.position.y += dy; camera.position.z += dz;
+  // Glide the camera over a point, keeping its angle, and coming in to `closest` if it is further out than that.
+  let flight = null;
+  function centreOn(x, z, closest = Infinity) {
+    const from = camera.position.clone().sub(controls.target), to = from.clone();
+    if (to.length() > closest) to.setLength(closest);
+    flight = { t: 0, fromTarget: controls.target.clone(), toTarget: new THREE.Vector3(x, groundU(x, z), z), from, to };
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) flight.t = 1;
+  }
+  controls.addEventListener('start', () => { flight = null; }); // the player has taken over
+  function fly(real) {
+    if (!flight) return;
+    flight.t = Math.min(flight.t + real / FLIGHT_SECONDS, 1);
+    const ease = flight.t * flight.t * (3 - 2 * flight.t);
+    controls.target.lerpVectors(flight.fromTarget, flight.toTarget, ease);
+    camera.position.copy(controls.target).add(flight.from.clone().lerp(flight.to, ease));
+    if (flight.t === 1) flight = null;
   }
   const mePin = new THREE.Mesh(new THREE.CylinderGeometry(3, 0.4, 14, 12).translate(0, 7, 0), new THREE.MeshBasicMaterial({ color: 0x2979ff, depthTest: false, transparent: true }));
   mePin.renderOrder = 15; mePin.visible = false;
   scene.add(mePin);
+  let meRing = null, meRingFor = null; // how far off the fix may be, redrawn when a new one arrives
+  function showMe() {
+    mePin.visible = !!view.me;
+    if (meRingFor !== view.me) {
+      if (meRing) { scene.remove(meRing.mesh); meRing.dispose(); meRing = null; }
+      meRingFor = view.me;
+      if (view.me) {
+        meRing = drapedRing(view.me.accuracy, Math.max(0.4, view.me.accuracy * 0.03), 0x2979ff, 0.75, 64);
+        meRing.update(view.me.x, view.me.z);
+        meRing.mesh.position.set(view.me.x, groundU(view.me.x, view.me.z), view.me.z);
+        scene.add(meRing.mesh);
+        mePin.position.set(view.me.x, groundU(view.me.x, view.me.z), view.me.z);
+      }
+    }
+  }
+
+  // Small pictures of each map for the switcher. They are worked out once for each world.
+  let previews = { world: null };
+  function mapPreviews(ids) {
+    const world = sim.state.terrainSeed;
+    if (previews.world === world) return previews.found;
+    const data = terrainState.data, source = data.geo && getMapSource(world);
+    const found = source ? map.previews(data, source, ids) : Promise.resolve({ generated: relief.toDataURL('image/jpeg', 0.8) });
+    previews = { world, found };
+    return found;
+  }
 
   loadWorld();
   sim.on('terrain', loadWorld);
@@ -112,8 +152,8 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
     structures.updateLabels(sim.net);
     drones.updateLabels();
     zone.sync();
-    mePin.visible = !!view.me;
-    if (view.me) mePin.position.set(view.me.x, groundU(view.me.x, view.me.z), view.me.z);
+    showMe();
+    fly(real);
     flash = Math.max(0, flash - real);
     siteMat.emissiveIntensity = flash > 0 ? flash * 1.5 : 0;
     siteRing.mesh.material.opacity = flash > 0 ? 1 : 0.6; // a real site has no station to light up
@@ -128,7 +168,7 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
   resize();
 
   return {
-    scene, camera, controls, labels, structures, update, showOsm, loadOsm: () => osmMap.load(), refreshMap, viewFromAbove, centreOn,
+    scene, camera, controls, labels, structures, update, showOsm, loadOsm: () => osmMap.load(), refreshMap, mapPreviews, viewFromAbove, centreOn,
     getWorldMesh: () => worldView && worldView.mesh,
     draw() { controls.update(); renderer.render(scene, camera); },
     start(frame) { renderer.setAnimationLoop(frame); },

@@ -36,6 +36,7 @@ export function createMinimap(sim, canvas, camera, controls) {
       if (view.zone.closed) g.closePath();
       g.strokeStyle = '#c6ff00'; g.lineWidth = 1.5; g.stroke();
     }
+    if (view.me) { const [x, y] = mmXY(view.me.x * mpu, view.me.z * mpu); g.beginPath(); g.arc(x, y, 4, 0, Math.PI * 2); g.fillStyle = '#2979ff'; g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); }
     if (view.spot) { const [x, y] = mmXY(view.spot.x * mpu, view.spot.z * mpu); g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.strokeStyle = '#c6ff00'; g.lineWidth = 2; g.stroke(); }
     for (const s of sim.structures) {
       const [x, y] = mmXY(s.pos.x * mpu, s.pos.z * mpu);

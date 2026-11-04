@@ -100,6 +100,15 @@ describe('the laptop location', () => {
   it('explains a browser with no location', async () => {
     await expect(locateMe(null)).rejects.toThrow(/cannot share/);
   });
+  it('falls back to a Wi-Fi estimate when high accuracy times out, but not when location is blocked', async () => {
+    const asked = [];
+    const slow = { getCurrentPosition: (yes, no, options) => { asked.push(options.enableHighAccuracy); if (options.enableHighAccuracy) no({ code: 3 }); else fixAt(...NEAR).getCurrentPosition(yes); } };
+    expect((await locateMe(slow)).e).toBeGreaterThan(0);
+    expect(asked).toEqual([true, false]);
+    const blocked = vi.fn((_, no) => no({ code: 1 }));
+    await expect(locateMe({ getCurrentPosition: blocked })).rejects.toThrow(/blocked/);
+    expect(blocked).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('map tiles over a world', () => {
@@ -130,7 +139,7 @@ describe('choosing a world', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, arrayBuffer: async () => buffer })));
     vi.stubGlobal('indexedDB', undefined);
     game = createGame({ seed: '1', terrainSeed: '1', api, storage: createFakeStorage() });
-    Object.assign(view, { baseMap: 'os', mapRoads: false, mapGrid: true, planView: false, me: null, osm: false, zone: null, wizard: 'closed' });
+    Object.assign(view, { baseMap: 'os', mapRoads: false, mapGrid: true, mapContours: false, mapPanel: true, mapLoading: false, startAt: null, planView: false, me: null, osm: false, zone: null, wizard: 'closed' });
     history.replaceState(null, '', '/');
   });
   afterEach(() => { cleanup(); resetAllFigures(); vi.unstubAllGlobals(); });
@@ -210,19 +219,27 @@ describe('choosing a world', () => {
     };
     const fakeView = () => ({ centreOn: vi.fn(), refreshMap: vi.fn(async () => null), viewFromAbove: vi.fn() });
 
-    it('offers only plan view on generated ground', () => {
+    it('offers the generated ground and the live demo on generated ground, and no real overlays', () => {
       show(<MapControls />);
       expect($('#map-plan')).toBeTruthy();
-      expect($('#map-base')).toBeNull();
+      expect($('#map-type-generated').getAttribute('aria-checked')).toBe('true');
+      expect($('#map-type-topo')).toBeNull();
+      expect($('#map-overlays')).toBeNull();
+      fireEvent.click($('#map-type-live'));
+      expect(view.osm).toBe(true);
+      expect($('#map-credit').textContent).toContain('OpenStreetMap');
     });
     it('shows options that cannot be used as greyed out, with the reason', async () => {
       await deployed();
       show(<MapControls />);
-      const sat = [...$('#map-base').options].find((o) => o.value === 'satellite');
-      expect(sat.disabled).toBe(true);
-      expect(sat.textContent).toContain('not in this pack');
+      for (const id of ['satellite', 'hybrid']) {
+        expect($(`#map-type-${id}`).disabled).toBe(true);
+        expect($(`#map-type-${id}`).textContent).toContain('Not in this map pack');
+      }
       expect($('#map-credit').textContent).toContain('OS credit');
       expect(nextBaseMap('live')).toBe('os');
+      expect(nextBaseMap('os')).toBe('topo'); // skips what this pack does not have
+      expect(nextBaseMap('os', { pictures: [{ layer: 'satellite' }] })).toBe('satellite');
     });
     it('centres on this laptop, marks it, and says when it is outside the world', async () => {
       await deployed();
@@ -232,12 +249,17 @@ describe('choosing a world', () => {
       show(<MapControls />);
       fireEvent.click($('#map-me'));
       await until(() => view.me);
-      expect(v.centreOn).toHaveBeenCalledWith(view.me.x, view.me.z);
+      expect(v.centreOn).toHaveBeenCalledWith(view.me.x, view.me.z, 200);
+      expect(view.me.accuracy).toBeGreaterThan(0);
       expect($('#map-message').textContent).toContain('You are at SU');
       useGeolocation(fixAt(...FAR));
       fireEvent.click($('#map-me'));
       await until(() => $('#map-message').textContent.includes('outside this world'));
       expect(view.me).toBeNull();
+      fireEvent.click($('#map-open-here'));
+      expect(game.sim.state.started).toBe(false);
+      expect(view.startAt.note).toContain('Your location');
+      await deployed();
       fireEvent.click($('#map-site'));
       expect(v.centreOn).toHaveBeenCalledWith(0, 0);
     }, 30000);
@@ -262,16 +284,43 @@ describe('choosing a world', () => {
       expect($('#map-message').textContent).toContain('Placed at SU 225 665');
     }, 30000);
 
-    it('offers the OpenStreetMap demo on generated ground only', async () => {
-      const panel = show(<ControlPanel />);
-      expect($('#osm-toggle')).toBeTruthy();
-      panel.unmount();
+    it('switches map from the cards, with roads and contours shown as part of the maps that include them', async () => {
+      await deployed();
+      const v = fakeView();
+      game.getView = () => v;
+      show(<MapControls />);
+      expect($('#topo-legend')).toBeNull();
+      fireEvent.click($('#map-type-topo'));
+      expect(view.baseMap).toBe('topo');
+      expect($('#map-type-topo').getAttribute('aria-checked')).toBe('true');
+      expect($('#map-overlay-mapContours').disabled).toBe(true);
+      expect($('#topo-legend').textContent).toMatch(/Contours every \d+ m/);
+      fireEvent.click($('#map-type-os'));
+      expect($('#topo-legend')).toBeNull();
+      fireEvent.click($('#map-overlay-mapContours'));
+      expect(view.mapContours).toBe(true);
+      expect($('#topo-legend')).toBeTruthy();
+      fireEvent.click($('#map-close'));
+      expect($('#map-panel')).toBeNull();
+    }, 30000);
+    it('leaves the demo credit behind on a real map', async () => {
       await deployed();
       view.osm = true; // left on from generated ground
-      show(<ControlPanel />);
-      expect($('#osm-toggle')).toBeNull();
-      expect($('#osm-credit')).toBeNull();
-      expect($('#map-base')).toBeTruthy();
+      show(<MapControls />);
+      expect($('#map-credit').textContent).toContain('OS credit');
+      expect($('#map-type-generated')).toBeNull();
+    }, 30000);
+    it('goes back to the start screen from a game, and opens on the place asked for', async () => {
+      await deployed();
+      game.commands.place('rf', 25, -25);
+      game.leaveWorld({ e: 422500, n: 166500, note: 'Your location.' });
+      expect(game.sim.state.started).toBe(false);
+      expect(game.sim.structures).toHaveLength(0);
+      show(<Overlay />);
+      expect($('#world-real').checked).toBe(true);
+      await until(() => $('#site-info')?.textContent.includes('Start point'));
+      expect($('#terrain-input').value).toBe('1');
+      expect(view.startAt).toBeNull();
     }, 30000);
     it('keeps the wizard closed when a real deploy is refused', async () => {
       show(<Overlay />);

@@ -7,6 +7,7 @@ import { Hud } from './Hud.jsx';
 import { Toolbar } from './Toolbar.jsx';
 import { ControlPanel } from './ControlPanel.jsx';
 import { Minimap } from './Minimap.jsx';
+import { MapControls } from './MapControls.jsx';
 import { Timeline } from './Timeline.jsx';
 import { Tuning, Legend, Toast, Approvals } from './Panels.jsx';
 import { Sandbox } from './Sandbox.jsx';
@@ -42,6 +43,7 @@ function Screen() {
         <Toolbar />
       </div>
       <Minimap />
+      <MapControls />
       <ControlPanel onToggleDock={() => setDockOpen((o) => !o)} onToggleTuning={() => setTuningOpen((o) => !o)} onSandbox={() => setTuningOpen(false)} />
       <Tuning open={tuningOpen} />
       <WizardButton />
