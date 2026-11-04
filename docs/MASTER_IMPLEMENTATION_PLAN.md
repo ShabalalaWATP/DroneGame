@@ -668,6 +668,29 @@ Stage A3 then adds rename, editing and Sell to the same panel.
 - **Magazines:** [Raytheon Coyote launchers](https://Www.Wikipedia.org/wiki/Raytheon_Coyote), [The Myth of the Infinite Magazine](https://www.laserwars.net/p/laser-weapon-infinite-magazine-myth)
 - **Messages and enemy bands:** [SAPIENT status_report.proto](https://raw.githubusercontent.com/dstl/SAPIENT-Proto-Files/main/bsi_flex_335_v2_0/status_report.proto), [non-standard FPV bands](https://newsukraine.rbc.ua/news/ukraine-faces-new-threat-as-russia-rolls-1781645404.html)
 
+### Feature D: Wizard
+
+A popup that guides a new player from an empty site to the first wave. Built, apart from the items in `docs/TODO.md`. The wireframe is a Design canvas, which Alex edits directly to steer it.
+
+| Step | Done when | Reads |
+|---|---|---|
+| 1 Zone | A zone is closed, or the player skips | `view.zone` |
+| 2 Sensors | A radar and one other kind are placed | `sim.structures` |
+| 3 Effectors | Every drone type has an answer | `engages`, `jamResist`, `engagePolicy` in the config |
+| 4 Network | Nothing is unwired, and the fusion node has a terminal | `sim.unwired()`, `net.fusion.uplinks` |
+| 5 Coverage | The player moves on | `coverageGrid`, clipped to the zone |
+| 6 Rehearse | The player moves on | `state.sandbox` |
+| 7 Refine (optional) | The player moves on | The Sources tab |
+| 8 Pre-flight | The first wave starts | All of the above |
+
+**Rules:**
+
+- **It only reads the game,** and anything that changes it goes through `commands`. A test runs the same game with the wizard reading it throughout and compares digests.
+- **It only uses what the player could see:** the config and the laydown, never `state.queue` or true drone positions. The debrief reads the truth, because the run is over.
+- **Progress comes from the game,** not from stored state, so loading a laydown or selling a radar moves it. Skipped steps are remembered until the run ends.
+- **The zone is a planning aid.** It lives in `view`, never in `sim/`, and saves in the laydown's `spec`. Making it a rule would change targeting and re-baseline every digest.
+- **No tips during a wave,** so a run plays like a simulation. It closes when the first wave starts.
+
 ## Feature parity checklist
 
 Check in a real browser at the end of Phase 5 and again at the end of Phase 8.

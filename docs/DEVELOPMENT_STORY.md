@@ -60,6 +60,18 @@ Stage C1 of the planned features: click a sensor or effector on the map, or its 
 
 Prototyping changed the design before any code was written. Starting wave 1 rebuilds every system with a new id and sometimes a new callsign, so the panel finds its unit again by position. In a real browser, a CSS rule flattened the jammer's list and the panel covered the toolbar with the dock open. jsdom showed neither. The assistant wizard had also taken the planned spot beside the minimap, so the panel moved beside the control panel.
 
+## The wizard
+
+Alex steered this one by editing a wireframe canvas directly: moving the button, marking which decisions they agreed, and striking out in-wave tips because the run should feel like a simulation. The first plan had an AI chat box at its centre. It became a scripted guide, because the browser can only reach its own backend, the game has to work offline, and a coverage gap on a real site should not leave the machine. The chat box stays undecided in `docs/TODO.md`.
+
+Only a real browser showed one bug: the highlight ring landed inside the popup. The popup's blur makes it the frame that fixed-position children are measured from, which jsdom does not model. The ring now draws straight into the page.
+
+## Clicking a system to see what it is
+
+Stage C1 of the planned features: click a sensor or effector on the map, or its button in the Nodes tab, and a panel shows what it is doing, its health, range, ammunition, network link, position and cost. Selection is view state and not a command, so it is never logged and cannot change a run. The reference digests did not move.
+
+Prototyping changed the design before any code was written. Starting wave 1 rebuilds every system with a new id and sometimes a new callsign, so the panel finds its unit again by position. In a real browser, a CSS rule flattened the jammer's list and the panel covered the toolbar with the dock open. jsdom showed neither. The assistant wizard had also taken the planned spot beside the minimap, so the panel moved beside the control panel.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

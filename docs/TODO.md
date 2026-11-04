@@ -40,6 +40,12 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] C1: click a sensor or effector on the map to see its details, read-only
 - [ ] C2: ammunition state, alongside B1
 
+**Feature D: wizard** (the guided steps, zone and debrief are built)
+
+- [ ] Tuning one unit from the wizard, as in wireframe frame 7b. Waits for A3.
+- [ ] Setting the site's location: click a map, or type latitude and longitude, a BNG grid reference, eastings and northings, or MGRS. Waits for M4. MGRS is not in the mapping plan, and latitude and longitude means running the pack's fit backwards.
+- [ ] The Ask box, for typing your own questions. Not built, and the one part still to decide: it needs a language model, so it would go through FastAPI, off by default and blocked on real-site worlds.
+
 **Real-world mapping** (see `docs/REAL_MAPPING_PLAN.md`)
 
 - [ ] M0: prove the data
@@ -53,6 +59,8 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 ## Known limits to fix if they start to matter
 
+- [ ] **A test that sometimes fails.** `save-panels.test.jsx`, "shows kept runs and saves them when the server is back", failed in about 1 of 4 runs on a busy machine: it checks for the error message before the list has finished reloading.
+- [ ] **The wizard on a small window.** Below about 1,380 px wide, the popup covers the left edge of the SAPIENT panel. It can be moved or collapsed. See `#wizard` in `frontend/src/style.css`.
 - [ ] **Automated browser test.** The frame loop and page-load code in `frontend/src/game.js` and most of `frontend/src/render` need WebGL, so they are only checked by hand.
 - [ ] **Duplicate saved runs.** A run can be saved twice if the page closes just after the server stored it, or if two tabs retry together. Fix: send an id the server deduplicates on. See `frontend/src/api/run-saver.js`.
 - [ ] **Back/forward cache.** A page restored this way keeps playing a run that was already recorded when it closed. See `frontend/src/game.js`.

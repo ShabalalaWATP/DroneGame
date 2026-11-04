@@ -41,6 +41,10 @@ It runs entirely on your machine, works offline, and is only reachable from this
 
 Screenshots use scenario seed 7 and terrain seed 3 (`?seed=7&terrain=3`) with the mixed laydown from [`scenarios.js`](frontend/tests/support/scenarios.js).
 
+New to it? Press **Guide me through it** on the start screen. The wizard walks you from an empty site to the first wave: mark the area you are defending, place sensors and effectors, network them, check coverage, rehearse in the sandbox, adjust the figures if you want to, then commit. It works out where you are from the game itself, so you can skip around or close it at any time, and **Open the wizard** brings it back. Drag it by its header if it is in the way. Once a run starts it steps back, with no tips during a wave. When the site falls, a debrief shows what got through and can replay the first leak.
+
+The area you mark is a planning aid. It scores your coverage and saves with the laydown, but drones still aim for the station and for loud emitters, and it cannot change a run.
+
 ### 1. Build a laydown
 
 Press **Deploy**, pick a system from the left (or press 1 to 8), and click the ground to place it. Everything comes out of one budget, including every shot fired, and nothing is earned back. No single system handles every drone.
@@ -120,6 +124,8 @@ The **Sources** tab shows the evidence and confidence behind each figure, and ev
 | Space | Pause, or play and pause a replay |
 | Left, Right | Step back and forward through the timeline |
 | R, T, L | Ranges, truth overlay, labels |
+
+Drag the wizard, the Sandbox panel or an approval card out of the way. Double-click to put it back.
 
 The same scenario seed, terrain seed and laydown give the same run. Time between later waves is part of what you did, so it changes the run's noise but not the attack.
 
@@ -208,6 +214,8 @@ frontend/src/
     sapient.js  Message envelope, validation and the message bus.
   render/     Three.js. Reads simulation state each frame, and never changes it.
   ui/         React panels, refreshed about 10 times a second.
+    assistant/  The wizard: its steps, and what it reads from the game.
+  zone.js     The area to defend. Stays out of the simulation.
   api/        The backend client, and keeping runs safe when it is down.
   game.js     Wires the simulation to the view and runs the frame loop.
 backend/app/
