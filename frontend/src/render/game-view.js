@@ -11,6 +11,7 @@ import { createStructureViews } from './structure-view.js';
 import { createDroneViews } from './drone-view.js';
 import { createBeliefViews } from './belief-view.js';
 import { createEffects } from './effects.js';
+import { createZoneView } from './zone-view.js';
 
 export function createGameView(canvas, labelLayer, sim) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -53,6 +54,8 @@ export function createGameView(canvas, labelLayer, sim) {
   const drones = createDroneViews(scene, sim, labels, camera);
   const beliefs = createBeliefViews(scene, sim.net, camera, labelLayer);
   const effects = createEffects(scene, sim);
+  const zone = createZoneView(scene);
+  sim.on('terrain', zone.redraw);
 
   // Show the live state of the simulation. Replay runs after this and hides what it replaces.
   function update(real) {
@@ -62,6 +65,7 @@ export function createGameView(canvas, labelLayer, sim) {
     beliefs.update();
     structures.updateLabels(sim.net);
     drones.updateLabels();
+    zone.sync();
     flash = Math.max(0, flash - real);
     siteMat.emissiveIntensity = flash > 0 ? flash * 1.5 : 0;
   }

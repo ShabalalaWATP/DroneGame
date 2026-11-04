@@ -13,6 +13,7 @@ import { Sandbox } from './Sandbox.jsx';
 import { Overlay } from './Overlay.jsx';
 import { Dock } from './dock/Dock.jsx';
 import { UnitPanel } from './UnitPanel.jsx';
+import { Wizard, WizardButton } from './assistant/Wizard.jsx';
 
 // Owns the canvas: the Three.js scene stays imperative, because per-frame updates should not go through React.
 function GameCanvas() {
@@ -29,7 +30,9 @@ function GameCanvas() {
 
 function Screen() {
   const [dockOpen, setDockOpen] = useState(false);
+  const [dockTab, setDockTab] = useState('messages');
   const [tuningOpen, setTuningOpen] = useState(false);
+  const openDock = (tab) => { setDockTab(tab); setDockOpen(true); };
   useHotkeys();
   return (
     <>
@@ -41,14 +44,16 @@ function Screen() {
       <Minimap />
       <ControlPanel onToggleDock={() => setDockOpen((o) => !o)} onToggleTuning={() => setTuningOpen((o) => !o)} onSandbox={() => setTuningOpen(false)} />
       <Tuning open={tuningOpen} />
-      <Dock open={dockOpen} onClose={() => setDockOpen(false)} />
+      <WizardButton />
+      <Dock open={dockOpen} onClose={() => setDockOpen(false)} tab={dockTab} onTab={setDockTab} />
       <UnitPanel />
       <Sandbox />
       <Legend />
       <Toast />
       <Approvals />
       <Timeline />
-      <Overlay />
+      <Wizard openDock={openDock} closeDock={() => setDockOpen(false)} />
+      <Overlay openDock={openDock} />
     </>
   );
 }

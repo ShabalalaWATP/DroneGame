@@ -30,6 +30,13 @@ export function createMinimap(sim, canvas, camera, controls) {
     ring(BUILD.maxDist, 'rgba(92,123,176,0.9)', [3, 3]);
     ring(WORLD.spawnDist, 'rgba(255,255,255,0.18)', [2, 4]);
     ring(SITE.radius, 'rgba(255,82,82,0.95)');
+    if (view.zone) { // the area to defend
+      g.beginPath();
+      view.zone.points.forEach(([x, z]) => g.lineTo(...mmXY(x * mpu, z * mpu)));
+      if (view.zone.closed) g.closePath();
+      g.strokeStyle = '#c6ff00'; g.lineWidth = 1.5; g.stroke();
+    }
+    if (view.spot) { const [x, y] = mmXY(view.spot.x * mpu, view.spot.z * mpu); g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.strokeStyle = '#c6ff00'; g.lineWidth = 2; g.stroke(); }
     for (const s of sim.structures) {
       const [x, y] = mmXY(s.pos.x * mpu, s.pos.z * mpu);
       const selected = s === view.selected;

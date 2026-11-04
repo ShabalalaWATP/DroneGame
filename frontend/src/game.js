@@ -11,6 +11,7 @@ import { trackColour } from './render/belief-view.js';
 import { view } from './render/view.js';
 import { createApi } from './api/client.js';
 import { createRunSaver } from './api/run-saver.js';
+import { addZonePoint } from './zone.js';
 
 const PANEL_INTERVAL = 100; // ms between panel refreshes: panels never update per frame
 
@@ -52,7 +53,8 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   // ---------- filled in once the canvas exists ----------
   let gameView = null, placement = null, replay = null;
   const frameListeners = new Set();
-  let tool = null; // structure id | 'sell' | null
+  let tool = null; // structure id | 'sell' | 'zone' | null
+  let refusal = null; // why the last placement was refused
   let selectHinted = false; // the first placement says that systems can be clicked
 
   function setTool(t) {
@@ -64,8 +66,13 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   function groundClick(x, z) {
     if (!tool || state.over || !state.started) return;
     if (tool === 'sell') { commands.sell(x, z); return; }
-    const problem = commands.place(tool, x, z);
-    if (problem) toast(problem);
+    if (tool === 'zone') { // a planning aid: it stays out of the simulation and its log
+      view.zone = addZonePoint(view.zone, x, z);
+      if (view.zone && view.zone.closed) setTool('zone'); else bump();
+      return;
+    }
+    refusal = commands.place(tool, x, z);
+    if (refusal) toast(refusal);
     else if (!selectHinted) { selectHinted = true; toast('Placed. Click a name tag for details, or press Esc to stop placing'); }
   }
 
@@ -108,6 +115,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     if (gameView) gameView.clear();
     simAcc = 0; pausedForApproval = false;
     if (!begin) setSpeed(1);
+    if (!kept && !loading) view.zone = null;
     if (!begin && !loading) toast(kept ? 'Run reset: same laydown and seed' : 'New laydown: the site is empty');
     bump();
   });
@@ -151,7 +159,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
 
   return {
     sim, commands, clock, setSpeed, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
-    getTool: () => tool, setTool, select, getSelected,
+    getTool: () => tool, setTool, lastRefusal: () => refusal, select, getSelected,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },
     getReplay: () => replay,

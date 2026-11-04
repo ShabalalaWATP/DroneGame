@@ -1,0 +1,42 @@
+// After the site falls: what got through, and a look back at the first leak. The run is over, so showing the truth is fine.
+
+import { DRONES } from '../../sim/config/index.js';
+import { useGame } from '../hooks.js';
+
+const ADVICE = {
+  fo: 'low, radio silent and hard to see. Try more radar or camera cover, then rehearse it in the sandbox.',
+  fpv: 'fast and agile, but it uses a radio link. Try jammers and interceptors, then rehearse it in the sandbox.',
+  fw: 'fast, high and out of reach of interceptors. Try a missile or a laser, then rehearse it in the sandbox.',
+};
+
+export function Debrief({ onReview }) {
+  const game = useGame();
+  const { ledger, rec } = game.sim;
+  const n = (counts, type) => counts[type] || 0;
+  const worst = Object.keys(ledger.leaked).sort((a, b) => ledger.leaked[b] - ledger.leaked[a])[0];
+  const replay = game.getReplay();
+  const t0 = rec.frames.length ? rec.frames[0].t : 0;
+  const leak = rec.events.find((e) => e.type === 'leak' && e.t >= t0);
+  const review = () => {
+    replay.enter(Math.max(rec.frames.findIndex((f) => f.t >= leak.t) - 4, 0)); // a couple of seconds before it, to see it coming
+    onReview();
+  };
+  return (
+    <div id="debrief">
+      <div className="wz-debrief-head">WIZARD DEBRIEF</div>
+      <h2>What got through</h2>
+      <table className="wz-matrix">
+        <thead><tr><th scope="col">Drone</th><th scope="col">Launched</th><th scope="col">Killed</th><th scope="col">Hit you</th></tr></thead>
+        <tbody>
+          {Object.values(DRONES).map((d) => (
+            <tr key={d.id} className={d.id === worst ? 'gap' : ''}>
+              <th scope="row">{d.name}</th><td>{n(ledger.launched, d.id)}</td><td>{n(ledger.killed, d.id)}</td><td>{n(ledger.leaked, d.id)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {worst && <p>{DRONES[worst].name} did the most damage: {ADVICE[worst] || 'see how it got through on the timeline.'}</p>}
+      {replay && leak && <div className="wz-actions"><button className="wz-go" id="btn-first-leak" onClick={review}>Replay the first leak</button></div>}
+    </div>
+  );
+}

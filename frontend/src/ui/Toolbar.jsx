@@ -13,6 +13,7 @@ export function Toolbar() {
       {Object.values(STRUCTURES).map((def) => (
         <button
           key={def.id}
+          data-tool={def.id}
           className={`tool${tool === def.id ? ' active' : ''}${budget < def.cost ? ' poor' : ''}`}
           style={{ borderLeftColor: hex(def.color) }}
           title={`${def.desc}\nModelled on: ${def.ref.analogues.join(', ')}\nCost ${money(def.cost)}${def.shotCost ? `, ${money(def.shotCost)} per shot` : ''}`}

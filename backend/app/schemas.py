@@ -15,6 +15,7 @@ WORLD_LIMIT = 350  # scene units: the ground reaches 7 km from the site, at 20 m
 MAX_SYSTEMS = 200
 MAX_COMMANDS = 20_000
 MAX_FIGURES_PER_ITEM = 40
+MAX_ZONE_POINTS = 32
 
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
@@ -47,11 +48,12 @@ class PlacedSystem(Strict):
 
 
 class LaydownSpec(Strict):
-    """The shape of captureLaydown() in frontend/src/sim/laydown.js."""
+    """The shape of captureLaydown() in frontend/src/sim/laydown.js, plus the area to defend, which the simulation never reads."""
 
     structures: list[PlacedSystem] = Field(max_length=MAX_SYSTEMS)
     fusionUplinks: list[Uplink] = Field(max_length=2)
     fusionCell: CellBand
+    zone: list[Annotated[list[Coordinate], Field(min_length=2, max_length=2)]] | None = Field(default=None, min_length=3, max_length=MAX_ZONE_POINTS, exclude_if=lambda zone: zone is None)
 
 
 FigureKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_]{1,32}$")]

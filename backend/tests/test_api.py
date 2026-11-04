@@ -1,5 +1,6 @@
 """What the API does, through real HTTP handling and a real SQLite file."""
 
+import pytest
 from conftest import FIGURES, SPEC, figure_set, laydown, run
 
 API = "/api/v1"
@@ -60,6 +61,31 @@ class TestLaydowns:
     def test_an_empty_laydown_is_allowed(self, client):
         empty = {"structures": [], "fusionUplinks": [], "fusionCell": "B8"}
         assert client.post(f"{API}/laydowns", json=laydown(spec=empty)).status_code == 201
+
+    def test_a_zone_is_kept_with_the_laydown(self, client):
+        zone = [[0, 0], [50, 0], [50, 50]]
+        made = client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "zone": zone}))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["zone"] == zone
+
+    def test_a_laydown_with_no_zone_comes_back_as_it_was_sent(self, client):
+        made = client.post(f"{API}/laydowns", json=laydown()).json()
+        assert "zone" not in client.get(f"{API}/laydowns/{made['id']}").json()["spec"]
+
+    @pytest.mark.parametrize(
+        "zone",
+        [
+            [[0, 0], [1, 1]],  # too few to enclose anything
+            [[i, i] for i in range(33)],  # too many
+            [[0, 0], [1, 1], [351, 0]],  # outside the world
+            [[0, 0], [1, 1], [2]],  # not a point
+            [[0, 0], [1, 1], [2, 2, 2]],  # not a point
+            [[0, 0], [1, 1], ["a", 0]],  # not numbers
+            "here",
+        ],
+    )
+    def test_a_bad_zone_is_refused(self, client, zone):
+        assert client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "zone": zone})).status_code == 422
 
 
 class TestRuns:

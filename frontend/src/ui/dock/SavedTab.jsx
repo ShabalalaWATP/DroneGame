@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { GAME_VERSION } from '../../sim/config/index.js';
+import { view } from '../../render/view.js';
+import { withZone, zoneFromSpec } from '../../zone.js';
 import { useArmed, useGame, useLoad } from '../hooks.js';
 
 const when = (iso) => new Date(iso).toLocaleString();
@@ -24,7 +26,7 @@ export function SavedTab({ active }) {
       return true;
     } catch (e) { setNote(e.message); return false; }
   };
-  const body = (n) => ({ name: n, world: sim.state.terrainSeed, spec: sim.currentLaydown(), game_version: GAME_VERSION });
+  const body = (n) => ({ name: n, world: sim.state.terrainSeed, spec: withZone(sim.currentLaydown(), view.zone), game_version: GAME_VERSION });
 
   const save = (e) => {
     e.preventDefault();
@@ -35,6 +37,7 @@ export function SavedTab({ active }) {
     const saved = await api.laydowns.get(row.id);
     const problem = commands.loadLaydown(saved.spec, saved.world);
     if (problem) return problem;
+    game.setViewOption('zone', zoneFromSpec(saved.spec));
     history.replaceState(null, '', `?seed=${encodeURIComponent(sim.state.seed)}&terrain=${encodeURIComponent(saved.world)}`);
     return saved.game_version === GAME_VERSION ? `Loaded "${saved.name}".` : `Loaded "${saved.name}". It was saved by version ${saved.game_version}, so it may not play the same.`;
   }, (message) => message);
