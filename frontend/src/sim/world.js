@@ -35,7 +35,7 @@ export function pickMasts({ N, cell, R, ground }, rng, minGround) {
   return towers;
 }
 
-export function makeWorld({ seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, station }) {
+export function makeWorld({ seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, station, geo = null }) {
   const at = (i, j) => j * N + i;
 
   function groundAt(x, z) { // bilinear
@@ -66,7 +66,7 @@ export function makeWorld({ seed, N, cell, R, ground, canopy, bldg, cover, build
   }
 
   return {
-    seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, station,
+    seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, station, geo, // geo: where a real world is on the grid, or null
     groundAt, cellOf, los,
     coverAt: (x, z) => cover[cellOf(x, z)],
     canopyAt: (x, z) => canopy[cellOf(x, z)],

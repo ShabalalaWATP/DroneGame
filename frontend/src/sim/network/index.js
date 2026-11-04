@@ -11,7 +11,7 @@
 import * as S from '../sapient.js';
 import { FUSION, PERIMETER } from '../config/index.js';
 import { idRand, EPOCH_MS } from '../rng.js';
-import { createCore, RB_UNITS, RB_DATUM } from './core.js';
+import { createCore, RB_UNITS, rbDatum } from './core.js';
 import { createSensors } from './sensors.js';
 import { createRegistration } from './registration.js';
 import { createAlerts, createAuthority } from './authority.js';
@@ -69,7 +69,7 @@ export function createNetwork(ctx) {
     const list = [...nodes.values()].filter((s) => s.def.role === 'sensor');
     const s = list[Math.floor(idRand() * list.length)];
     if (!s) return;
-    const bad = { object_id: S.ulid(), range_bearing: { azimuth: 0, coordinate_system: RB_UNITS, datum: RB_DATUM } };
+    const bad = { object_id: S.ulid(), range_bearing: { azimuth: 0, coordinate_system: RB_UNITS, datum: rbDatum() } };
     send(S.envelope(s.nodeId, 'detection_report', bad), s.nodeId, fusion.nodeId);
   }
 

@@ -32,7 +32,7 @@ export const FIELD_HELP = {
   range: 'Distance from the sensor, in metres. Missing for sensors that cannot measure it (a camera or RF direction finder).',
   azimuth_error: 'How uncertain the azimuth is (degrees).', elevation_error: 'How uncertain the elevation is (degrees).',
   range_error: 'How uncertain the range is (metres).',
-  coordinate_system: 'The units and frame the numbers are in.', datum: 'The reference the angles are measured from (true north here).',
+  coordinate_system: 'The units and frame the numbers are in.', datum: 'The reference the angles are measured from (true north on generated ground, grid north on a real map).',
   detection_confidence: 'How sure the sensor is that this is a real detection (0 to 1).',
   classification: 'What the sensor thinks it is, as a family tree (Air Vehicle, then UAV, then Multirotor or Fixed wing).',
   confidence: 'How sure that classification is (0 to 1).', sub_class: 'A more specific class inside the one above.', level: 'How deep in the family tree this class is.',
@@ -70,7 +70,7 @@ export const ENUM_HELP = {
   NODE_TYPE_LDEW: 'a laser', NODE_TYPE_FUSION_NODE: 'the fusion node', NODE_TYPE_PROXIMITY_SENSOR: 'a close-range sensor',
   MODE_TYPE_DEFAULT: 'the mode it starts in', MODE_TYPE_TEMPORARY: 'a mode it can be switched into',
   DISCRETE_PRIORITY_HIGH: 'high', DISCRETE_PRIORITY_MEDIUM: 'medium', DISCRETE_PRIORITY_LOW: 'low',
-  RANGE_BEARING_COORDINATE_SYSTEM_DEGREES_M: 'angles in degrees, range in metres', RANGE_BEARING_DATUM_TRUE: 'measured from true north',
+  RANGE_BEARING_COORDINATE_SYSTEM_DEGREES_M: 'angles in degrees, range in metres', RANGE_BEARING_DATUM_TRUE: 'measured from true north', RANGE_BEARING_DATUM_GRID: 'measured from grid north',
   LOCATION_COORDINATE_SYSTEM_LAT_LNG_DEG_M: 'latitude and longitude in degrees, height in metres', LOCATION_DATUM_WGS84_E: 'the standard GPS reference',
   POWERSOURCE_MAINS: 'mains power', STATUS_TYPE_CLUTTER: 'ground clutter is affecting it',
 };

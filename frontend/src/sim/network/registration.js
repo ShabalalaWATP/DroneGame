@@ -3,7 +3,7 @@
 import * as S from '../sapient.js';
 import { FUSION } from '../config/index.js';
 import { rand } from '../rng.js';
-import { RB_UNITS, RB_DATUM, dur } from './core.js';
+import { RB_UNITS, rbDatum, dur } from './core.js';
 
 export function createRegistration(core, raiseAlert) {
   const { ctx, mpu, T, nodes, names, comms, routeTo, send, deliver, antennaM } = core;
@@ -26,7 +26,7 @@ export function createRegistration(core, raiseAlert) {
         settle_time: dur(0), maximum_latency: dur(sp.interval || 1),
         scan_type: sp.scan, tracking_type: 'TRACKING_TYPE_TRACK',
         detection_definition: [{
-          location_type: { range_bearing_units: RB_UNITS, range_bearing_datum: RB_DATUM },
+          location_type: { range_bearing_units: RB_UNITS, range_bearing_datum: rbDatum() },
           detection_class_definition: [{ class_definition: [{ type: 'Air Vehicle', sub_class: [{ type: 'UAV' }] }] }],
         }],
       }));
