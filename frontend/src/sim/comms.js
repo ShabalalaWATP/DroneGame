@@ -9,7 +9,7 @@
 // The result for each message is a delay (or a drop with a reason). Every packet is recorded for the network diagram.
 // No game rendering here, so it can run headless.
 
-import { WORLD, TERRAIN, COMMS, SPECTRUM, overlaps } from './config.js';
+import { WORLD, TERRAIN, COMMS, SPECTRUM, overlaps } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { rand } from './rng.js';
 

@@ -4,10 +4,10 @@
 //  - Spectrum: who uses which frequencies, and where your jamming overlaps your own links.
 //  - Learn: a guided tour of how SAPIENT messages flow, with real examples from this run, and "follow a track".
 
-import { bus } from './sapient.js';
-import { COMMS, SPECTRUM, STRUCTURES, DRONES, overlaps } from './config.js';
+import { bus } from '../sim/sapient.js';
+import { COMMS, SPECTRUM, STRUCTURES, DRONES, overlaps } from '../sim/config/index.js';
 import { annotate } from './sapient-help.js';
-import { view } from './view.js';
+import { view } from '../render/view.js';
 
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

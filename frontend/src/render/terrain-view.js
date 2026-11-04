@@ -2,9 +2,9 @@
 // drape range rings over the ground and draw a hillshade for the plan map. The data comes from terrain.js.
 
 import * as THREE from 'three';
-import { WORLD, TERRAIN, COMMS } from './config.js';
-import { terrainState } from './terrain.js';
-import { mulberry32, hashSeed } from './rng.js';
+import { WORLD, TERRAIN, COMMS } from '../sim/config/index.js';
+import { terrainState } from '../sim/terrain.js';
+import { mulberry32, hashSeed } from '../sim/rng.js';
 
 const MPU = () => WORLD.metresPerUnit;
 const u = (m) => m / MPU();

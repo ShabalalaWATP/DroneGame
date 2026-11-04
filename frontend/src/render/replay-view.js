@@ -4,7 +4,7 @@
 // "Live" returns to where the run had got to.
 
 import * as THREE from 'three';
-import { WORLD, DRONES, STRUCTURES } from './config.js';
+import { WORLD, DRONES, STRUCTURES } from '../sim/config/index.js';
 import { view } from './view.js';
 
 export const SNAPSHOT_EVERY = 10; // simulation steps per snapshot (10 x 0.05 s = 0.5 s)

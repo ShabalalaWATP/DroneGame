@@ -6,7 +6,7 @@
 // emulation fills a free-form field (classification type names, Task `request` strings) the values are
 // illustrative, not taken from the standard.
 
-import { GEO } from './config.js';
+import { GEO } from './config/index.js';
 import { idRand, EPOCH_MS } from './rng.js';
 
 export const ICD_VERSION = 'BSI Flex 335 v2.0';

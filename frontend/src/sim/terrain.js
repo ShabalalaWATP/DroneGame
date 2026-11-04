@@ -2,7 +2,7 @@
 // No rendering here (see terrain-view.js), so it can run headless. Coordinates are metres in scene axes:
 // x is east, z is south (north is -z), y is height above the station base.
 
-import { WORLD, TERRAIN, COMMS } from './config.js';
+import { WORLD, TERRAIN, COMMS } from './config/index.js';
 import { mulberry32, hashSeed } from './rng.js';
 
 // The terrain currently in use. Other modules read it through the helpers below.

@@ -1,17 +1,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
-  WORLD, SITE, BUILD, TERRAIN, ECONOMY, FUSION, WAVES, COMMS, STRUCTURES, DRONES, ADAPT,
-  makeWave, applyRangeScale,
-} from './config.js';
-import { createNetwork } from './network.js';
-import { initDock } from './sapient-ui.js';
-import { bus } from './sapient.js';
-import { view } from './view.js';
-import { seedAll, rand, gauss, waveStream } from './rng.js';
-import { createRecorder, createReplay, SNAPSHOT_EVERY } from './replay.js';
-import { generateTerrain, terrainState } from './terrain.js';
-import { buildWorldView, drapedRing, makeHillshade } from './terrain-view.js';
+  WORLD, SITE, BUILD, TERRAIN, STRUCT_SCALE, ECONOMY, FUSION, WAVES, COMMS, STRUCTURES, DRONES, ADAPT,
+  applyRangeScale,
+} from './sim/config/index.js';
+import { makeWave } from './sim/waves.js';
+import { createNetwork } from './sim/network/index.js';
+import { initDock } from './ui/sapient-ui.js';
+import { bus } from './sim/sapient.js';
+import { view } from './render/view.js';
+import { seedAll, rand, gauss, waveStream } from './sim/rng.js';
+import { createRecorder, createReplay, SNAPSHOT_EVERY } from './render/replay-view.js';
+import { generateTerrain, terrainState } from './sim/terrain.js';
+import { buildWorldView, drapedRing, makeHillshade } from './render/terrain-view.js';
 
 const $ = (id) => document.getElementById(id);
 const SIM_STEP = 0.05; // fixed simulation step in game seconds, so a run does not depend on frame rate
@@ -23,7 +24,6 @@ const u = (metres) => metres / WORLD.metresPerUnit;           // metres -> scene
 const hdist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const STRUCT_SCALE = 3;                                       // structures are drawn larger than true size
 
 // ---------- scene ----------
 const canvas = $('game');

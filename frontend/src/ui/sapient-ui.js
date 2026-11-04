@@ -1,13 +1,13 @@
 // The SAPIENT dock: message log + JSON inspector, node table, plan view of the laydown, and the
 // real-world reference for each purchasable system.
 
-import { bus } from './sapient.js';
+import { bus } from '../sim/sapient.js';
 import {
   STRUCTURES, DRONES, WORLD, BUILD, SITE, ECONOMY, WAVES, COMMS, FIGURE_FIELDS, RESEARCHED,
   setFigure, resetFigure, resetAllFigures, exportFigures, importFigures, applyRangeScale,
-} from './config.js';
-import { view } from './view.js';
-import { terrainState } from './terrain.js';
+} from '../sim/config/index.js';
+import { view } from '../render/view.js';
+import { terrainState } from '../sim/terrain.js';
 import { annotate } from './sapient-help.js';
 import { initNetworkUi } from './network-ui.js';
 
