@@ -4,10 +4,38 @@ import * as THREE from 'three';
 import { STRUCTURES, STRUCT_SCALE } from '../sim/config/index.js';
 import { u, hereU } from '../sim/units.js';
 import { drapedRing } from './terrain-view.js';
-import { ringThickness } from './structure-view.js';
+import { LABEL_LIFT, ringThickness } from './structure-view.js';
 
-// getTool() is a structure id, 'sell' or null. onGroundClick(x, z) is called for a left click on the ground.
-export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getTool, onGroundClick }) {
+const PICK_PX = 16;
+const _base = new THREE.Vector3(), _top = new THREE.Vector3();
+
+// The system nearest a point on the screen, measured to the line from its base up to its name tag, or null if none is close.
+// Measured on the screen, because at a low camera angle a ground point lands well behind a tall model.
+export function pickStructure(structures, camera, px, py, width = innerWidth, height = innerHeight) {
+  let best = null, bd = PICK_PX;
+  for (const s of structures) {
+    _base.copy(s.pos).project(camera);
+    _top.copy(s.pos).setY(s.pos.y + LABEL_LIFT).project(camera);
+    if (_base.z >= 1 || _top.z >= 1) continue; // behind the camera
+    const ax = ((_base.x + 1) / 2) * width, ay = ((1 - _base.y) / 2) * height;
+    const dx = ((_top.x + 1) / 2) * width - ax, dy = ((1 - _top.y) / 2) * height - ay;
+    const along = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy || 1)));
+    const d = Math.hypot(px - (ax + along * dx), py - (ay + along * dy));
+    if (d < bd) { bd = d; best = s; }
+  }
+  return best;
+}
+
+// What a left click selects, with null clearing the selection, or undefined if the click belongs to the tool. A name tag beats a
+// placement tool, because nothing can be placed on a system. A click never selects with the Sell or zone tool.
+export function selectionFrom(tool, tagged, pick) {
+  if (!tool) return tagged || pick();
+  return STRUCTURES[tool] && tagged ? tagged : undefined;
+}
+
+// getTool() is a structure id, 'sell', 'zone' or null. A left click first calls onSelect(screenX, screenY), which returns true if
+// it dealt with the click. Otherwise it calls onGroundClick(x, z).
+export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getTool, onGroundClick, onSelect }) {
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -30,6 +58,7 @@ export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getT
     const moved = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
     downPos = null;
     if (moved > 5) return;
+    if (onSelect(e.clientX, e.clientY)) return;
     updateMouse(e);
     if (mouseOnGround) onGroundClick(mouseGround.x, mouseGround.z);
   });

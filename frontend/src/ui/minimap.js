@@ -32,7 +32,8 @@ export function createMinimap(sim, canvas, camera, controls) {
     ring(SITE.radius, 'rgba(255,82,82,0.95)');
     for (const s of sim.structures) {
       const [x, y] = mmXY(s.pos.x * mpu, s.pos.z * mpu);
-      if (view.rings) { g.beginPath(); g.arc(x, y, px(s.def.range), 0, Math.PI * 2); g.strokeStyle = hexCss(s.def.color) + '66'; g.lineWidth = 1; g.stroke(); }
+      const selected = s === view.selected;
+      if (view.rings || selected) { g.beginPath(); g.arc(x, y, px(s.def.range), 0, Math.PI * 2); g.strokeStyle = hexCss(s.def.color) + (selected ? 'ff' : '66'); g.lineWidth = selected ? 2 : 1; g.stroke(); }
       g.fillStyle = hexCss(s.def.color); g.fillRect(x - 3, y - 3, 6, 6);
     }
     g.fillStyle = '#ffffff'; g.fillRect(ox - 2, oy - 2, 4, 4);

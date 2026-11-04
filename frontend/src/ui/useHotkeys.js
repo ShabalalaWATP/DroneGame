@@ -20,7 +20,7 @@ export function useHotkeys() {
         else game.setSpeed(game.clock.speed === 0 ? game.clock.lastSpeed || 1 : 0);
         return;
       }
-      if (e.key === 'Escape') { if (game.getTool()) game.setTool(game.getTool()); return; }
+      if (e.key === 'Escape') { if (game.getTool()) game.setTool(game.getTool()); else game.select(null); return; }
       if (e.key === 'r' || e.key === 'R') { game.setViewOption('rings', !view.rings); return; }
       if (e.key === 't' || e.key === 'T') { game.setViewOption('truth', !view.truth); return; }
       if (e.key === 'l' || e.key === 'L') { game.setViewOption('labels', !view.labels); return; }

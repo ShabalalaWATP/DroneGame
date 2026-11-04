@@ -234,3 +234,21 @@ body.track-hi .tlabel { color: #ffcc66; font-size: 11px; opacity: 1; }
 .runs-paging { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; font-size: 12px; }
 .runs-paging button.mini { margin: 0; }
 .figset-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 2px 0; }
+
+/* the Unit panel sits beside the control panel. With the dock open it moves beside the left column, not over the toolbar. */
+#unit-panel { right: 214px; bottom: 60px; width: 300px; max-width: calc(100vw - 24px); max-height: calc(100vh - 132px); overflow-y: auto; z-index: 5; font-size: 12px; line-height: 16px; color: #b9c7dc; user-select: text; }
+#dock:not(.hidden) ~ #unit-panel { right: auto; left: 256px; }
+.up-head { display: flex; align-items: flex-start; gap: 6px; padding-left: 6px; border-left: 4px solid; font-size: 13px; color: #fff; }
+.up-head b { flex: 1; }
+.up-head button { padding: 0 6px; border: 0; background: transparent; font-size: 16px; }
+.up-review { margin-top: 6px; padding: 1px 6px; border-radius: 3px; background: #b71c1c; color: #fff; font-size: 11px; }
+.up-desc { margin: 6px 0; }
+.up-row { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 6px; padding: 3px 0; border-top: 1px solid #263754; }
+.up-row > span:first-child { color: #7f93b2; }
+.up-row > span:last-child { color: #dbe4f0; }
+.up-row .warn { color: #ffcf66; font-weight: 600; }
+.up-row .muted { display: block; }
+.up-row .up-reach { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
+.slabel.selected { outline: 2px solid #fff; z-index: 1; }
+.node-pick { margin-left: 0; font-size: 11px; }
+.node-pick[aria-pressed="true"] { background: #2f4468; border-color: #5c7bb0; }

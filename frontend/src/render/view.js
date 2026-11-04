@@ -5,4 +5,5 @@ export const view = {
   rings: true, // range rings on every system
   trackHi: false, // colour tracks by classification instead of drawing them faint and grey
   replayT: null, // simulated time being reviewed while rewinding, or null when live
+  selected: null, // the system the Unit panel is showing
 };

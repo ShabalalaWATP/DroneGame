@@ -137,7 +137,7 @@ export const STRUCTURES = {
     health: 30, signature: 0.2, emits: [],
     engages: ['fpv', 'fo'], // too slow to catch the fixed-wing drones (game rule)
     damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80,
-    desc: 'Cheap ram-type interceptor drones. Each launch costs $5,000. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
+    desc: 'Cheap ram-type interceptor drones. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Low-cost kinetic interceptor drone',
@@ -161,7 +161,7 @@ export const STRUCTURES = {
     health: 30, signature: 0.2, emits: [],
     engagePolicy: 'fixed-wing', // the fusion node keeps this for fixed-wing tracks (or anything that gets close), to save the expensive rounds
     damage: 70, splash: 40, fuze: 30, cooldown: 4, missileSpeed: 150,
-    desc: 'High-end guided missile that can hit the fixed-wing drones. Each shot costs $200,000, so the fusion node saves it for fixed-wing tracks.',
+    desc: 'High-end guided missile that can hit the fixed-wing drones. Each round is expensive, so the fusion node saves it for fixed-wing tracks.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Missile', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Guided counter-UAS interceptor missile',
@@ -187,7 +187,7 @@ export const STRUCTURES = {
     name: 'Laser', short: 'LSR', key: '8', cost: 2000000, shotCost: 13, color: 0xffffff, role: 'effector', published: 1000, muzzleY: 2.6, fire: 'beam',
     health: 30, signature: 0.3, emits: [],
     dps: 28,
-    desc: 'High-energy laser. $2,000,000 to deploy and about $13 per shot, but it needs dwell time, so evasive targets take longer to burn.',
+    desc: 'High-energy laser. Very cheap to fire, but it needs dwell time, so evasive targets take longer to burn.',
     sapient: { nodeType: 'NODE_TYPE_LDEW', subType: ['Laser'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'High-energy laser directed-energy weapon',

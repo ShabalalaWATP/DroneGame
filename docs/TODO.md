@@ -23,7 +23,7 @@ Full detail is in the uncommitted `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 - [ ] A1: per-unit definitions, laydown data and pricing, with digests unchanged
 - [ ] A2: small, medium and large catalogue entries, and the toolbar
-- [ ] A3: inspector panel for editing a unit
+- [ ] A3: editing in the unit panel
 - [ ] A4: radar physics, arcs, tracker fixes and map drawing
 - [ ] A5: environment and electro-optical physics
 - [ ] A6: RF detector, libraries and jammer physics
@@ -34,6 +34,11 @@ Full detail is in the uncommitted `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [ ] B1: magazine rules in the simulation
 - [ ] B2: re-baseline the digests and balance rack size and missile capacity
 - [ ] B3: the magazine tab
+
+**Feature C: unit panel** (build this first)
+
+- [x] C1: click a sensor or effector on the map to see its details, read-only
+- [ ] C2: ammunition state, alongside B1
 
 **Real-world mapping** (see `docs/REAL_MAPPING_PLAN.md`)
 

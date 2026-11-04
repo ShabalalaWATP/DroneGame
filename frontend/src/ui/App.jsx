@@ -12,6 +12,7 @@ import { Tuning, Legend, Toast, Approvals } from './Panels.jsx';
 import { Sandbox } from './Sandbox.jsx';
 import { Overlay } from './Overlay.jsx';
 import { Dock } from './dock/Dock.jsx';
+import { UnitPanel } from './UnitPanel.jsx';
 
 // Owns the canvas: the Three.js scene stays imperative, because per-frame updates should not go through React.
 function GameCanvas() {
@@ -41,6 +42,7 @@ function Screen() {
       <ControlPanel onToggleDock={() => setDockOpen((o) => !o)} onToggleTuning={() => setTuningOpen((o) => !o)} onSandbox={() => setTuningOpen(false)} />
       <Tuning open={tuningOpen} />
       <Dock open={dockOpen} onClose={() => setDockOpen(false)} />
+      <UnitPanel />
       <Sandbox />
       <Legend />
       <Toast />

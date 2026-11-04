@@ -11,6 +11,8 @@ import { hexCss } from './labels.js';
 import { view } from './view.js';
 
 export const ringThickness = (r) => Math.max(0.4, r * 0.006);
+export const LABEL_LIFT = 9; // a name tag sits this far above its system, in scene units
+const RING_OPACITY = 0.35, SELECTED_RING_OPACITY = 0.95;
 const _m = new THREE.Vector3();
 
 export function createStructureViews(scene, sim, labels) {
@@ -19,7 +21,7 @@ export function createStructureViews(scene, sim, labels) {
   function makeRing(s, v) {
     if (v.ringObj) { v.holder.remove(v.ringObj.mesh); v.ringObj.dispose(); }
     const r = u(s.def.range);
-    v.ringObj = drapedRing(r, ringThickness(r), s.def.color, 0.35);
+    v.ringObj = drapedRing(r, ringThickness(r), s.def.color, RING_OPACITY);
     v.ringObj.update(s.pos.x, s.pos.z);
     v.ringObj.mesh.visible = view.rings;
     v.holder.add(v.ringObj.mesh);
@@ -62,6 +64,10 @@ export function createStructureViews(scene, sim, labels) {
     for (const [s, v] of views) if (!live.has(s)) dispose(s, v);
     for (const s of sim.structures) {
       const v = views.get(s) || create(s);
+      const selected = s === view.selected;
+      v.ringObj.mesh.visible = view.rings || selected;
+      v.ringObj.mesh.material.opacity = selected ? SELECTED_RING_OPACITY : RING_OPACITY;
+      v.label.classList.toggle('selected', selected);
       if (v.parts.spin) v.parts.spin.rotation.y += real * (s.def.id === 'radar' ? 2.2 : 0.6);
       else v.parts.head.rotation.y = s.aim;
       if (v.pulse) {
@@ -88,13 +94,22 @@ export function createStructureViews(scene, sim, labels) {
   return {
     sync,
     labelOf: (s) => views.get(s)?.label,
+    // The system whose name tag is under this point on the screen. The tags take no pointer events, so they are checked here.
+    labelAt(x, y) {
+      let hit = null; // the last one drawn is on top
+      for (const [s, v] of views) {
+        const r = v.label.getBoundingClientRect();
+        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) hit = s;
+      }
+      return hit;
+    },
     setRingsVisible(on) { for (const v of views.values()) v.ringObj.mesh.visible = on; },
     remakeRings() { for (const [s, v] of views) makeRing(s, v); },
     updateLabels(net) {
       for (const [s, v] of views) {
         const target = s.task && net.tracks.get(s.task.trackId);
         v.label.textContent = `${s.short} · ${s.mode}${target ? ' ▸ ' + (target.short || '?') : ''}`;
-        labels.place(v.label, s.pos.x, s.pos.y + 9, s.pos.z, view.labels);
+        labels.place(v.label, s.pos.x, s.pos.y + LABEL_LIFT, s.pos.z, view.labels);
       }
     },
     hideBeams() { for (const v of views.values()) if (v.beam) v.beam.visible = false; },

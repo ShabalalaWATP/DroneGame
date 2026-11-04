@@ -10,6 +10,16 @@ import { RB_UNITS, RB_DATUM, round, clamp } from './core.js';
 // the radar's low-flyer range is multiplied by this.
 const COVER_CLUTTER = [1.5, 0.7, 0.5, 0.5, 1.5]; // the last is water: open, so low flyers over it are easy to see
 
+// How far this sensor reaches for this type of drone, before terrain and clutter. 0 means it can never detect it.
+export function reachFor(def, droneDef) {
+  const kind = def.kind || def.id;
+  if (def.senses === 'rf' && !droneDef.rfEmitter) return 0;
+  if (kind === 'radar') return def.range * Math.pow((droneDef.rcs ?? SENSING.refRcs) / SENSING.refRcs, 0.25);
+  if (kind === 'camera') return def.range * ((droneDef.size ?? SENSING.refSize) / SENSING.refSize);
+  if (kind === 'rf') return def.range * Math.sqrt(droneDef.rfPower ?? 1);
+  return def.range;
+}
+
 export function createSensors(core, feed) {
   const { ctx, mpu, T, nodes, tracker, fusion, send, deliver, antennaM, rel, bearingOf } = core;
 
@@ -30,12 +40,8 @@ export function createSensors(core, feed) {
     const def = s.def, kind = def.kind || def.id;
     const r = rel(s, d);
     if (def.senses === 'perimeter') return r.hr < def.range ? 0.98 : 0;
-    if (def.senses === 'rf' && !d.def.rfEmitter) return 0;
-    let reach = def.range;
-    if (kind === 'radar') reach *= Math.pow((d.def.rcs ?? SENSING.refRcs) / SENSING.refRcs, 0.25);
-    else if (kind === 'camera') reach *= (d.def.size ?? SENSING.refSize) / SENSING.refSize;
-    else if (kind === 'rf') reach *= Math.sqrt(d.def.rfPower ?? 1);
-    if (r.rng > reach * SENSING.rangeCap) return 0;
+    let reach = reachFor(def, d.def);
+    if (!reach || r.rng > reach * SENSING.rangeCap) return 0;
     const T3 = terrainState.data, m = mpu();
     const dxm = d.pos.x * m, dzm = d.pos.z * m, dym = d.pos.y * m;
     let p = 1;

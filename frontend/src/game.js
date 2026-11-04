@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { WORLD } from './sim/config/index.js';
 import { createSimulation, SIM_STEP } from './sim/simulation.js';
 import { createGameView } from './render/game-view.js';
-import { createPlacement } from './render/placement.js';
+import { createPlacement, pickStructure, selectionFrom } from './render/placement.js';
 import { createReplay } from './render/replay-view.js';
 import { droneTemplate } from './render/models.js';
 import { trackColour } from './render/belief-view.js';
@@ -53,6 +53,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   let gameView = null, placement = null, replay = null;
   const frameListeners = new Set();
   let tool = null; // structure id | 'sell' | null
+  let selectHinted = false; // the first placement says that systems can be clicked
 
   function setTool(t) {
     tool = tool === t ? null : t;
@@ -65,7 +66,36 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     if (tool === 'sell') { commands.sell(x, z); return; }
     const problem = commands.place(tool, x, z);
     if (problem) toast(problem);
+    else if (!selectHinted) { selectHinted = true; toast('Placed. Click a name tag for details, or press Esc to stop placing'); }
   }
+
+  // The system the Unit panel shows. It is view state, not a command, so it is not logged and cannot change a run.
+  function select(s) { view.selected = s; bump(); }
+  function getSelected() { // sold or destroyed systems drop out of the list
+    if (view.selected && !sim.structures.includes(view.selected)) view.selected = null;
+    return view.selected;
+  }
+  // Returns true if the click was about a system on the screen, so the ground under it should not be used as well.
+  function mapClick(x, y) {
+    if (!state.started) return false;
+    const tagged = gameView.structures.labelAt(x, y);
+    const pick = () => pickStructure(sim.structures, gameView.camera, x, y);
+    if (tool === 'sell') { // the command takes a point on the ground, and the system's own position can only mean that system
+      const s = !state.over && (tagged || pick());
+      if (s) commands.sell(s.pos.x, s.pos.z);
+      return !!s;
+    }
+    const chosen = selectionFrom(tool, tagged, pick);
+    if (chosen === undefined) return false;
+    selectHinted = true;
+    select(chosen);
+    return true;
+  }
+  // Starting wave 1 rebuilds every system, with a new id and perhaps a new callsign. Only its position is sure to be the same.
+  sim.on('reset', () => {
+    const was = view.selected;
+    view.selected = was && sim.structures.find((s) => s.def.id === was.def.id && s.pos.x === was.pos.x && s.pos.z === was.pos.z) || null;
+  });
 
   // when the fusion node asks the operator to authorise an engagement, stop the clock so there is time to decide
   let pausedForApproval = false, simAcc = 0;
@@ -108,7 +138,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     gameView = createGameView(canvas, labelLayer, sim);
     placement = createPlacement({
       scene: gameView.scene, camera: gameView.camera, canvas, getWorldMesh: gameView.getWorldMesh, sim,
-      getTool: () => tool, onGroundClick: groundClick,
+      getTool: () => tool, onGroundClick: groundClick, onSelect: mapClick,
     });
     replay = createReplay({
       scene: gameView.scene, rec: sim.rec, droneTemplate, makeLabel: gameView.labels.make, placeLabel: gameView.labels.place, trackColour,
@@ -121,7 +151,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
 
   return {
     sim, commands, clock, setSpeed, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
-    getTool: () => tool, setTool,
+    getTool: () => tool, setTool, select, getSelected,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },
     getReplay: () => replay,

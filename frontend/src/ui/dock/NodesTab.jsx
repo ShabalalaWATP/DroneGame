@@ -4,7 +4,8 @@ import { hex, useGame, useTick } from '../hooks.js';
 
 export function NodesTab({ active }) {
   useTick(active);
-  const { net } = useGame().sim;
+  const game = useGame();
+  const { net, structures } = game.sim;
   const m = WORLD.metresPerUnit;
   return (
     <table id="node-table">
@@ -12,7 +13,9 @@ export function NodesTab({ active }) {
       <tbody>
         {[...net.nodes.values()].map((n) => (
           <tr key={n.nodeId}>
-            <td><i style={{ background: hex(n.def.color) }} />{n.short}</td>
+            <td><i style={{ background: hex(n.def.color) }} />{structures.includes(n)
+              ? <button className="mini node-pick" title="Show this system in the Unit panel" aria-pressed={game.getSelected() === n} onClick={() => game.select(n)}>{n.short}</button>
+              : n.short}</td>
             <td>{n.def.sapient.nodeType.replace('NODE_TYPE_', '')}</td>
             <td>{n.mode}</td>
             <td>{n.task ? (n.task.drone.track ? n.task.drone.track.short : 'task') : ''}</td>

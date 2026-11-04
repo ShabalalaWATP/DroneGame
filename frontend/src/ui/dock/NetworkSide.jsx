@@ -7,7 +7,7 @@ import { hex, useGame, usd } from '../hooks.js';
 import { linkColour, TYPE_COLOUR } from './network-canvas.js';
 
 const BANDS = Object.entries(COMMS.cellular.bands);
-const stateWord = (info) => (info && info.up ? (info.quality < 0.6 ? 'degraded' : 'up') : 'DOWN');
+export const stateWord = (info) => (info && info.up ? (info.quality < 0.6 ? 'degraded' : 'up') : 'DOWN');
 
 function FusionConfig({ net, commands, locked }) {
   return (

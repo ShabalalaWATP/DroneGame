@@ -27,7 +27,7 @@ export function takeSnapshot({ state, drones, missiles, structures, net }) {
     missiles: missiles.map((mi) => ({ x: mi.pos.x, y: mi.pos.y, z: mi.pos.z })),
     structs: structures.map((s) => {
       const tr = s.task && net.tracks.get(s.task.trackId);
-      return { id: s.nodeId, mode: s.mode, target: s.task ? s.task.drone.uid : null, trackShort: tr ? tr.short : null };
+      return { id: s.nodeId, mode: s.mode, target: s.task ? s.task.drone.uid : null, trackShort: tr ? tr.short : null, health: s.health };
     }),
   };
 }
