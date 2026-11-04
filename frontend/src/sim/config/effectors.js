@@ -3,7 +3,7 @@
 // missile, laser shot) is used. Each system's `ref` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
 export const EFFECTORS = {
   jammer: {
-    size: 'M', name: 'RF jammer', short: 'JAM', cost: 60000, shotCost: 0, color: 0x7c4dff, role: 'effector', kind: 'jammer', published: 1000, fire: 'jam',
+    size: 'M', name: 'Medium RF jammer', short: 'JAM', cost: 60000, shotCost: 0, color: 0x7c4dff, role: 'effector', kind: 'jammer', published: 1000, fire: 'jam',
     health: 30, signature: 1.5, emits: [], bands: ['control24', 'video58'], // which bands it jams (changeable per jammer); loud while jamming
     slow: 0.5, killTime: 5, // jammed drones slow down; after killTime seconds of full jamming they lose link and crash
     desc: 'RF jammer. Switched on only while tracks are in range. Autonomous/fibre drones ignore it. No cost per use.',

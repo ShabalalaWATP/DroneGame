@@ -159,7 +159,7 @@ describe('sensors', () => {
     setUp(sim, { seed: '1', laydown: [['rf', 800, 0]] });
     const s = sim.structures[0], id = s.nodeId;
     sim.commands.sell(s.pos.x, s.pos.z);
-    expect(sim.net.nameOf(id)).toBe('RF detector 01');
+    expect(sim.net.nameOf(id)).toBe('Medium RF detector 01');
     expect(sim.net.nameOf('abcdefghijkl')).toBe('abcdefgh');
   });
 });

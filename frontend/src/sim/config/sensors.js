@@ -3,7 +3,7 @@
 // `mount` is how high a sensor sits on its mast (m), an assumption: below the 12-20 m tree tops, trees hide most low flyers.
 export const SENSORS = {
   radar: {
-    size: 'M', name: 'Radar', short: 'RDR', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 25, falseAlarm: 0.1, // chance of a false alarm per scan
+    size: 'M', name: 'Medium radar', short: 'RDR', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 25, falseAlarm: 0.1, // chance of a false alarm per scan
     health: 30, signature: 1.0, emits: [{ label: 'X-band radar (assumed 9.2\u20139.5 GHz)', f: [[9.2, 9.5]] }], // radar band: assumption
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
@@ -30,7 +30,7 @@ export const SENSORS = {
     },
   },
   radar_s: {
-    size: 'S', name: 'Compact radar', short: 'RDC', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 15, falseAlarm: 0.15,
+    size: 'S', name: 'Small radar', short: 'RDS', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 15, falseAlarm: 0.15,
     health: 30, signature: 0.8, emits: [{ label: 'K-band radar 24.45\u201324.65 GHz', f: [[24.45, 24.65]] }], // published for EchoGuard (US)
     lowAlt: 30, lowRange: 300,
     desc: 'Small solid-state radar. Cheap and short range, so you can afford several, but it sees less.',
@@ -77,7 +77,7 @@ export const SENSORS = {
     },
   },
   rf: {
-    size: 'M', name: 'RF detector', short: 'RF', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
+    size: 'M', name: 'Medium RF detector', short: 'RF', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
     health: 30, signature: 0.05, emits: [], listens: [[0.07, 6]], // passive
     desc: 'Passive RF sensor. Direction finding only (no range). Cannot see RF-silent drones.',
     sapient: {
@@ -144,7 +144,7 @@ export const SENSORS = {
     },
   },
   camera: {
-    size: 'M', name: 'EO/IR camera', short: 'EO', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 15, falseAlarm: 0.03,
+    size: 'M', name: 'Medium EO/IR camera', short: 'EO', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 15, falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [], // passive
     // A narrow field of view (degrees, total) that has to be pointed. Idle, it sweeps; the fusion node cues it to
     // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.

@@ -105,7 +105,7 @@ describe('cost tab', () => {
     Object.assign(game.sim.ledger, { lost: { radar: 2 }, lostValue: 1800000 });
     refresh();
     const text = $('#cost').textContent;
-    expect(text).toContain('Radar');
+    expect(text).toContain('Medium radar');
     expect(text).toContain('terminal');
     expect(text).toMatch(/\$[\d.]+ of shots/);
     expect(text).toContain('Lost to enemy strikes');

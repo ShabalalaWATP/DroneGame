@@ -149,7 +149,7 @@ describe('the panel', () => {
     show();
     expect(panel()).toBe(null);
     pick(unit('radar'));
-    expect(panel().textContent).toContain('RDR-01 · Radar');
+    expect(panel().textContent).toContain('RDR-01 · Medium radar');
     fireEvent.click($('#unit-close'));
     expect(panel()).toBe(null);
     expect(view.selected).toBe(null);
