@@ -1,27 +1,45 @@
 // Try attacks against the laydown without risking the site.
 
 import { useState } from 'react';
-import { DRONES } from '../sim/config/index.js';
+import { THREAT_GROUPS } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
 import { clamp } from '../sim/units.js';
-import { useGame, useTick } from './hooks.js';
+import { hex, useGame, useTick } from './hooks.js';
 import { useMovable } from './useMovable.js';
 
 const COMPASS = [['N', 0], ['NE', 45], ['E', 90], ['SE', 135], ['S', 180], ['SW', 225], ['W', 270], ['NW', 315]];
 const LEVELS = [1, 2, 3, 4, 5, 6, 8, 10];
+const START_COUNT = '3', MAX_COUNT = 30;
+const howMany = (n) => clamp(Math.round(Number(n) || 1), 1, MAX_COUNT);
+
+// One threat: tick it to add it to the attack, then say how many.
+function ThreatRow({ drone, count, onCount }) {
+  return (
+    <div className="sb-threat">
+      <label>
+        <input type="checkbox" data-threat={drone.id} checked={count != null} onChange={(e) => onCount(e.target.checked ? START_COUNT : null)} />
+        <i style={{ background: hex(drone.color) }} />{drone.name}
+      </label>
+      {count != null && <input type="number" data-count={drone.id} min="1" max={MAX_COUNT} aria-label={`How many ${drone.name}`} value={count} onChange={(e) => onCount(e.target.value)} />}
+    </div>
+  );
+}
 
 export function Sandbox() {
   useTick();
   const { sim, commands } = useGame();
   const { state, drones } = sim;
   const { style, handle } = useMovable();
-  const [form, setForm] = useState({ type: Object.keys(DRONES)[0], count: '3', dir: '0', gap: '4' });
+  const [mix, setMix] = useState({ fpv: START_COUNT }); // drone type -> how many, for the types ticked
+  const [form, setForm] = useState({ dir: '0', gap: '4' });
   const [small, setSmall] = useState(false); // shrunk to its title and live figures, to watch an attack
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
-  const launch = () => commands.launchSandboxAttack({
-    type: form.type, bearingDeg: form.dir,
-    count: clamp(Math.round(Number(form.count) || 1), 1, 30), gap: Math.max(Number(form.gap) || 0, 0),
-  });
+  const setCount = (id, n) => setMix(({ [id]: _, ...rest }) => (n == null ? rest : { ...rest, [id]: n }));
+  const tickAll = (group) => setMix((m) => ({ ...Object.fromEntries(group.drones.map((d) => [d.id, START_COUNT])), ...m })); // counts already typed stay
+  const total = Object.values(mix).reduce((sum, n) => sum + howMany(n), 0);
+  const launch = () => Object.entries(mix).forEach(([type, n]) => commands.launchSandboxAttack({
+    type, bearingDeg: form.dir, count: howMany(n), gap: Math.max(Number(form.gap) || 0, 0),
+  }));
   return (
     <>
       <div id="sandbox" className={`panel${state.sandbox ? '' : ' hidden'}`} data-movable style={style}>
@@ -35,13 +53,22 @@ export function Sandbox() {
           </select>
         </label>
         <div className="row"><button id="sb-wave" className="primary" onClick={() => commands.launchSandboxWave()}>Launch that wave's attack</button></div>
-        <div className="label" style={{ marginTop: 8 }}>CUSTOM ATTACK</div>
-        <label>Drone <select id="sb-type" value={form.type} onChange={set('type')}>{Object.entries(DRONES).map(([k, d]) => <option key={k} value={k}>{d.name}</option>)}</select></label>
-        <label>Number <input id="sb-count" type="number" min="1" max="30" value={form.count} onChange={set('count')} /></label>
+        <div className="label" style={{ marginTop: 8 }}>CUSTOM ATTACK: TICK ANY MIX OF THREATS</div>
+        {THREAT_GROUPS.map((group, i) => {
+          const ticked = group.drones.filter((d) => mix[d.id] != null).length;
+          return (
+            <details key={group.name} open={i === 0}>
+              <summary>{group.name}{ticked ? ` (${ticked} ticked)` : ''}</summary>
+              {group.drones.map((d) => <ThreatRow key={d.id} drone={d} count={mix[d.id]} onCount={(n) => setCount(d.id, n)} />)}
+              <div className="row"><button data-tick-all={group.name} onClick={() => tickAll(group)}>Tick all of these</button></div>
+            </details>
+          );
+        })}
         <label>From <select id="sb-dir" value={form.dir} onChange={set('dir')}>{COMPASS.map(([n, b]) => <option key={n} value={b}>{n}</option>)}<option value="rand">Random</option></select></label>
-        <label>Seconds apart <input id="sb-gap" type="number" min="0" max="60" value={form.gap} onChange={set('gap')} /></label>
+        <label>Seconds apart, per type <input id="sb-gap" type="number" min="0" max="60" value={form.gap} onChange={set('gap')} /></label>
         <div className="row">
-          <button id="sb-launch" className="primary" onClick={launch}>Launch</button>
+          <button id="sb-launch" className="primary" disabled={!total} onClick={launch}>Launch {total} drone{total === 1 ? '' : 's'}</button>
+          <button id="sb-untick" disabled={!total} onClick={() => setMix({})}>Untick all</button>
           <button id="sb-clear" onClick={() => commands.clearSandboxDrones()}>Clear drones</button>
           <button id="sb-exit" onClick={() => commands.exitSandbox()}>Exit sandbox</button>
         </div>

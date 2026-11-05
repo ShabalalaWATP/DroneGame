@@ -88,7 +88,7 @@ export const SENSORS = {
       class: 'Long-range air-defence and C-UAS radar',
       analogues: ['Hensoldt Spexer 2000 3D MkIII'],
       published: 'X-band pulse Doppler, 9.2\u201310 GHz, with a 40 km instrumented range. About 9 km is reported against a 0.2 m\u00B2 drone.',
-      basis: 'Game range is that 9 km scaled to the 0.01 m\u00B2 reference drone by the radar range equation, which brings a 0.2 m\u00B2 FW Strike back to 9 km. Accuracy and clutter are assumptions. The real radar looks through a 120\u00B0 panel: this one still sees all round until stage A4.',
+      basis: 'Game range is that 9 km scaled to the 0.01 m\u00B2 reference drone by the radar range equation, which brings a 0.2 m\u00B2 fixed-wing strike drone back to 9 km. Accuracy and clutter are assumptions. The real radar looks through a 120\u00B0 panel: this one still sees all round until stage A4.',
       confidence: 'Secondary reporting; no manufacturer figure for small drones',
       sources: [
         { label: 'Hensoldt: Spexer 2000 3D MkIII', url: 'https://www.hensoldt.net/products/spexer-2000-3d-mkiii-land-ground-based-air-defence' },
@@ -100,7 +100,7 @@ export const SENSORS = {
   rf: {
     product: 'Dedrone RF-360 / RF-160', size: 'M', name: 'Medium RF detector', short: 'RF', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
     health: 30, signature: 0.05, emits: [], listens: [[0.07, 6]], // passive
-    desc: 'Passive RF sensor. Direction finding only (no range). Cannot see RF-silent drones.',
+    desc: 'Passive RF sensor. Direction finding only (no range). Cannot hear a drone with no radio link.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
       noise: { az: 3 }, signal: true,
@@ -109,7 +109,7 @@ export const SENSORS = {
       class: 'Passive RF detection / direction-finding sensor',
       analogues: ['Dedrone RF-360 / RF-160', 'Hensoldt Elysion RF DF'],
       published: 'Up to 5 km listed for Dedrone passive RF sensors; a general C-UAS reference gives about 2–5 km for passive RF direction finding. A patent filing claims 1.5 km.',
-      basis: 'Game range 3.5 km is the middle of the quoted 2–5 km band. Drones with no radio emission (fibre-optic FPV, autonomous fixed-wing here) give it nothing to detect.',
+      basis: 'Game range 3.5 km is the middle of the quoted 2–5 km band. Drones with no radio emission (fibre-optic and autonomous fixed-wing drones here) give it nothing to detect.',
       confidence: 'Vendor listings and a trade reference',
       sources: [
         { label: 'Aviations UK: Dedrone RF vs Hensoldt', url: 'https://aviationsouk.com/compare-products/dedrone-dedronesensors-rf-rf-160-rf-360-vs-hensoldt-elysion-c-uas-current-c-uas-family-formerly-xpeller/' },
@@ -134,7 +134,7 @@ export const SENSORS = {
       class: 'Wearable passive RF drone detector',
       analogues: ['MyDefence Wingman 103/105'],
       published: 'Listings give up to 6 km, \u00B130\u00B0 direction finding, and 2.4, 5.2 and 5.8 GHz without an antenna, or 200 MHz\u20136 GHz with one.',
-      basis: 'Game range 1 km is an ASSUMPTION for a small FPV on a wearable antenna, well under the "up to" listing. The bearing error is the listed figure.',
+      basis: 'Game range 1 km is an ASSUMPTION for a small first-person-view drone on a wearable antenna, well under the "up to" listing. The bearing error is the listed figure.',
       confidence: 'Comparison listings; range is an assumption',
       sources: [
         { label: 'Aviations UK: Wingman vs Dedrone RF', url: 'https://aviationsouk.com/compare-products/dedrone-dedronesensors-rf-rf-160-rf-360-vs-mydefence-wingman-103-105-drone-detector/' },
@@ -146,7 +146,7 @@ export const SENSORS = {
   rf_elysion: {
     product: 'Hensoldt Elysion RF DF', variantOf: 'rf', size: 'M', name: 'Elysion RF detector', short: 'ELY', model: 'rf', cost: 30000, shotCost: 0, color: 0x1de9b6, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
     health: 30, signature: 0.05, emits: [], listens: [[2.4, 2.4835], [5.15, 5.925]],
-    desc: 'Passive RF sensor with a rough bearing. It warns of a drone more than it locates one. Cannot see RF-silent drones.',
+    desc: 'Passive RF sensor with a rough bearing. It warns of a drone more than it locates one. Cannot hear a drone with no radio link.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
       noise: { az: 30 }, signal: true,
@@ -164,7 +164,7 @@ export const SENSORS = {
   rf_l: {
     product: 'Aaronia AARTOS', size: 'L', name: 'Large RF detector', short: 'RFL', model: 'rf', modelScale: 1.4, cost: 400000, shotCost: 0, color: 0x00a152, role: 'sensor', kind: 'rf', published: 8000, mount: 10, senses: 'rf', falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [], listens: [[0.02, 8]],
-    desc: 'Fixed wideband RF detection system. It hears furthest and gives the best bearing, at a much higher price. It still cannot hear RF-silent drones.',
+    desc: 'Fixed wideband RF detection system. It hears furthest and gives the best bearing, at a much higher price. It still cannot hear a drone with no radio link.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
       noise: { az: 2 }, signal: true,
@@ -253,7 +253,7 @@ export const SENSORS = {
     ref: {
       class: 'Tactical acoustic drone detector',
       analogues: ['ZVOOK NW0'],
-      published: 'Declared range 150–450 m against FPV drones, with 360° coverage. The maker recommends a sensor every 400–600 m.',
+      published: 'Declared range 150–450 m against first-person-view drones, with 360° coverage. The maker recommends a sensor every 400–600 m.',
       basis: 'Game range 300 m is the middle of the declared band, and fits the recommended spacing. Bearing accuracy and false alarms are ASSUMPTIONS: the source gives neither.',
       confidence: 'Maker’s declared figures, reported by the trade press',
       sources: [{ label: 'Militarnyi: ZVOOK NW0', url: 'https://militarnyi.com/en/news/ukraine-develops-acoustic-detector-for-fpv-drones/' }],
@@ -291,7 +291,7 @@ export const SENSORS = {
       class: 'Networked long-range acoustic station',
       analogues: ['ZVOOK listening station', 'Sky Fortress'],
       published: 'The Telegraph reports that its sensors detect drones three miles away and cruise missiles at four. The figure is not given for any particular drone.',
-      basis: 'Game range 1 km is against a small FPV, an ASSUMPTION. A FW Strike is set five times louder, so it is heard at about the reported three miles. False alarms and bearing accuracy are assumptions.',
+      basis: 'Game range 1 km is against a small first-person-view drone, an ASSUMPTION. A fixed-wing strike drone is set five times louder, so it is heard at about the reported three miles. False alarms and bearing accuracy are assumptions.',
       confidence: 'A press report of the maker’s claims',
       sources: [{ label: 'The Telegraph, reprinted: acoustic sensors', url: 'https://www.lucorg.com/?p=17063' }],
       cost: { capex: 'Reported at about £400 to manufacture, so about $500. "Large" here means its reach, not its price or bulk.', confidence: 'Press report of a manufacturing cost', sources: [{ label: 'The Telegraph, reprinted: acoustic sensors', url: 'https://www.lucorg.com/?p=17063' }] },

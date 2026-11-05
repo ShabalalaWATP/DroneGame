@@ -720,6 +720,10 @@ A popup that guides a new player from an empty site to the first wave. Built, ap
 - **The zone is a planning aid.** It lives in `view`, never in `sim/`, and saves in the laydown's `spec`. Making it a rule would change targeting and re-baseline every digest.
 - **No tips during a wave,** so a run plays like a simulation. It closes when the first wave starts.
 
+### Threat names and real drones
+
+Built. `frontend/src/sim/config/real-drones.js` holds 21 real drones as variants of the four types (`variantOf`), grouped by `origin`. `DRONE_CLASSES` is what the waves send and the wizard scores. `THREAT_GROUPS` is what the pickers show. `systemFor` in `frontend/src/ui/assistant/guide.js` recommends a system by threat, using the warning times in `WARNING`, which are assumptions. Still open: see `docs/TODO.md`.
+
 ## Feature parity checklist
 
 Check in a real browser at the end of Phase 5 and again at the end of Phase 8.

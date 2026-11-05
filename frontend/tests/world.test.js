@@ -8,7 +8,7 @@ import { createRecorder } from '../src/sim/recorder.js';
 import { enemyCost, money } from '../src/sim/economy.js';
 import { hashSeed, gaussFrom, mulberry32, waveStream } from '../src/sim/rng.js';
 import {
-  COMMS, DRONES, STRUCTURES, WORLD, WAVES, RESEARCHED, overlaps,
+  COMMS, DRONES, DRONE_CLASSES, STRUCTURES, WORLD, WAVES, RESEARCHED, overlaps,
   setFigure, resetFigure, resetAllFigures, exportFigures, importFigures,
 } from '../src/sim/config/index.js';
 import { setUp } from './support/scenarios.js';
@@ -146,7 +146,7 @@ describe('comms', () => {
 
 describe('sensors', () => {
   const sim = createSimulation();
-  const threats = Object.values(DRONES);
+  const threats = DRONE_CLASSES;
 
   it('coverage maps count the sensors that would see a target', () => {
     setUp(sim, { seed: '1', laydown: [['radar', 600, 0], ['rf', 900, 0], ['camera', 300, 300]] });

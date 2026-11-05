@@ -25,7 +25,7 @@ beforeEach(() => { resetAllFigures(); fresh(); });
 
 describe('sensors', () => {
   it('judges an empty laydown on the low flyers, which are the hardest to see', () => {
-    expect(suggestSpot(sim, STRUCTURES.radar).why).toContain('FO Strike');
+    expect(suggestSpot(sim, STRUCTURES.radar).why).toContain('Fibre-optic strike drone');
   });
 
   it('adds what each new sensor can see, on every terrain', () => {
@@ -52,7 +52,7 @@ describe('sensors', () => {
   });
 
   it('never suggests an RF detector on the drones it cannot hear', () => {
-    expect(suggestSpot(sim, STRUCTURES.rf).why).not.toMatch(/FO Strike|FW Strike/);
+    expect(suggestSpot(sim, STRUCTURES.rf).why).not.toMatch(/Fibre-optic strike drone|Fixed-wing strike drone/);
   });
 
   it('puts a camera where another sensor can cue it, and says when none can', () => {
@@ -71,7 +71,7 @@ describe('effectors', () => {
   });
 
   it('judges a missile on the fixed-wing drones it is kept for', () => {
-    expect(suggestSpot(sim, STRUCTURES.missile).why).toMatch(/FW Strike|FW Spotter/);
+    expect(suggestSpot(sim, STRUCTURES.missile).why).toMatch(/Fixed-wing strike drone|Fixed-wing spotter drone/);
   });
 
   it('puts a short-reach jammer inside a zone away from the site', () => {

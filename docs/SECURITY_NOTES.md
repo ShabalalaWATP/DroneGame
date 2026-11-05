@@ -61,6 +61,8 @@ An independent security review on the same date found one low-severity bug, now 
 - **The map builder runs as a separate process,** with a list of arguments and no shell, one at a time, from validated numbers. The server only serves plain `.sgmap` names from its own folder.
 - **`Cross-Origin-Resource-Policy` and the rest of the headers rely on a modern browser.**
 
+Real drone figures in `frontend/src/sim/config/real-drones.js` are limited to published flight performance, size, price and reported warhead mass, each with its source. Nothing about building, modifying or arming a drone belongs in the repository. Where no source gave a munition mass for a commercial drone, the game's figure is a labelled assumption used only to scale damage.
+
 ## Before hosting
 
 A hosted version needs a new security review before deployment, and at least:

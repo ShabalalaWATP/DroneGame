@@ -88,7 +88,7 @@ export function CostTab({ active }) {
         <table className="mini">
           <thead><tr><th>Drone</th><th>Each</th><th>Launched</th><th>Destroyed</th><th>Leaked</th><th>Left</th><th>Attack cost</th></tr></thead>
           <tbody>
-            {Object.values(DRONES).map((d) => {
+            {Object.values(DRONES).filter((d) => !d.variantOf || ledger.launched[d.id]).map((d) => {
               const l = ledger.launched[d.id] || 0;
               return <tr key={d.id}><td><i style={{ background: hex(d.color) }} />{d.name}</td><td>{usd(d.cost)}</td><td>{l}</td><td>{ledger.killed[d.id] || 0}</td><td>{ledger.leaked[d.id] || 0}</td><td>{ledger.escaped[d.id] || 0}</td><td>{usd(l * d.cost)}</td></tr>;
             })}

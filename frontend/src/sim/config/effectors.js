@@ -71,7 +71,7 @@ export const EFFECTORS = {
     health: 30, signature: 0.2, emits: [],
     engages: ['fpv', 'fo'], // too slow to catch the fixed-wing drones (game rule)
     damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80, magazine: 12, storage: 24, reloadTime: 30,
-    desc: 'Cheap ram-type interceptor drones. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
+    desc: 'Cheap ram-type interceptor drones. Good against first-person-view and fibre-optic strike drones; cannot catch the fixed-wing drones.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Low-cost kinetic interceptor drone',
@@ -95,7 +95,7 @@ export const EFFECTORS = {
     health: 30, signature: 0.2, emits: [],
     engages: ['fpv', 'fo'],
     damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80, magazine: 12, storage: 24, reloadTime: 30,
-    desc: 'Mass-produced ram-type interceptor drone, cheaper per launch. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
+    desc: 'Mass-produced ram-type interceptor drone, cheaper per launch. Good against first-person-view and fibre-optic strike drones; cannot catch the fixed-wing drones.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Low-cost kinetic interceptor drone',

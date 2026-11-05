@@ -56,7 +56,7 @@ describe('HUD', () => {
     game.sim.state.health = 20;
     setUpSpotter();
     refresh();
-    expect($('#status .warn').textContent).toMatch(/Spotter on station/);
+    expect($('#status .warn').textContent).toMatch(/spotter on station/);
     expect($('#status').textContent).toMatch(/per \$1 destroyed/);
     expect($('#health-fill').style.background).toMatch(/229|e53935/);
   }, 30000);
@@ -210,8 +210,10 @@ describe('sandbox panel', () => {
     expect($('#sandbox').className).not.toContain('hidden');
     fireEvent.change($('#sb-level'), { target: { value: '4' } });
     expect(game.sim.state.sbLevel).toBe(4);
-    fireEvent.change($('#sb-type'), { target: { value: 'fw' } });
-    fireEvent.change($('#sb-count'), { target: { value: '99' } });
+    fireEvent.click($('[data-threat="fpv"]')); // it starts ticked: this takes it out of the mix
+    expect($('#sb-launch').disabled).toBe(true);
+    fireEvent.click($('[data-threat="fw"]'));
+    fireEvent.change($('[data-count="fw"]'), { target: { value: '99' } });
     fireEvent.change($('#sb-dir'), { target: { value: 'rand' } });
     fireEvent.change($('#sb-gap'), { target: { value: '-3' } });
     fireEvent.click($('#sb-launch'));
@@ -225,18 +227,35 @@ describe('sandbox panel', () => {
     expect(game.sim.state.sandbox).toBe(false);
   });
 
+  it('launches a mix of threats at once, and can tick a whole group', () => {
+    armed();
+    show(<Sandbox />);
+    act(() => game.commands.enterSandbox());
+    fireEvent.click($('[data-threat="fo"]'));
+    expect($('#sb-launch').textContent).toBe('Launch 6 drones');
+    fireEvent.click($('#sb-launch'));
+    expect(game.sim.state.sbQueue.map((q) => q.type).sort()).toEqual(['fo', 'fo', 'fo', 'fpv', 'fpv', 'fpv']);
+    fireEvent.click($('#sb-clear'));
+    fireEvent.click($('#sb-untick'));
+    expect($('#sb-launch').disabled).toBe(true);
+    fireEvent.click($('[data-tick-all="Generic types"]'));
+    fireEvent.change($('[data-count="fw"]'), { target: { value: '5' } });
+    fireEvent.click($('[data-tick-all="Generic types"]')); // a count already typed stays
+    expect($('#sb-launch').textContent).toBe('Launch 14 drones');
+  });
+
   it('minimises to its title and live figures, keeps the form, and expands again', () => {
     armed();
     show(<Sandbox />);
     act(() => game.commands.enterSandbox());
-    fireEvent.change($('#sb-count'), { target: { value: '7' } });
+    fireEvent.change($('[data-count="fpv"]'), { target: { value: '7' } });
     fireEvent.click($('#sb-minimise'));
     expect($('#sb-launch')).toBeNull();
     expect($('#sandbox h3').textContent).toBe('SANDBOX');
     expect($('#sb-info').textContent).toContain('in the air');
     expect($('#sb-minimise').getAttribute('aria-expanded')).toBe('false');
     fireEvent.click($('#sb-minimise'));
-    expect($('#sb-count').value).toBe('7');
+    expect($('[data-count="fpv"]').value).toBe('7');
   });
 });
 

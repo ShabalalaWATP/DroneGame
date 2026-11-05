@@ -36,10 +36,10 @@ export function Hud() {
         <span>Leaks <b id="leaks">{state.leaks}</b></span>
       </div>
       <div id="status" className="hint">
-        {spot > 0 && <><span className="warn">FW Spotter on station: strikes +{Math.round(spot * 100)}%</span><br /></>}
+        {spot > 0 && <><span className="warn">Fixed-wing spotter on station: strikes +{Math.round(spot * 100)}%</span><br /></>}
         Enemy attack cost {money(enemyCost(ledger.launched))} · shots and rounds bought {money(ledger.consumables)}
         {ledger.consumables > 0 && destroyed > 0 && ` · $${(ledger.consumables / destroyed).toFixed(2)} per $1 destroyed`}<br />
-        Enemy evasion (1.00 = easy to hit): FPV {adapted('fpv')} · FW {adapted('fw')}<br />
+        Enemy evasion (1.00 = easy to hit): first-person-view {adapted('fpv')} · fixed-wing {adapted('fw')}<br />
         Seed {state.seed} · {parseWorldId(state.terrainSeed) ? worldLabel(state.terrainSeed) : `Terrain ${state.terrainSeed}`}
       </div>
     </div>

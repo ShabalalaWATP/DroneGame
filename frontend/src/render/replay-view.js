@@ -33,8 +33,7 @@ export function createReplay(deps) {
     g.add(model, unseen);
     g.scale.setScalar(def.scale * WORLD.droneVisualScale);
     group.add(g);
-    const code = { spotter: 'SPT', fo: 'FO', fpv: 'FPV', fw: 'FW' }[d.type] || d.type;
-    o = { group: g, model, unseen, label: deps.makeLabel(code, '#' + def.color.toString(16).padStart(6, '0'), 'dlabel') };
+    o = { group: g, model, unseen, label: deps.makeLabel(def.label, '#' + def.color.toString(16).padStart(6, '0'), 'dlabel') };
     droneObjs.set(d.u, o);
     return o;
   }

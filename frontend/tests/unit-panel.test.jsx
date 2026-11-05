@@ -187,8 +187,8 @@ describe('the panel', () => {
     show();
     pick(unit('radar'));
     const text = panel().textContent;
-    expect(text).toContain('FW Strike4.2 km');
-    expect(text).toContain('FPV Strike2.0 km');
+    expect(text).toContain('Fixed-wing strike drone4.2 km');
+    expect(text).toContain('First-person-view strike drone2.0 km');
     expect(text).toContain('About 86% chance');
     expect(text).toContain('Below 40 m');
     expect(text).toContain('Range ±8 m, bearing ±0.6°, elevation ±1.2°, velocity');
@@ -199,7 +199,7 @@ describe('the panel', () => {
     show();
     pick(unit('radar'));
     act(() => { game.commands.setFigure('structures', 'radar', 'published', 3000); });
-    expect(panel().textContent).toContain('FPV Strike3.0 km');
+    expect(panel().textContent).toContain('First-person-view strike drone3.0 km');
   });
 
   it('says an RF detector cannot hear silent drones, and gives a bearing only', () => {
@@ -207,9 +207,9 @@ describe('the panel', () => {
     show();
     pick(unit('rf'));
     const text = panel().textContent;
-    expect(text).toContain('FO Strikecannot hear');
-    expect(text).toContain('FW Strikecannot hear');
-    expect(text).toContain('FW Spotter5.5 km');
+    expect(text).toContain('Fibre-optic strike dronecannot hear');
+    expect(text).toContain('Fixed-wing strike dronecannot hear');
+    expect(text).toContain('Fixed-wing spotter drone5.5 km');
     expect(text).toContain('Bearing ±3°');
     expect(text).not.toContain('range ±');
   });
@@ -237,7 +237,7 @@ describe('the panel', () => {
     expect(panel().textContent).toContain('In storage24 rounds');
     expect(panel().textContent).toContain('30 s to fill the magazine, 3 s between shots');
     expect(panel().textContent).toContain('Per round$5,000');
-    expect(panel().textContent).toContain('FPV Strike, FO Strike');
+    expect(panel().textContent).toContain('First-person-view strike drone, Fibre-optic strike drone');
     act(() => { unit('interceptor').cd = 1.2; game.bump(); });
     expect(panel().textContent).toContain('Next shot in 1.2 s');
     act(() => { game.sim.state.budget = 0; game.bump(); });
@@ -303,12 +303,12 @@ describe('the panel', () => {
     expect(before).toContain('0 s so far');
     expect(before).toContain('ReloadNone needed');
     expect(before).toContain('Control 2.4 GHz, Video 5.8 GHz');
-    expect(before).toContain('FPV Strikecontrol, video');
-    expect(before).toContain('FW Spottervideo, resists 75%');
-    expect(before).toContain('FO Strikenot affected');
-    expect(before).toContain('FW Strikenot affected');
+    expect(before).toContain('First-person-view strike dronecontrol, video');
+    expect(before).toContain('Fixed-wing spotter dronevideo, resists 75%');
+    expect(before).toContain('Fibre-optic strike dronenot affected');
+    expect(before).toContain('Fixed-wing strike dronenot affected');
     act(() => { game.commands.toggleJamBand(unit('jammer'), 'gnss', true); });
-    expect(panel().textContent).toContain('FW Strikenavigation, resists 50%');
+    expect(panel().textContent).toContain('Fixed-wing strike dronenavigation, resists 50%');
     act(() => { for (const b of [...unit('jammer').jamBands]) game.commands.toggleJamBand(unit('jammer'), b, false); });
     expect(panel().textContent).toContain('No bands set');
   });

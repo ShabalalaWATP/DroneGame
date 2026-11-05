@@ -1,6 +1,6 @@
 {
   "mixed-seed1": {
-    "digest": "545ebd32",
+    "digest": "f3c91a12",
     "wave": 6,
     "kills": 77,
     "leaks": 1,
@@ -8,7 +8,7 @@
     "budget": 9667451
   },
   "mixed-seed7": {
-    "digest": "64ce3dd1",
+    "digest": "d385c532",
     "wave": 6,
     "kills": 76,
     "leaks": 1,
@@ -32,7 +32,7 @@
     "budget": 4001079
   },
   "jammers-seed1": {
-    "digest": "b366ce9f",
+    "digest": "737b15",
     "wave": 4,
     "kills": 21,
     "leaks": 3,

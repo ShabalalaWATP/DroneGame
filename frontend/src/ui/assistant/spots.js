@@ -2,7 +2,7 @@
 // would see or reach in the player's zone, so the advice cannot disagree with the game. It reads the terrain and the laydown, as
 // the plan map does, and never the wave queue or where drones really are. Nothing here draws a random number or changes the run.
 
-import { BUILD, DRONES, WORLD } from '../../sim/config/index.js';
+import { BUILD, DRONE_CLASSES, WORLD } from '../../sim/config/index.js';
 import { opticalLos } from '../../sim/effectors.js';
 import { reachFor } from '../../sim/network/sensors.js';
 import { terrainState } from '../../sim/terrain.js';
@@ -38,7 +38,7 @@ function samplePoints(zone) {
 
 // The drones this system is for. A missile kept for fixed-wing tracks is not judged on quadcopters, for example.
 function threatsFor(def) {
-  const all = Object.values(DRONES);
+  const all = DRONE_CLASSES;
   const fits = def.role === 'sensor' ? all.filter((d) => reachFor(def, d) > 0) : all.filter((d) => COUNTS.has(answer(d, def)));
   return fits.length ? fits : all;
 }

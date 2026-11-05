@@ -1,19 +1,21 @@
 // What the wizard knows: which steps are done, and which weapon answers which drone. It only reads the game, and only what
 // the player could see for themselves: the config and the laydown, never the wave queue or where drones really are.
 
-import { DRONES, STRUCTURES } from '../../sim/config/index.js';
+import { DRONE_CLASSES, STRUCTURES, TOOLBAR } from '../../sim/config/index.js';
+import { reachFor } from '../../sim/network/sensors.js';
 
 export const STEP_IDS = ['zone', 'sensors', 'effectors', 'network', 'coverage', 'rehearse', 'refine', 'preflight'];
 
 const placed = (sim, role) => sim.structures.filter((s) => s.def.role === role);
-// One size of each kind: the guidance is about which kinds you need, and sizes do not change that.
+// One size of each kind, for the table of which kinds answer which drone. Which size to buy is systemFor's job.
 const catalogue = (role) => Object.values(STRUCTURES).filter((d) => d.role === role && (d.size ?? 'M') === 'M' && !d.variantOf);
 
 // A short verdict for how this effector does against this drone, read from its rules so edits cannot make it wrong.
 export function answer(drone, def) {
+  if (drone.alt[0] > def.range) return 'Far'; // it never comes down within reach
   if (def.fire === 'jam') return drone.jamResist >= 1 ? 'No' : drone.jamResist > 0.6 ? 'Hard' : drone.jamResist > 0 ? 'Part' : 'Yes';
   if (def.fire === 'beam') return drone.loiterDist > def.range ? 'Far' : drone.evade < 0.7 ? 'Slow' : 'Yes';
-  if (def.engages && !def.engages.includes(drone.id)) return 'No';
+  if (def.engages && !def.engages.includes(drone.variantOf ?? drone.id)) return 'No';
   if (def.engagePolicy === 'fixed-wing' && drone.model !== 'fw') return 'Last';
   return 'Yes';
 }
@@ -24,18 +26,50 @@ export const effectorColumns = () => catalogue('effector');
 // Drone types nothing in the laydown can answer yet, in catalogue order.
 export function unanswered(sim) {
   const defs = placed(sim, 'effector').map((s) => s.def);
-  return Object.values(DRONES).filter((d) => !defs.some((def) => COUNTS.has(answer(d, def))));
+  return DRONE_CLASSES.filter((d) => !defs.some((def) => COUNTS.has(answer(d, def))));
 }
 
-// The cheapest effector that clearly answers this drone.
-export const effectorFor = (drone) => catalogue('effector').filter((def) => answer(drone, def) === 'Yes').sort((a, b) => a.cost - b.cost)[0];
+// Seconds of warning each role should give against a drone flying straight in: time to cue a camera and task a weapon, or to
+// engage before it arrives. Assumptions, which make the advice scale with how fast the threat flies.
+export const WARNING = { sensor: 60, effector: 20 };
 
-// The first sensor of each kind in the catalogue, marked with whether that kind is in the laydown yet.
-export function sensorChecklist(sim) {
+const familyOf = (kind) => TOOLBAR.find((g) => g.kind === kind);
+export const kindName = (kind) => familyOf(kind).name;
+
+// How far out along the ground this system reaches this drone at its usual height: 0 if the drone flies above its reach.
+// Ground clutter also hides a low flyer from radar beyond its low-flyer range.
+export function reachAgainst(def, drone) {
+  const flies = (drone.alt[0] + drone.alt[1]) / 2;
+  const reach = def.role !== 'sensor' ? def.range : Math.min(reachFor(def, drone), def.lowAlt && flies < def.lowAlt ? def.lowRange : Infinity);
+  return Math.sqrt(Math.max(reach ** 2 - flies ** 2, 0));
+}
+
+export const warningAgainst = (def, drone) => reachAgainst(def, drone) / drone.speed;
+
+// Which system of this kind to place against these drones: the one that gives enough warning of the most of them, then the
+// cheapest of those. If it warns of none, the one that reaches furthest. It stays within the budget while anything fits.
+export function systemFor(kind, threats, budget) {
+  const fits = familyOf(kind).classes.map((id) => STRUCTURES[id]).filter((def) => def.role === 'sensor' || threats.some((d) => answer(d, def) === 'Yes'));
+  const affordable = fits.filter((def) => def.cost <= budget);
+  const warned = (def) => threats.filter((d) => warningAgainst(def, d) >= WARNING[def.role]).length;
+  const furthest = (def) => Math.max(...threats.map((d) => reachAgainst(def, d)));
+  return [...(affordable.length ? affordable : fits)].sort((a, b) => warned(b) - warned(a) || (warned(a) ? a.cost - b.cost : furthest(b) - furthest(a)))[0];
+}
+
+// The system to answer this drone: the cheapest kind that clearly does, in the size this drone calls for.
+export function effectorFor(drone, budget = Infinity) {
+  const cheapest = catalogue('effector').filter((def) => answer(drone, def) === 'Yes').sort((a, b) => a.cost - b.cost)[0];
+  return cheapest && systemFor(cheapest.kind, [drone], budget);
+}
+
+// Each kind of sensor, marked with whether it is in the laydown yet and which system to place against these drones.
+export function sensorChecklist(sim, threats = DRONE_CLASSES) {
   const have = new Set(placed(sim, 'sensor').map((s) => s.def.kind));
-  const firsts = new Map();
-  for (const def of catalogue('sensor')) if (!firsts.has(def.kind)) firsts.set(def.kind, def);
-  return [...firsts.values()].map((def) => ({ def, done: have.has(def.kind) }));
+  const kinds = catalogue('sensor').map((def) => def.kind).filter((kind, i, all) => all.indexOf(kind) === i);
+  return kinds.map((kind) => {
+    const def = systemFor(kind, threats, sim.state.budget);
+    return { kind, name: kindName(kind), def, threats, done: have.has(kind) };
+  });
 }
 
 export function stepStatus(sim, zone) {

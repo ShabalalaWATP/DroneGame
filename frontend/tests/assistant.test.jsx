@@ -4,7 +4,7 @@
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGame } from '../src/game.js';
-import { FUSION, resetAllFigures } from '../src/sim/config/index.js';
+import { FUSION, STRUCTURES, resetAllFigures } from '../src/sim/config/index.js';
 import { view } from '../src/render/view.js';
 import { App } from '../src/ui/App.jsx';
 import { MIXED, setUp } from './support/scenarios.js';
@@ -83,15 +83,35 @@ describe('placing systems', () => {
   it('walks through the sensors, suggesting a spot the game would allow', () => {
     opened();
     goToStep(2);
-    expect($('.wz-tag.now').parentElement.textContent).toContain('radar');
+    expect($('.wz-tag.now').parentElement.textContent).toContain('Radar');
+    expect($('#wz-advice').textContent).toContain('Warning it gives: Fixed-wing spotter');
     click('Show me a good spot');
-    expect(game.getTool()).toBe('radar');
+    const picked = game.getTool();
+    expect(STRUCTURES[picked].kind).toBe('radar');
     expect($('#wz-spot-why').textContent).toContain('the build area');
     const { x, z } = view.spot;
     expect(game.sim.canPlace(x, z, game.sim.structures[0]?.def ?? { cost: 0 })).toBe(true);
-    act(() => { game.commands.place('radar', x, z); });
+    act(() => { game.commands.place(picked, x, z); });
     expect(view.spot).toBeNull();
     expect($('.wz-tag.now').parentElement.textContent).toContain('RF detector');
+  });
+  it('changes what it recommends when you plan against one threat', () => {
+    opened();
+    goToStep(2);
+    const every = $('#wz-advice').textContent;
+    fireEvent.change($('#wz-threat'), { target: { value: 'fo' } });
+    expect($('#wz-advice').textContent).not.toBe(every);
+    expect($('#wz-advice').textContent).toContain('Warning it gives: Fibre-optic');
+    expect($('#wz-advice').textContent).not.toContain('Fixed-wing');
+    fireEvent.change($('#wz-threat'), { target: { value: '' } });
+    expect($('#wz-advice').textContent).toBe(every);
+  });
+  it('keeps a system of that kind the player picked from the toolbar', () => {
+    opened();
+    goToStep(2);
+    act(() => game.setTool('radar_l'));
+    click('Show me a good spot');
+    expect(game.getTool()).toBe('radar_l');
   });
   it('says why the last placement was refused, and when no spot is left', () => {
     game.lastRefusal = () => 'Too close to the station (minimum 250 m)';
@@ -125,7 +145,7 @@ describe('placing systems', () => {
   it('shows which weapon answers which drone, and what is missing', () => {
     opened();
     goToStep(3);
-    expect($('.wz-matrix').textContent).toContain('FO Strike');
+    expect($('.wz-matrix').textContent).toContain('Fibre-optic strike drone');
     expect($('.wz-warn').textContent).toMatch(/Nothing answers .* yet/);
     act(() => { armed(); });
     goToStep(3);
@@ -242,7 +262,7 @@ describe('committing', () => {
     expect(title()).toBe('Wave 1 in progress');
     expect($('#wizard').textContent).toContain('Nothing has reached the site');
     act(() => { game.sim.ledger.leaked.fo = 2; game.bump(); });
-    expect($('#wizard').textContent).toContain('2 FO Strike');
+    expect($('#wizard').textContent).toContain('2 Fibre-optic strike drone');
     expect($('.wz-progress')).toBeNull();
   });
 });

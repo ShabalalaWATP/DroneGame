@@ -2,7 +2,7 @@
 // button in the Nodes tab. Every figure comes from the code the simulation runs, so the panel cannot disagree with it.
 
 import { useState } from 'react';
-import { COMMS, DRONES, SENSING, SPECTRUM, WORLD } from '../sim/config/index.js';
+import { COMMS, DRONES, DRONE_CLASSES, SENSING, SPECTRUM, WORLD } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
 import { magazineWord } from '../sim/magazine.js';
 import { reachFor } from '../sim/network/sensors.js';
@@ -109,7 +109,7 @@ function Engages({ s }) {
     return (
       <>
         {[...s.jamBands].map((id) => SPECTRUM.bands[id].label).join(', ') || <span className="warn">No bands set</span>}
-        <span className="up-reach muted">{Object.values(DRONES).map((d) => [<span key={d.id}>{d.name}</span>, <span key={`${d.id}-effect`}>{jamEffect(s, d)}</span>])}</span>
+        <span className="up-reach muted">{DRONE_CLASSES.map((d) => [<span key={d.id}>{d.name}</span>, <span key={`${d.id}-effect`}>{jamEffect(s, d)}</span>])}</span>
       </>
     );
   }
@@ -126,7 +126,7 @@ function RangeRow({ s, net, live }) {
   return (
     <Row label="Range">
       <span className="up-reach">
-        {Object.values(DRONES).map((d) => {
+        {DRONE_CLASSES.map((d) => {
           const reach = reachFor(def, d);
           return [<span key={d.id}>{d.name}</span>, <span key={`${d.id}-reach`}>{reach ? km(reach) : 'cannot hear'}</span>];
         })}

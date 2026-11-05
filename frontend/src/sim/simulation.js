@@ -53,7 +53,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
       if (!d || d.dead) return { ok: false, reasons: ['nothing found at the cued position'] };
       if (s.pos.distanceTo(d.pos) > u(s.def.range)) return { ok: false, reasons: ['target outside effector range'] };
       if (!opticalLos(s, d)) return { ok: false, reasons: ['no line of sight to target'] };
-      if (s.def.engages && !s.def.engages.includes(d.type)) return { ok: false, permanent: true, reasons: ['target outside engagement envelope (too fast or too high for this interceptor)'] };
+      if (s.def.engages && !s.def.engages.includes(d.def.variantOf ?? d.type)) return { ok: false, permanent: true, reasons: ['target outside engagement envelope (too fast or too high for this interceptor)'] };
       if (!affordable(w, s)) return { ok: false, reasons: ['insufficient budget for this shot'] };
       if (!canFire(s)) return { ok: false, reasons: [s.reload > 0 ? 'reloading' : 'out of rounds'] };
       return { ok: true };

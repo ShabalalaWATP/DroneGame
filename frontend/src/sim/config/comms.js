@@ -5,8 +5,8 @@
 export const SPECTRUM = {
   bands: {
     control900: { label: 'Control 868/915 MHz', f: [[0.860, 0.930]], note: 'Long-range control links (e.g. ELRS)' },
-    control24: { label: 'Control 2.4 GHz', f: [[2.400, 2.4835]], note: 'Common FPV and hobby control link' },
-    video58: { label: 'Video 5.8 GHz', f: [[5.650, 5.925]], note: 'Common FPV video downlink' },
+    control24: { label: 'Control 2.4 GHz', f: [[2.400, 2.4835]], note: 'Common first-person-view and hobby control link' },
+    video58: { label: 'Video 5.8 GHz', f: [[5.650, 5.925]], note: 'Common first-person-view video downlink' },
     gnss: { label: 'GNSS L1/L2', f: [[1.215, 1.255], [1.559, 1.610]], note: 'GPS and similar navigation signals' },
   },
 };

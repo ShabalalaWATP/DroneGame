@@ -30,7 +30,7 @@ describe('what it can hear', () => {
     expect(reachFor(STRUCTURES.acoustic, DRONES.fw)).toBeGreaterThan(reachFor(STRUCTURES.acoustic, DRONES.fpv));
   });
 
-  it('puts the large station at the reported three miles or so against a FW Strike', () => {
+  it('puts the large station at the reported three miles or so against a Fixed-wing strike drone', () => {
     expect(reachFor(STRUCTURES.acoustic_l, DRONES.fw)).toBeGreaterThan(4500);
     expect(reachFor(STRUCTURES.acoustic_l, DRONES.fw)).toBeLessThan(5500);
   });

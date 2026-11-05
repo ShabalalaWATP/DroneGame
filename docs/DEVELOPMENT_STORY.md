@@ -151,6 +151,14 @@ Acoustic sensors added a real rule, not just a row: they need no line of sight a
 
 Models now scale with size and are 40% smaller overall. The scale also sets where a shot leaves the launcher, so the reference digests were re-recorded. The eighth toolbar row pushed Sell out of sight on a normal screen, which only a browser check showed, so Sell is now pinned to the bottom of the toolbar.
 
+## Threats by name, and real ones
+
+The wizard recommended whichever system was the medium size, whatever it faced. It now reasons from the threat: the faster a drone flies, the further out it must be seen, so it picks the cheapest system of a kind that gives a minute's warning of the most threats (twenty seconds for a weapon). The player can plan against every type or one drone. A small fixed-wing spotter gets a small radar, and a low fibre-optic drone calls for the large one, because clutter caps a radar's reach against low flyers.
+
+Abbreviations such as FO and FW went from the screen, including the tags over drones. The alert text carries the names, so three reference digests were re-recorded, and every other figure in them stayed the same.
+
+Real drones are data on top of the four types, not new rules: each one starts from its type and overrides what is public. So interceptors, the wizard and the debrief treat a Geran-2 as a fixed-wing strike drone, and the waves are untouched. Research found less than hoped in places. No named Chinese military fibre-optic drone has published figures, so the entry is a commercial one and says so, and no source gives a munition mass for most commercial drones, so those are labelled assumptions.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

@@ -21,4 +21,5 @@ export const view = {
   wizard: 'closed', // 'open', 'collapsed' or 'closed'
   coverageOn: false, // the plan map shows sensor coverage
   coverageThreat: null, // for this drone type, or the first one
+  threat: null, // the drone type the wizard plans against, or null for every type
 };

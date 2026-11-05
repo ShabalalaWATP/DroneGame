@@ -59,6 +59,11 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] Real systems listed by name when you pick a kind in the toolbar, with settings for the next one placed
 - [ ] More real systems beyond those the Sources tab first named, and replacing the two generic entries
 
+**Real drones**
+
+- [ ] Letting the waves send real drones, by choosing who is attacking. They fly in the sandbox and the wizard can plan against them, but the waves still send the four generic types, so that saved runs stay comparable.
+- [ ] Spelling out the systems' own short names (RDR, RFS, EO/IR, RF) as the threat names now are. They appear on the map, in the node list and in logs.
+
 **Real-world mapping** (see `docs/REAL_MAPPING_PLAN.md`)
 
 - [x] M0 to M4, and the map building and live layer from M5

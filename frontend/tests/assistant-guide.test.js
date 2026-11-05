@@ -1,10 +1,10 @@
 // The wizard's logic and the zone, against a real simulation with no page. The wizard must only ever read the game.
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { BUILD, DRONES, STRUCTURES, resetAllFigures } from '../src/sim/config/index.js';
+import { BUILD, DRONES, DRONE_CLASSES, STRUCTURES, resetAllFigures } from '../src/sim/config/index.js';
 import { createSimulation } from '../src/sim/simulation.js';
 import { coverageGrid, zoneScores, zoneShare } from '../src/ui/coverage.js';
-import { STEP_IDS, answer, effectorFor, firstOpen, sensorChecklist, stepStatus, unanswered, undone } from '../src/ui/assistant/guide.js';
+import { STEP_IDS, WARNING, answer, effectorFor, firstOpen, reachAgainst, sensorChecklist, stepStatus, systemFor, unanswered, undone, warningAgainst } from '../src/ui/assistant/guide.js';
 import { suggestSpot } from '../src/ui/assistant/spots.js';
 import { addZonePoint, closeZone, inZone, ringZone, undoZonePoint, withZone, zoneFromSpec } from '../src/zone.js';
 import { MIXED, play, setUp } from './support/scenarios.js';
@@ -58,6 +58,34 @@ describe('zone', () => {
   });
 });
 
+describe('which system to recommend', () => {
+  const warned = (def, threats) => threats.filter((d) => warningAgainst(def, d) >= WARNING[def.role]).length;
+  it('follows the threat, not a default size', () => {
+    expect(systemFor('radar', [DRONES.spotter], 15e6).size).toBe('S'); // high and easy to see
+    expect(systemFor('radar', [DRONES.fo], 15e6).size).toBe('L'); // low, in the clutter: it needs all the reach it can get
+    expect(new Set(DRONE_CLASSES.map((d) => systemFor('radar', [d], 15e6).id)).size).toBeGreaterThan(1);
+  });
+  it('warns of the most threats, then costs the least', () => {
+    const pick = systemFor('radar', DRONE_CLASSES, 15e6);
+    for (const def of Object.values(STRUCTURES).filter((d) => d.kind === 'radar')) {
+      expect(warned(pick, DRONE_CLASSES)).toBeGreaterThanOrEqual(warned(def, DRONE_CLASSES));
+      if (warned(def, DRONE_CLASSES) === warned(pick, DRONE_CLASSES)) expect(pick.cost).toBeLessThanOrEqual(def.cost);
+    }
+  });
+  it('stays within the budget while anything fits, and still answers if nothing does', () => {
+    expect(systemFor('radar', [DRONES.fo], 100000).cost).toBeLessThanOrEqual(100000);
+    expect(systemFor('radar', [DRONES.fo], 1).kind).toBe('radar');
+  });
+  it('takes a low flyer out of radar reach beyond its low-flyer range', () => {
+    expect(reachAgainst(STRUCTURES.radar, DRONES.fo)).toBeCloseTo(STRUCTURES.radar.lowRange, -1);
+    expect(reachAgainst(STRUCTURES.radar, DRONES.fpv)).toBeGreaterThan(STRUCTURES.radar.lowRange);
+  });
+  it('recommends by kind on the checklist, and never a system that answers nothing', () => {
+    expect(sensorChecklist(sim).map((r) => r.name)).toEqual(['Radar', 'RF detector', 'EO/IR camera', 'Acoustic sensor']);
+    for (const d of DRONE_CLASSES) expect(answer(d, effectorFor(d))).toBe('Yes');
+  });
+});
+
 describe('who answers which drone', () => {
   const { jammer, interceptor, missile, laser } = STRUCTURES;
   const { fpv, fo, fw } = DRONES;
@@ -80,12 +108,12 @@ describe('who answers which drone', () => {
     expect(answer(spotter, laser)).toBe('Far');
   });
   it('picks the cheapest clear answer', () => {
-    expect(effectorFor(fpv).id).toBe('jammer');
-    expect(effectorFor(fo).id).toBe('interceptor');
-    expect(effectorFor(fw).id).toBe('missile');
+    expect(effectorFor(fpv).kind).toBe('jammer');
+    expect(effectorFor(fo).kind).toBe('interceptor');
+    expect(effectorFor(fw).kind).toBe('missile');
   });
   it('lists what the laydown cannot answer yet', () => {
-    expect(unanswered(sim).length).toBe(Object.keys(DRONES).length);
+    expect(unanswered(sim).length).toBe(DRONE_CLASSES.length);
     sim.addStructure('jammer', 30, 0);
     expect(unanswered(sim).map((d) => d.id)).toContain('fo');
     expect(unanswered(sim).map((d) => d.id)).not.toContain('fpv');
@@ -145,7 +173,7 @@ describe('zone coverage', () => {
   it('lists the weakest drone first, and keeps what it worked out', () => {
     setUp(sim, { seed: '1', laydown: MIXED });
     const scores = zoneScores(sim, square);
-    expect(scores.length).toBe(Object.keys(DRONES).length);
+    expect(scores.length).toBe(DRONE_CLASSES.length);
     expect(scores[0].share).toBeLessThanOrEqual(scores[scores.length - 1].share);
     expect(coverageGrid(sim, 'fo')).toBe(coverageGrid(sim, 'fo'));
   });

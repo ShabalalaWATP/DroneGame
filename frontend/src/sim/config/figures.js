@@ -36,8 +36,8 @@ export const FIGURE_FIELDS = {
   hp: { label: 'Health', unit: 'hp', step: 5, basis: 'rule' },
   rcs: { label: 'Radar cross-section', unit: 'm²', step: 0.01, basis: 'assumption' },
   size: { label: 'Size', unit: 'm', step: 0.05, basis: 'assumption' },
-  rfPower: { label: 'RF link power', unit: 'x FPV', step: 0.5, basis: 'assumption' },
-  sound: { label: 'Loudness', unit: 'x FPV reach', step: 0.5, basis: 'assumption' },
+  rfPower: { label: 'RF link power', unit: 'x first-person-view drone', step: 0.5, basis: 'assumption' },
+  sound: { label: 'Loudness', unit: 'x first-person-view drone reach', step: 0.5, basis: 'assumption' },
   evade: { label: 'Evasion', unit: '1=easy', step: 0.05, basis: 'rule' },
   jamResist: { label: 'Jam resistance', unit: '0–1', step: 0.05, basis: 'rule' },
 };

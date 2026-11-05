@@ -13,7 +13,7 @@ export function Toolbar() {
       {TOOLBAR.map((group) => {
         const def = STRUCTURES[game.toolChoice(group)], sizes = sizeButtons(group), sized = sizes.length > 0;
         return (
-          <div className="tool-row" key={group.kind}>
+          <div className="tool-row" key={group.kind} data-kind={group.kind}>
             <button
               data-tool={sized ? undefined : firstClass(group)}
               className={`tool${sized ? ' sized' : ''}${group.classes.includes(tool) ? ' active' : ''}${budget < def.cost ? ' poor' : ''}`}

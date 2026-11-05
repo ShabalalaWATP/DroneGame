@@ -57,13 +57,13 @@ Press **Deploy**, pick a system from the left (or press 1 to 7), and click the g
 | 2 | RF detector | $10k, 1 km | $40k, 3.5 km | $400k, 8 km | | Passive direction finding with no range. Cannot see RF-silent drones |
 | 3 | EO/IR camera | $25k, 260 m | $100k, 1 km | $500k, 1.6 km | | Narrow view cued by other sensors, with strong classification |
 | 4 | RF jammer | $40k, 500 m | $60k, 1 km | $350k, 1.6 km | | On only while tracks are in range. Fibre-optic drones ignore it |
-| 5 | Interceptor drones | | $100k, 5 km | | $5,000 | Good against FPV and fibre-optic strikes. Cannot catch fixed-wing drones |
+| 5 | Interceptor drones | | $100k, 5 km | | $5,000 | Good against first-person-view and fibre-optic strike drones. Cannot catch fixed-wing drones |
 | 6 | Missile | | $1M, 10 km | | $200,000 | Can hit fixed-wing drones |
 | 7 | Laser | | $2M, 1 km | | $13 | Needs dwell time, so evasive targets take longer |
 
 Sensor ranges are against a small quadcopter. Pick a row to see the real systems of that kind, such as the Robin Radar IRIS or Blighter A800, and the settings for the next one you place. Press a key again for the next one.
 
-The attack is made of FPV strike drones ($400), fibre-optic strike drones that fly low and emit no radio ($1,000), fixed-wing strike drones ($35,000) and fixed-wing spotters that make strikes hit harder ($100,000). They get harder to hit and jam each wave.
+The attack is made of first-person-view (FPV) strike drones ($400), fibre-optic strike drones that fly low and emit no radio ($1,000), fixed-wing strike drones ($35,000) and fixed-wing spotters that make strikes hit harder ($100,000). They get harder to hit and jam each wave.
 
 ### 2. Network it
 
@@ -87,7 +87,7 @@ The **Sandbox** launches any wave's attack, or a custom one, without risk: the s
 
 Press **Start wave**. The laydown locks at this point and the fusion node takes over: it builds tracks from noisy detections, cues cameras and tasks effectors. **Engagement authority** decides whether it fires by itself, or asks you first for costly shots or for every engagement.
 
-With **Truth overlay** on, as in the screenshot at the top, a tag like `FPV` marks where a drone really is, and a marker like `T88 · UAV ±52 m` marks where the fusion node believes it is. Tracks can lag, get confused or turn out to be ghosts, and effectors only hit a real drone they find at the cued position.
+With **Truth overlay** on, as in the screenshot at the top, a tag like `First-person-view` marks where a drone really is, and a marker like `T88 · UAV ±52 m` marks where the fusion node believes it is. Tracks can lag, get confused or turn out to be ghosts, and effectors only hit a real drone they find at the cued position.
 
 ### 6. Read the messages
 
@@ -102,6 +102,8 @@ Pause at any moment and scrub back through the run. Markers on the timeline show
 ![A paused replay 6 seconds behind live, with the timeline and its event markers](docs/screenshots/replay.jpg)
 
 ### 8. Count the cost
+
+The sandbox can also launch 21 real drones: Russian, Iranian and Chinese types, and commercial drones reported carrying munitions. Tick any mix of them. Their public figures, and how solid each one is, are in the **Sources** tab. The waves still send the four generic types.
 
 The **Cost** tab compares what you spent with what the attack cost the enemy, broken down by system, effector and drone type.
 
