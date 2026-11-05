@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import { GAME_VERSION } from '../../sim/config/index.js';
-import { view } from '../../render/view.js';
-import { withZone, zoneFromSpec } from '../../zone.js';
+import { zoneFromSpec } from '../../zone.js';
 import { parseWorldId, worldLabel } from '../../sim/world-pack.js';
 import { useArmed, useGame, useLoad } from '../hooks.js';
 
@@ -27,7 +26,7 @@ export function SavedTab({ active }) {
       return true;
     } catch (e) { setNote(e.message); return false; }
   };
-  const body = (n) => ({ name: n, world: sim.state.terrainSeed, spec: withZone(sim.currentLaydown(), view.zone), game_version: GAME_VERSION });
+  const body = (n) => ({ name: n, world: sim.state.terrainSeed, spec: sim.currentLaydown(), game_version: GAME_VERSION });
 
   const save = (e) => {
     e.preventDefault();

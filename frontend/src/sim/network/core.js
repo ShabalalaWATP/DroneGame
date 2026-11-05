@@ -70,7 +70,10 @@ export function createCore(ctx) {
     const m = mpu();
     return Math.hypot(tr.est.east - s.pos.x * m, tr.est.north + s.pos.z * m, tr.est.up - (s.pos.y || 0) * m);
   };
-  const siteDist = (tr) => Math.hypot(tr.est.east, tr.est.north);
+  // where a track is from what is being defended: the drawn area's centre if there is one, or the station
+  // shortcut: distance is to the area's centre, not its edge, so a long thin area ranks threats unevenly; measure to the outline if that shows in play.
+  const fromSite = (tr) => { const c = ctx.siteCentre(), m = mpu(); return { east: tr.est.east - c.x * m, north: tr.est.north + c.z * m }; };
+  const siteDist = (tr) => { const { east, north } = fromSite(tr); return Math.hypot(east, north); };
 
-  return { ctx, mpu, T, nodes, tracker, names, nameOf, fusion, gui, routeTo, scheduled, comms, send, deliver, antennaM, rel, bearingOf, distToTrack, siteDist };
+  return { ctx, mpu, T, nodes, tracker, names, nameOf, fusion, gui, routeTo, scheduled, comms, send, deliver, antennaM, rel, bearingOf, distToTrack, fromSite, siteDist };
 }

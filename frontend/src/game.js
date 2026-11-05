@@ -15,7 +15,7 @@ import { trackColour } from './render/belief-view.js';
 import { view } from './render/view.js';
 import { createApi } from './api/client.js';
 import { createRunSaver } from './api/run-saver.js';
-import { addZonePoint } from './zone.js';
+import { addZonePoint, zoneInReach } from './zone.js';
 import { createPackStore } from './api/pack-store.js';
 import { parseWorldId } from './sim/world-pack.js';
 
@@ -24,6 +24,8 @@ const PANEL_INTERVAL = 100; // ms between panel refreshes: panels never update p
 // Seeds are saved, so they obey the limits the backend enforces.
 // eslint-disable-next-line no-control-regex
 export const cleanSeed = (text) => (text || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 64) || '1';
+
+const ZONE_LOCKED = 'The area to defend is locked once the first wave starts';
 
 export function createGame({ seed, terrainSeed, api = createApi(), storage = globalThis.localStorage }) {
   const sim = createSimulation({ seed, terrainSeed });
@@ -117,12 +119,23 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     return `Placed. ${km(p.mean)} predicted here on average, against ${km(p.open)} in an open field`;
   }
 
+  // A closed outline is what the enemy attacks. One still being drawn is only a picture.
+  function syncZone() {
+    const points = view.zone?.closed ? view.zone.points : null;
+    if (JSON.stringify(points) !== JSON.stringify(sim.state.zone)) commands.setZone(points);
+  }
+
   function groundClick(x, z) {
     if (!tool || state.over || !state.started) return;
     if (tool === 'sell') { commands.sell(x, z); return; }
-    if (tool === 'zone') { // a planning aid: it stays out of the simulation and its log
-      view.zone = addZonePoint(view.zone, x, z);
-      if (view.zone && view.zone.closed) setTool('zone'); else bump();
+    if (tool === 'zone') {
+      if (sim.designLocked()) toast(ZONE_LOCKED);
+      else if (!zoneInReach(x, z)) toast('The area must stay within 5 km of the station, so the attack has room to fly in');
+      else {
+        view.zone = addZonePoint(view.zone, x, z);
+        syncZone();
+        if (view.zone && view.zone.closed) setTool('zone'); else bump();
+      }
       return;
     }
     refusal = Object.keys(loadoutFor(tool)).length ? commands.place(tool, x, z, { ...loadoutFor(tool) }) : commands.place(tool, x, z);
@@ -247,7 +260,9 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     getView: () => gameView,
     // settings shared with the 3D view
     setViewOption(key, value) {
+      if (key === 'zone' && sim.designLocked()) { toast(ZONE_LOCKED); return; }
       view[key] = value;
+      if (key === 'zone') syncZone();
       if (key === 'rings' && gameView) gameView.structures.setRingsVisible(value);
       if (key === 'osm' && gameView) {
         gameView.showOsm();

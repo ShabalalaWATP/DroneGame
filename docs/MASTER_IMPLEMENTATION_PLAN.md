@@ -721,7 +721,7 @@ A popup that guides a new player from an empty site to the first wave. Built, ap
 - **It only reads the game,** and anything that changes it goes through `commands`. A test runs the same game with the wizard reading it throughout and compares digests.
 - **It only uses what the player could see:** the config and the laydown, never `state.queue` or true drone positions. The debrief reads the truth, because the run is over.
 - **Progress comes from the game,** not from stored state, so loading a laydown or selling a radar moves it. Skipped steps are remembered until the run ends.
-- **The zone is a planning aid.** It lives in `view`, never in `sim/`, and saves in the laydown's `spec`. Making it a rule would change targeting and re-baseline every digest.
+- **The zone is a rule.** It began as a planning aid, and Alex then asked for drones to attack it. A closed zone goes to `sim/` through `setZone`, and saves in the laydown's `spec`. With no zone a run is unchanged, so the digests still hold.
 - **No tips during a wave,** so a run plays like a simulation. It closes when the first wave starts.
 
 ### Threat names and real drones

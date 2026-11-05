@@ -169,6 +169,16 @@ The old rule that hid RF behind a hill entirely, and only slightly weakened it i
 
 An audit of the tracker, measured rather than read: one or two RF detectors alone never confirm a track, which is a deliberate rule because two bearings always cross somewhere. Three do, with about 160 m mean error at a 3 degree bearing error, and 2.9 km at 30 degrees. A fourth adds little.
 
+## Drawing the area to defend without the wizard
+
+Alex pointed out there was no way to draw the area to defend on the map outside the wizard. The tool already existed, but only the wizard's zone step could switch it on. A new button beside the minimap now opens a small panel to draw, undo, close and clear the area, and shows how much of it the sensors can see for each drone type, using the wizard's own scoring. It is still a planning aid that stays out of the simulation, so drones attack the same way whatever is drawn.
+
+## Drones attack the drawn area
+
+The drawn area had been a planning aid, and Alex asked for drones to attack it instead. A closed outline now goes into the simulation as a logged command and saves in the laydown. Each strike drone aims for a random spot inside it, spotters circle its centre, and the fusion node measures threats from that centre, so it engages whatever is closest to the area. FPV and FO strikes can still turn on a loud emitter.
+
+It locks when the first wave starts, like the laydown. Drawing is limited to 5 km from the station, because drones appear at 6 km and need room to fly in. Runs with no area draw no extra random numbers, so the recorded reference digests did not change. Systems can still only be built within 2.5 km of the station, so a far area is deliberately hard to defend.
+
 ## Rounds that can miss, and error that grows with range
 
 Until now a guided round always arrived, and a laser did the same damage at any range. Each weapon now has a hit chance, lowered by evasion, by how fast the target is against the round, by range and by the quality of the track when it was fired. That last one is what ties sensor accuracy to results for the first time. Where there is evidence the figure is worked back from it: with the other effects, the Sting's claimed 80 to 90% comes to about 66% against an FPV, close to the 68% average President Zelenskyy gave, and the P1-SUN's $3,000 a kill at $1,000 a drone comes to about 1 in 3. Most others have no published rate, and say so.

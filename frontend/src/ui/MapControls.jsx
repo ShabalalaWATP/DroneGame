@@ -11,6 +11,7 @@ import { contourStep, heightRange } from '../render/topo.js';
 import { view } from '../render/view.js';
 import { useArmed, useGame, useTick } from './hooks.js';
 import { accuracyText, inBritain, locateMe } from './locate.js';
+import { ZonePanel } from './ZonePanel.jsx';
 import './map-panel.css';
 
 const REAL_MAPS = [
@@ -82,6 +83,7 @@ const Icon = ({ path }) => <svg viewBox="0 0 24 24" width="22" height="22" fill=
 const ICONS = {
   me: 'M12 2v4M12 18v4M2 12h4M18 12h4M12 7a5 5 0 1 0 0 10a5 5 0 0 0 0-10z',
   site: 'M4 20V10l8-6l8 6v10M9 20v-6h6v6',
+  zone: 'M5 8l7-4l7 5l-2 10l-10 1z',
 };
 
 function Thumb({ id, pictures }) {
@@ -98,6 +100,7 @@ export function MapControls() {
   const [offer, setOffer] = useState(null); // a real place outside this world, which could have a map of its own
   const [locating, setLocating] = useState(false);
   const [pictures, setPictures] = useState({});
+  const [zoneOpen, setZoneOpen] = useState(false);
   const change = useArmed();
 
   const maps = geo ? REAL_MAPS : GENERATED_MAPS;
@@ -155,6 +158,15 @@ export function MapControls() {
       say(`Moved to ${gridRef(point.e, point.n)}. Pick a system first to place one there.`);
     }
   };
+  const stopDrawing = () => { if (game.getTool() === 'zone') game.setTool('zone'); };
+  const toggleZone = () => {
+    if (zoneOpen) stopDrawing();
+    else {
+      game.setViewOption('mapPanel', false);
+      if (!view.zone?.closed && !game.sim.designLocked() && game.getTool() !== 'zone') game.setTool('zone');
+    }
+    setZoneOpen(!zoneOpen);
+  };
   const choose = (id) => { if (geo) game.setViewOption('baseMap', id); else game.setViewOption('osm', id === 'live'); };
   const forced = (key) => (key === 'mapRoads' && view.baseMap === 'hybrid') || (key === 'mapContours' && view.baseMap === 'topo');
   const showContours = geo && (view.mapContours || view.baseMap === 'topo');
@@ -174,6 +186,7 @@ export function MapControls() {
         </button>
         <button id="map-me" className={`${locating ? 'loading ' : ''}${view.me ? 'on' : ''}`} aria-label="Centre on my location" title="Centre on my location. It stays in this browser." disabled={locating} onClick={centreOnMe}><Icon path={ICONS.me} /></button>
         <button id="map-site" aria-label="Centre on the site" title="Centre on the site" onClick={() => gameView?.centreOn(0, 0)}><Icon path={ICONS.site} /></button>
+        <button id="map-zone" className={zoneOpen ? 'on' : ''} aria-expanded={zoneOpen} aria-label="Draw the area to defend" title="Draw the area to defend" onClick={toggleZone}><Icon path={ICONS.zone} /></button>
         <button id="map-plan" className={view.planView ? 'on' : ''} aria-pressed={view.planView} title="Look straight down (P)" onClick={() => game.setViewOption('planView', !view.planView)}>{view.planView ? '3D' : '2D'}</button>
       </div>
 
@@ -213,7 +226,8 @@ export function MapControls() {
           <button id="map-change-world" title="Go back to the start screen to pick generated ground or another real map. This clears your laydown." onClick={change.confirm('world', () => game.leaveWorld())}>{change.armed ? 'Sure? This clears your laydown' : 'Change world'}</button>
         </div>
       )}
-      {!view.mapPanel && message && <div id="map-bubble" className="panel"><button id="map-bubble-close" aria-label="Dismiss" onClick={() => say('')}>×</button>{message}</div>}
+      {zoneOpen && !view.mapPanel && <ZonePanel onClose={toggleZone} />}
+      {!view.mapPanel && !zoneOpen && message && <div id="map-bubble" className="panel"><button id="map-bubble-close" aria-label="Dismiss" onClick={() => say('')}>×</button>{message}</div>}
       {geo ? <Credits geo={geo} source={source} here={here} /> : view.osm && <OsmCredit />}
     </>
   );
