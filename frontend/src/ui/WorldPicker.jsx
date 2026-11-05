@@ -155,6 +155,17 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
     else if (!onGrid(point.e, point.n)) setNote('That is outside Great Britain, which these maps cover.');
     else goTo(point);
   };
+  // Saves the chosen map as a file, for someone else to bring in with Import.
+  const exportPack = async () => {
+    try {
+      const url = URL.createObjectURL(await game.packs.fileOf(entry));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${entry.name.replace(/[^\w -]/g, '').trim() || 'map'}.sgmap`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (problem) { setNote(problem.message); }
+  };
   const importPack = async (e) => {
     const chosen = e.target.files[0];
     e.target.value = '';
@@ -188,6 +199,7 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
               <option value="">{listing ? (listing.packs.length ? 'Jump to a map' : 'No maps yet') : 'Looking for maps...'}</option>
               {listing?.packs.map((p) => <option key={p.hash} value={p.hash}>{p.name} ({gridRef(p.east, p.north, 4)})</option>)}
             </select>
+            <button id="pack-export" disabled={!entry} title="Save this map as a file to give to someone else. They bring it in with Import, and need no downloads." onClick={exportPack}>Export</button>
             <button id="pack-import" onClick={() => file.current.click()}>Import</button>
             <input type="file" id="pack-file" ref={file} accept=".sgmap" hidden onChange={importPack} />
           </div>

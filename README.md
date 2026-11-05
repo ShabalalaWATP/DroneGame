@@ -247,6 +247,8 @@ The start screen opens with a real map ready, if map packs are installed, so you
 
 In the game, the buttons beside the minimap open the map switcher, centre on your location, centre on the site, and change between 3D and plan view. The switcher shows a preview of each map: OS, light, dark, satellite, hybrid, topographic, shaded relief and live OpenStreetMap. M moves to the next one. The topographic map uses the world's own heights, with height colours, hill shading and labelled contours. Contours (C), roads and names, and the national grid (G) can be added to any map. If your location is outside the current world, **Open a map here** goes back to the start screen on that spot, and **Change world** switches between generated ground and real maps. A typed grid reference moves there, or places the system you have picked.
 
+To share a map, choose it on the start screen and press **Export** to save it as a `.sgmap` file. Anyone else presses **Import** and picks that file. It is checked in full, kept in their browser, and needs no further downloads.
+
 Maps live in `~/site-guard-maps` (set `SITE_GUARD_MAPS` to move them), which holds the OS downloads and the finished packs. To build one by hand:
 
 ```bash
