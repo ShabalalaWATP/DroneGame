@@ -8,6 +8,7 @@ import { rand, gauss } from './rng.js';
 import { u, hdist, clamp, groundM, hereU, SITE_POS } from './units.js';
 import { tally } from './economy.js';
 import { pickTarget, hitStructure } from './targeting.js';
+import { aimInZone } from './attack-area.js';
 
 const _v = new Vector3();
 const SPOTTER_CLEARANCE = 30; // metres
@@ -32,13 +33,14 @@ export function spawnDrone(w, type, bearing, rolls = {}) {
   const agl = def.alt[0] + altFrac * (def.alt[1] - def.alt[0]); // metres above the ground at the spawn point
   const y = hereU(sx, sz) + u(agl);
   const pos = new Vector3(sx, y, sz);
+  const aim = w.state.zone && def.role !== 'spotter' ? aimInZone(w.state.zone, rand) : null; // only a drawn area uses a random draw, so runs without one are unchanged
   const uid = ++w.droneUid;
   const d = {
     uid, def, type, pos, launch: pos.clone(),
     hp: def.hp, evade, jamResist, jamT: 0, detected: false, dead: false,
-    agl0: agl, h0: Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
+    agl0: agl, h0: aim ? Math.max(Math.hypot(sx - aim.x, sz - aim.z), 1) : Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
     mode: 'approach', angle: 0, orbitT: 0, bank: 0, heading: 0, // spotter state
-    vel: new Vector3(), freq, track: null, nav: 0, videoJammed: false, targetStructure: null,
+    vel: new Vector3(), freq, track: null, nav: 0, videoJammed: false, targetStructure: null, aim,
   };
   w.drones.push(d);
   w.rec.event('launch', `${def.name} launched`, d.uid);
@@ -87,24 +89,24 @@ function impact(w, d) {
 
 // Spotter: flies out to its standoff radius, orbits for loiterTime, then leaves. Returns false if it was removed.
 function moveSpotter(w, d, spd, dt) {
-  const r = u(d.def.loiterDist);
+  const r = u(d.def.loiterDist), c = w.state.zoneCentre;
   d.pos.y = Math.max(d.pos.y, hereU(d.pos.x, d.pos.z) + u(SPOTTER_CLEARANCE)); // it holds one height, which real mountains can reach
   if (d.mode === 'approach') {
-    if (hdist(d.pos, SITE_POS) <= r) {
-      d.mode = 'orbit'; d.angle = Math.atan2(d.pos.z, d.pos.x); d.orbitT = 0;
+    if (hdist(d.pos, c) <= r) {
+      d.mode = 'orbit'; d.angle = Math.atan2(d.pos.z - c.z, d.pos.x - c.x); d.orbitT = 0;
       w.rec.event('spotter', `${d.def.name} on station`, d.uid);
       w.emit('toast', `${d.def.name} on station: strikes +${Math.round(d.def.spotBonus * 100)}% damage`);
     } else {
-      _v.set(-d.pos.x, 0, -d.pos.z).normalize().multiplyScalar(spd);
+      _v.set(c.x - d.pos.x, 0, c.z - d.pos.z).normalize().multiplyScalar(spd);
       d.pos.add(_v);
     }
   } else if (d.mode === 'orbit') {
     d.angle += spd / r;
-    d.pos.set(Math.cos(d.angle) * r, d.pos.y, Math.sin(d.angle) * r);
+    d.pos.set(c.x + Math.cos(d.angle) * r, d.pos.y, c.z + Math.sin(d.angle) * r);
     d.orbitT += dt;
     if (d.orbitT >= d.def.loiterTime) d.mode = 'egress';
   } else {
-    _v.set(d.pos.x, 0, d.pos.z).normalize().multiplyScalar(spd);
+    _v.set(d.pos.x - c.x, 0, d.pos.z - c.z).normalize().multiplyScalar(spd);
     d.pos.add(_v);
     if (hdist(d.pos, SITE_POS) > u(WORLD.spawnDist)) { tally(w.ledger.escaped, d.type); removeDrone(w, d); return false; }
   }
@@ -116,7 +118,7 @@ function moveStrike(w, d, spd) {
   if (hdist(d.pos, SITE_POS) > u(WORLD.radius)) { tally(w.ledger.escaped, d.type); w.rec.event('escaped', `${d.def.name} left the area`, d.uid); removeDrone(w, d); return false; } // GNSS drift can turn it away for good
   const tgt = pickTarget(w, d);
   const hrem = Math.hypot(tgt.x - d.pos.x, tgt.z - d.pos.z);
-  if (tgt.structure ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(w, d, tgt.structure); else impact(w, d); return false; }
+  if (tgt.structure || d.aim ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(w, d, tgt.structure); else impact(w, d); return false; }
   // height above ground eases from the launch height down to the target height, never below the type's minimum until it
   // is within 400 m, and climbing early over rising ground
   let dirx = (tgt.x - d.pos.x) / hrem, dirz = (tgt.z - d.pos.z) / hrem;

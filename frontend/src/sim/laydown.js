@@ -4,7 +4,8 @@
 import { Vector3 } from 'three';
 import { WORLD, BUILD, COMMS, ECONOMY, STRUCTURES } from './config/index.js';
 import { terrainState } from './terrain.js';
-import { u, hdist, hereU } from './units.js';
+import { SITE_POS, u, hdist, hereU } from './units.js';
+import { cleanZone, zoneCentre } from './attack-area.js';
 import { buyTerminal, money } from './economy.js';
 import { fillMagazine } from './magazine.js';
 import { cleanCallsign, cleanName, cleanSettings, fieldsFor, setSetting, unitCost, unitDef } from './unit-config.js';
@@ -75,6 +76,7 @@ export function captureLaydown(w) {
     }))
       .sort((a, b) => a.id.localeCompare(b.id) || a.x - b.x || a.z - b.z),
     fusionUplinks: [...w.net.fusion.uplinks], fusionCell: w.net.fusion.cellBand,
+    ...(w.state.zone ? { zone: w.state.zone } : {}),
   };
 }
 
@@ -98,6 +100,19 @@ export function restoreLaydown(w, spec) {
   }
   for (const k of spec.fusionUplinks) { w.net.fusion.uplinks.add(k); w.ledger.terminals[k]++; charge(COMMS[k].cost); }
   w.net.fusion.cellBand = spec.fusionCell;
+  applyZone(w, cleanZone(spec.zone));
+}
+
+function applyZone(w, points) {
+  w.state.zone = points;
+  w.state.zoneCentre = points ? zoneCentre(points) : SITE_POS;
+}
+
+// The area the enemy attacks, in place of the station. Like the laydown, it is locked once the first wave starts. Returns why not, or null.
+export function setZone(w, points) {
+  if (designLocked(w)) return 'The area to defend is locked once the first wave starts';
+  applyZone(w, cleanZone(points));
+  return null;
 }
 
 // Change one field on one unit, paying or being refunded the difference. A null value goes back to the standard one. Returns why not, or null.

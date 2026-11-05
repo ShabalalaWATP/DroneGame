@@ -6,7 +6,7 @@ import { createSimulation } from '../src/sim/simulation.js';
 import { coverageGrid, zoneScores, zoneShare } from '../src/ui/coverage.js';
 import { STEP_IDS, answer, effectorFor, firstOpen, sensorChecklist, stepStatus, unanswered, undone } from '../src/ui/assistant/guide.js';
 import { suggestSpot } from '../src/ui/assistant/spots.js';
-import { addZonePoint, closeZone, inZone, ringZone, undoZonePoint, withZone, zoneFromSpec } from '../src/zone.js';
+import { addZonePoint, closeZone, inZone, ringZone, undoZonePoint, zoneFromSpec } from '../src/zone.js';
 import { MIXED, play, setUp } from './support/scenarios.js';
 
 const square = { points: [[-50, -50], [50, -50], [50, 50], [-50, 50]], closed: true };
@@ -50,9 +50,6 @@ describe('zone', () => {
   });
   it('travels with a saved laydown only once it is closed', () => {
     const spec = { structures: [] };
-    expect(withZone(spec, square).zone).toBe(square.points);
-    expect(withZone(spec, { points: [[0, 0]], closed: false })).toBe(spec);
-    expect(withZone(spec, null)).toBe(spec);
     expect(zoneFromSpec({ zone: square.points })).toEqual(square);
     expect(zoneFromSpec(spec)).toBeNull();
   });

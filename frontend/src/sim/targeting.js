@@ -1,5 +1,6 @@
 // What the enemy goes for. FPV and FO strikes look for the loudest radio emitter near them and go for that instead of the
-// site: a radar, a jammer that is switched on, a system with a Starlink or cellular terminal. Everything else heads for the station.
+// site: a radar, a jammer that is switched on, a system with a Starlink or cellular terminal. Everything else heads for its spot
+// in the area the player drew, or for the station if there is none.
 
 import { WORLD, COMMS } from './config/index.js';
 import { u, hdist, hereU } from './units.js';
@@ -18,7 +19,7 @@ function emitterScore(s) {
 const SITE_AIM = { x: 0, z: 0, structure: null };
 
 export function pickTarget(w, d) {
-  if (!d.def.seeksEmitters) return SITE_AIM;
+  if (!d.def.seeksEmitters) return d.aim || SITE_AIM;
   if (d.targetStructure && w.structures.includes(d.targetStructure)) return { x: d.targetStructure.pos.x, z: d.targetStructure.pos.z, structure: d.targetStructure };
   d.targetStructure = null;
   let best = null, bs = 0.3;
@@ -28,7 +29,7 @@ export function pickTarget(w, d) {
     const score = emitterScore(s) / (1 + dist / u(1500));
     if (score > bs) { bs = score; best = s; }
   }
-  if (!best) return SITE_AIM;
+  if (!best) return d.aim || SITE_AIM;
   d.targetStructure = best;
   d.h0 = hdist(d.pos, best.pos); d.agl0 = Math.max((d.pos.y - hereU(d.pos.x, d.pos.z)) * WORLD.metresPerUnit, 5); // restart the descent profile
   return { x: best.pos.x, z: best.pos.z, structure: best };

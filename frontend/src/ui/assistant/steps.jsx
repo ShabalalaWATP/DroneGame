@@ -7,6 +7,7 @@ import { money } from '../../sim/economy.js';
 import { view } from '../../render/view.js';
 import { closeZone, ringZone, undoZonePoint } from '../../zone.js';
 import { zoneScores } from '../coverage.js';
+import { ATTACK_NOTE, CoverageBars } from '../ZonePanel.jsx';
 import { useGame } from '../hooks.js';
 import { Spotlight } from './Spotlight.jsx';
 import { answer, effectorColumns, effectorFor, sensorChecklist, unanswered } from './guide.js';
@@ -51,9 +52,9 @@ function ZoneStep({ next }) {
   }, [game]);
   return (
     <>
-      <p>The red ring is the station. A strike drone that gets within {SITE.radius} m hits it. You can build from {BUILD.minDist} m out to the blue ring at {km(BUILD.maxDist)}.</p>
-      {closed ? <p>Your zone is drawn on the map. I will use it to score your sensor coverage.</p> : <p>Click the map to outline the area you care about, then double-click to close it. I will use it to score your sensor coverage.</p>}
-      <p className="wz-small wz-muted">A planning aid: drones still aim for the station and for loud emitters.</p>
+      <p>The red ring is the station. With no area drawn, a strike drone that gets within {SITE.radius} m of it hits it. You can build from {BUILD.minDist} m out to the blue ring at {km(BUILD.maxDist)}.</p>
+      {closed ? <p>Your zone is drawn on the map. The attack now comes for it, and I will use it to score your sensor coverage.</p> : <p>Click the map to outline the area you care about, then double-click to close it. I will use it to score your sensor coverage.</p>}
+      <p className="wz-small wz-muted">{ATTACK_NOTE}</p>
       <div className="wz-actions">
         {closed
           ? <><button className="wz-go" onClick={next}>Next</button><button onClick={() => { set(null); if (game.getTool() !== 'zone') game.setTool('zone'); }}>Redraw</button></>
@@ -158,14 +159,7 @@ function CoverageStep({ next, goTo }) {
   return (
     <>
       <p>How much of {view.zone && view.zone.closed ? 'your zone' : 'the build area'} is seen, for each drone type. They fly at different heights, and some make no radio noise.</p>
-      <div className="wz-bars">
-        {[...scores].reverse().map((s) => (
-          <div key={s.id} className={weak && s === weakest ? 'gap' : ''}>
-            <div className="wz-bar-label"><span>{s.name}, {s.height} m</span><b>{Math.round(s.share * 100)}%</b></div>
-            <div className="wz-bar"><i style={{ width: `${s.share * 100}%` }} /></div>
-          </div>
-        ))}
-      </div>
+      <CoverageBars scores={scores} gap={weak ? weakest : null} />
       {weak && <p className="wz-warn">{weakest.name} is your weak spot{DRONES[weakest.id].rfEmitter ? '.' : ': it makes no radio noise, so only radar and cameras count.'}</p>}
       <div className="wz-actions">
         <button className={weak ? 'wz-go' : ''} onClick={() => goTo('sensors')}>Go back and add a sensor</button>
@@ -259,8 +253,8 @@ function PreflightStep({ goTo, openDock, passed, status }) {
 // title, what the step does, and the questions a new player tends to ask at that point
 export const STEPS = {
   zone: { title: 'Mark what you are defending', Body: ZoneStep, why: [
-    ['Why draw a zone?', 'It tells me what to score. Coverage only means something against the ground you care about.'],
-    ['Does it change the attack?', 'No. It is a planning aid, so the same seed and laydown give the same run with or without it.'],
+    ['Why draw a zone?', 'It is what the enemy attacks, and it tells me what to score. Coverage only means something against the ground you care about.'],
+    ['Does it change the attack?', 'Yes. Strike drones aim for spots inside it instead of the station, and spotters circle it. The same seed, laydown and zone still give the same run.'],
   ] },
   sensors: { title: 'See them first', Body: SensorsStep, why: [
     ['Why a radar first?', 'It gives range as well as direction, so tracks are sharp. The other sensors make up for what it misses.'],

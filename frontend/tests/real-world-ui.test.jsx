@@ -395,13 +395,13 @@ describe('choosing a world', () => {
     }, 30000);
     it('saves and reloads a real world with its zone, keeping the site out of the address', async () => {
       await deployed();
-      view.zone = ringZone(1000);
+      game.setViewOption('zone', ringZone(1000));
       const points = view.zone.points;
       show(<SavedTab active />);
       type('#save-name', 'Real');
       fireEvent.click($('#save-laydown'));
       await until(() => $('#saved-list'));
-      view.zone = null;
+      game.setViewOption('zone', null);
       const load = [...document.querySelectorAll('#saved-list button')].find((b) => b.textContent === 'Load');
       fireEvent.click(load);
       await act(async () => { fireEvent.click(load); });
