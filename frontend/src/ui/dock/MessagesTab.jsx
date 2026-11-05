@@ -97,7 +97,7 @@ export function MessagesTab({ active }) {
           </div>
         ))}
       </div>
-      <pre id="msg-detail">{detailText(selected, explain)}</pre>
+      <pre id="msg-detail" className={selected ? '' : 'empty'}>{detailText(selected, explain)}</pre>
     </>
   );
 }

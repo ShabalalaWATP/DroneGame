@@ -135,6 +135,12 @@ Resupply followed, which raised a question the plan had not faced: if firing cos
 
 The first tests passed for the wrong reason. Starting wave 1 rebuilds every system, so they were changing units that no longer existed; a failing hand-over test exposed it, and they now act after the rebuild.
 
+## A tidier SAPIENT panel
+
+Alex called the SAPIENT panel a hot mess: ten tabs in one list wrapped over two rows, and it opened on the raw message log. The tabs now sit on one row under five small headings (Live, Comms, Plan and cost, Records, Reference), so all of them stay one click away and nothing has to be expanded first. A two-level menu was the other option, but it would have hidden tab names behind a guess. The panel now opens on Nodes, which says what each system is doing. Tab ids did not change, so the wizard and tests still reach them.
+
+The map buttons and map credit drew over the panel, and at 800x600 it ran 14 px off the left of the window. Both are fixed. Inside the tabs, the empty JSON box no longer takes half the Messages tab, the filter chips fit on one row, and the Network diagram closes up its rows so a system can no longer fall below the canvas where it could not be clicked.
+
 ## More sizes and acoustic sensors
 
 Alex asked for other sizes of laser, missile and interceptor, and for acoustic sensors in three sizes, using real kit with public figures. Each new entry names a real system, and its `ref` separates what is published from what is assumed. The sourcing paid for checking: the article first cited for one acoustic station's range and price turned out to hold neither, so it was replaced by the one that did.

@@ -51,11 +51,13 @@ export function createNetworkCanvas(cv, net, { getSel, isVisible, getPace }) {
       cellular: { id: 'cellular', x: W * 0.8 - 62, y: 18, w: 124, h: 34 },
     };
     const fusion = { id: 'fusion', x: W * 0.5 - 75, y: Math.max(112, H * 0.24), w: 150, h: 40 };
-    const nodeY = Math.max(210, H * 0.5);
+    const nodeY = Math.max(170, H * 0.5);
     const all = nodeList(net), sensors = all.filter((n) => n.def.role === 'sensor'), effectors = all.filter((n) => n.def.role === 'effector');
     const place = (list, x0, x1, y0) => list.map((n, i) => {
       const cols = Math.max(1, Math.floor((x1 - x0) / (NODE_W + 8)));
-      return { id: n.nodeId, node: n, x: x0 + (i % cols) * (NODE_W + 8), y: y0 + Math.floor(i / cols) * (NODE_H + 36), w: NODE_W, h: NODE_H };
+      // close the rows up to fit, or a system below the canvas could not be clicked
+      const step = Math.max(NODE_H + 4, Math.min(NODE_H + 36, (H - y0 - 8) / Math.ceil(list.length / cols)));
+      return { id: n.nodeId, node: n, x: x0 + (i % cols) * (NODE_W + 8), y: y0 + Math.floor(i / cols) * step, w: NODE_W, h: NODE_H };
     });
     return { els, fusion, nodes: [...place(sensors, 12, W / 2 - 10, nodeY), ...place(effectors, W / 2 + 10, W - 12, nodeY)] };
   }
