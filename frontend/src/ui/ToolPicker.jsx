@@ -7,6 +7,7 @@ import { fieldsFor, settingValue, unitDef } from '../sim/unit-config.js';
 import { view } from '../render/view.js';
 import { useGame, useTick } from './hooks.js';
 import { UnitField } from './UnitEditor.jsx';
+import { PeoplePicker } from './PeoplePicker.jsx';
 
 export function ToolPicker() {
   useTick();
@@ -14,6 +15,7 @@ export function ToolPicker() {
   const tool = game.getTool();
   const [hidden, setHidden] = useState(false);
   useEffect(() => { if (!tool) setHidden(false); }, [tool]);
+  if (tool === 'people') return hidden || view.wizard === 'open' ? null : <PeoplePicker onHide={() => setHidden(true)} />;
   const group = TOOLBAR.find((g) => g.classes.includes(tool));
   if (!group || hidden || view.wizard === 'open') return null;
   const settings = game.loadoutFor(tool), def = unitDef(tool, settings);

@@ -4,9 +4,11 @@ import * as THREE from 'three';
 import { STRUCTURES, STRUCT_SCALE } from '../sim/config/index.js';
 import { u, hereU } from '../sim/units.js';
 import { drapedRing } from './terrain-view.js';
+import { view } from './view.js';
 import { LABEL_LIFT, ringThickness } from './structure-view.js';
 
 const PICK_PX = 16;
+const PEOPLE_MARKER = 0.006; // the placement marker's size per scene unit from the camera
 export const PLACING_PICK_PX = 8; // tighter while placing, so a click near a system can still place beside it
 const _base = new THREE.Vector3(), _top = new THREE.Vector3();
 const _ray = new THREE.Raycaster(), _ndc = new THREE.Vector2(), _level = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), _hit = new THREE.Vector3();
@@ -44,7 +46,7 @@ export function selectionFrom(tool, tagged, pick) {
   return (STRUCTURES[tool] && (tagged || pick())) || undefined;
 }
 
-// getTool() is a structure id, 'sell', 'zone' or null. A left click first calls onSelect(screenX, screenY), which returns true if
+// getTool() is a structure id, 'sell', 'zone', 'people' or null. A left click first calls onSelect(screenX, screenY), which returns true if
 // it dealt with the click. Otherwise it calls onGroundClick(x, z).
 export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getTool, onGroundClick, onSelect }) {
   const raycaster = new THREE.Raycaster();
@@ -99,14 +101,15 @@ export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getT
 
   function update() {
     const tool = getTool();
-    if (ghostRing || tool === 'sell') {
+    if (ghostRing || tool === 'sell' || tool === 'people') {
       ghost.visible = mouseOnGround && !!tool && sim.state.started;
       ghost.position.set(mouseGround.x, mouseGround.y + 0.1, mouseGround.z);
+      ghostMarker.scale.setScalar(tool === 'people' ? camera.position.distanceTo(ghost.position) * PEOPLE_MARKER : STRUCT_SCALE); // people are tiny, so it must not hide them up close
       if (ghostRing && mouseOnGround && (ghostAt.x !== mouseGround.x || ghostAt.z !== mouseGround.z)) {
         ghostRing.update(mouseGround.x, mouseGround.z); // re-drape the ring over the ground under the cursor
         ghostAt = { x: mouseGround.x, z: mouseGround.z };
       }
-      const ok = tool === 'sell' || sim.canPlace(mouseGround.x, mouseGround.z, STRUCTURES[tool]);
+      const ok = tool === 'sell' || (tool === 'people' ? sim.canPlacePeople(mouseGround.x, mouseGround.z, view.people.protection) : sim.canPlace(mouseGround.x, mouseGround.z, STRUCTURES[tool]));
       ghostMat.color.set(tool === 'sell' ? 0xff9800 : ok ? 0x66ff66 : 0xff5252);
     } else ghost.visible = false;
   }

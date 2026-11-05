@@ -8,6 +8,7 @@ import { u } from '../sim/units.js';
 import { buildWorldView, drapedRing, groundU, makeHillshade } from './terrain-view.js';
 import { createLabels } from './labels.js';
 import { createStructureViews } from './structure-view.js';
+import { createPeopleViews } from './people-view.js';
 import { createDroneViews } from './drone-view.js';
 import { createBeliefViews } from './belief-view.js';
 import { createEffects } from './effects.js';
@@ -29,7 +30,7 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
   camera.position.set(0, 300, 380);
   const controls = new OrbitControls(camera, canvas);
   controls.maxPolarAngle = Math.PI * 0.48;
-  controls.minDistance = 20;
+  controls.minDistance = 2; // close enough to make out a person, who is drawn to true scale
   controls.maxDistance = 1200;
   controls.enableDamping = true;
 
@@ -137,6 +138,7 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
 
   const labels = createLabels(labelLayer, camera);
   const structures = createStructureViews(scene, sim, labels);
+  const people = createPeopleViews(scene, sim, labels);
   const drones = createDroneViews(scene, sim, labels, camera);
   const beliefs = createBeliefViews(scene, sim.net, camera, labelLayer);
   const effects = createEffects(scene, sim);
@@ -147,6 +149,7 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
   function update(real) {
     effects.update(real);
     structures.sync(real);
+    people.sync();
     drones.sync(real);
     beliefs.update();
     structures.updateLabels(sim.net);

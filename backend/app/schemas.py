@@ -13,6 +13,7 @@ SystemId = Literal[
 Uplink = Literal["starlink", "cellular"]
 CellBand = Literal["B8", "B3", "n78"]
 JamBand = Literal["control900", "control24", "video58", "gnss"]
+Protection = Literal["open", "building", "bunker"]
 
 WORLD_LIMIT = 350  # scene units: the ground reaches 7 km from the site, at 20 m a unit
 MAX_SYSTEMS = 200
@@ -20,6 +21,8 @@ MAX_COMMANDS = 20_000
 MAX_UNIT_SETTINGS = 16
 MAX_FIGURES_PER_ITEM = 40
 MAX_ZONE_POINTS = 32
+MAX_PEOPLE_GROUPS = 50
+MAX_PEOPLE_PER_GROUP = 500
 
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
 
@@ -62,12 +65,20 @@ class PlacedSystem(Strict):
     callsign: Callsign | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
+class PlacedPeople(Strict):
+    x: Coordinate
+    z: Coordinate
+    count: Annotated[int, Field(ge=1, le=MAX_PEOPLE_PER_GROUP)]
+    protection: Protection
+
+
 class LaydownSpec(Strict):
     """The shape of captureLaydown() in frontend/src/sim/laydown.js, plus the area to defend, which the simulation never reads."""
 
     structures: list[PlacedSystem] = Field(max_length=MAX_SYSTEMS)
     fusionUplinks: list[Uplink] = Field(max_length=2)
     fusionCell: CellBand
+    people: list[PlacedPeople] | None = Field(default=None, max_length=MAX_PEOPLE_GROUPS, exclude_if=lambda people: people is None)
     zone: list[Annotated[list[Coordinate], Field(min_length=2, max_length=2)]] | None = Field(default=None, min_length=3, max_length=MAX_ZONE_POINTS, exclude_if=lambda zone: zone is None)
 
 
@@ -80,6 +91,7 @@ class Figures(Strict):
     structures: FigureGroup = {}
     drones: FigureGroup = {}
     comms: FigureGroup = {}
+    people: FigureGroup = Field(default={}, exclude_if=lambda people: not people)  # left out until someone edits one, as older records have none
     world: Annotated[dict[FigureKey, Figure], Field(max_length=4)] = {}
     waves: Annotated[dict[FigureKey, Figure], Field(max_length=4)] = {}
     adapt: Annotated[dict[FigureKey, Figure], Field(max_length=4)] = {}

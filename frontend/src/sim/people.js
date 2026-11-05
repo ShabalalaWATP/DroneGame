@@ -1,0 +1,137 @@
+// Simulated people: placing groups, and the casualties a blast causes. People never change the attack: they are not targets, and
+// every roll comes from a stream of its own, so a run with people plays out exactly as it does without them.
+
+import { BUILD, PEOPLE, PEOPLE_LIMITS, SITE, WORLD } from './config/index.js';
+import { hashSeed, mulberry32 } from './rng.js';
+import { terrainState } from './terrain.js';
+import { clamp, hereU, u } from './units.js';
+
+const SPACING = 1.5; // metres between people standing in a group
+const FLOOR_SPACE = 1.5; // square metres a person takes up in a bunker
+const WALL_INSET = 1; // metres people stay clear of a wall
+const UNMAPPED_ROOM = 16; // metres across, for a marked grid cell with no building outline
+const LOCKED = 'The laydown is locked once the first wave starts';
+
+// The side of the concrete block a bunker group is drawn inside, in metres.
+export const bunkerSide = (count) => Math.sqrt(count * FLOOR_SPACE) + 2 * WALL_INSET;
+
+// People spread over a rectangle in metres, turned to match a building. Spots are kept in scene units.
+function inRoom(rng, count, w, d, angle, cx, cz) {
+  const c = Math.cos(angle), s = Math.sin(angle), spots = new Float32Array(count * 2);
+  const across = Math.max(w - 2 * WALL_INSET, 1), deep = Math.max(d - 2 * WALL_INSET, 1);
+  for (let i = 0; i < count; i++) {
+    const lx = (rng() - 0.5) * across, lz = (rng() - 0.5) * deep;
+    spots[i * 2] = u(cx + lx * c + lz * s); spots[i * 2 + 1] = u(cz - lx * s + lz * c);
+  }
+  return spots;
+}
+
+// A loose crowd: a sunflower spiral keeps people apart at any size, and the jitter stops it looking like a pattern.
+function inTheOpen(rng, count, cx, cz) {
+  const spots = new Float32Array(count * 2);
+  for (let i = 0; i < count; i++) {
+    const r = SPACING * Math.sqrt(i) + rng() * 0.5, a = i * 2.39996 + rng() * 0.3;
+    spots[i * 2] = u(cx + Math.cos(a) * r); spots[i * 2 + 1] = u(cz + Math.sin(a) * r);
+  }
+  return spots;
+}
+
+function layOut(x, z, count, protection) {
+  const rng = mulberry32(hashSeed(`people:${x}:${z}`));
+  const xm = x * WORLD.metresPerUnit, zm = z * WORLD.metresPerUnit;
+  if (protection === 'open') return inTheOpen(rng, count, xm, zm);
+  if (protection === 'bunker') return inRoom(rng, count, bunkerSide(count), bunkerSide(count), 0, xm, zm);
+  const b = terrainState.data.buildingAt(xm, zm);
+  return b ? inRoom(rng, count, b.w, b.d, b.angle || 0, b.x, b.z) : inRoom(rng, count, UNMAPPED_ROOM, UNMAPPED_ROOM, 0, xm, zm);
+}
+
+function addGroup(w, x, z, count, protection) {
+  w.people.push({ id: ++w.peopleUid, x, z, y: hereU(x, z), count, protection, spots: layOut(x, z, count, protection), down: new Uint8Array(count), hits: [] });
+  w.peopleRev++;
+}
+
+// Why a group can't go here, or null if it can.
+export function peopleProblem(w, x, z, protection) {
+  if (!Object.hasOwn(PEOPLE, protection)) return 'Choose a level of protection';
+  if (BUILD.lockAfterStart && w.state.wave > 0) return LOCKED;
+  if (w.people.length >= PEOPLE_LIMITS.groups) return `No more than ${PEOPLE_LIMITS.groups} groups`;
+  if (Math.hypot(x, z) > u(BUILD.maxDist)) return `Outside the build zone (maximum ${BUILD.maxDist} m)`;
+  const xm = x * WORLD.metresPerUnit, zm = z * WORLD.metresPerUnit, data = terrainState.data;
+  if (protection === 'building') return data.onBuilding(xm, zm) ? null : 'Click on a building to put a group inside it';
+  if (data.onBuilding(xm, zm)) return 'There is a building here. Choose In a building to put them inside it';
+  if (data.coverAt(xm, zm) === 4) return 'They cannot stand in water';
+  if (data.slope(xm, zm) > 0.4) return 'The ground is too steep';
+  return null;
+}
+
+const cleanCount = (count) => clamp(Math.round(count), 1, PEOPLE_LIMITS.perGroup);
+
+// Returns the reason it can't be placed, or null if it was.
+export function placePeople(w, x, z, count, protection) {
+  if (!Number.isFinite(count)) return 'Choose how many people are in the group';
+  const problem = peopleProblem(w, x, z, protection);
+  if (problem) return problem;
+  addGroup(w, x, z, cleanCount(count), protection);
+  return null;
+}
+
+export function removePeople(w, id) {
+  if (BUILD.lockAfterStart && w.state.wave > 0) { w.emit('toast', LOCKED); return; }
+  const at = w.people.findIndex((g) => g.id === id);
+  if (at < 0) return;
+  w.people.splice(at, 1);
+  w.peopleRev++;
+}
+
+export function clearPeople(w) { w.people.length = 0; w.peopleRev++; }
+
+// Sorted, so the order groups were placed in cannot change the run. Left out with no people, so saved laydowns stay as they were.
+export const capturePeople = (w) => (w.people.length
+  ? { people: w.people.map(({ x, z, count, protection }) => ({ x, z, count, protection })).sort((a, b) => a.x - b.x || a.z - b.z || a.protection.localeCompare(b.protection)) }
+  : {});
+
+export function restorePeople(w, groups = []) {
+  for (const g of groups) if (Object.hasOwn(PEOPLE, g.protection) && Number.isFinite(g.count)) addGroup(w, g.x, g.z, cleanCount(g.count), g.protection);
+}
+
+// Each person near the blast may become a casualty, likelier the closer they are and the less protected. Scene units.
+function blast(w, def, x, y, z, rng) {
+  let hurt = 0;
+  for (const g of w.people) {
+    const level = PEOPLE[g.protection], reach = u(def.casualtyRadius * level.reachScale);
+    if (!(reach > 0)) continue;
+    for (let i = 0; i < g.count; i++) {
+      if (g.down[i]) continue;
+      const d = Math.hypot(g.spots[i * 2] - x, g.y - y, g.spots[i * 2 + 1] - z);
+      if (d < reach && rng() < level.pCasualty * (1 - d / reach)) { g.down[i] = 1; g.hits.push(i); hurt++; }
+    }
+  }
+  if (!hurt) return;
+  w.state.casualties += hurt;
+  w.peopleRev++;
+  const text = `${def.name}: ${hurt} simulated ${hurt === 1 ? 'casualty' : 'casualties'}`;
+  w.rec.event('casualty', text);
+  w.emit('toast', text);
+}
+
+// A drone's own stream: however many people there are, it reads nothing from the run's.
+const blastRng = (w, d) => mulberry32(hashSeed(`${w.state.seed}:blast:${d.uid}`));
+const affects = (w, d) => w.people.length > 0 && d.def.casualtyRadius > 0;
+
+// A drone destroyed in flight goes off where it is, so its height above a group shelters them.
+export function blastInAir(w, d) {
+  if (affects(w, d)) blast(w, d.def, d.pos.x, d.pos.y, d.pos.z, blastRng(w, d));
+}
+
+// A drone that reaches a system lands on it.
+export function blastOnGround(w, d, x, z) {
+  if (affects(w, d)) blast(w, d.def, x, hereU(x, z), z, blastRng(w, d));
+}
+
+// A drone counts as hitting the site at its edge, but lands inside it: aimed at the middle, with scatter out to the edge.
+export function blastOnSite(w, d) {
+  if (!affects(w, d)) return;
+  const rng = blastRng(w, d), a = rng() * Math.PI * 2, r = u(SITE.radius) * rng();
+  const x = Math.cos(a) * r, z = Math.sin(a) * r;
+  blast(w, d.def, x, hereU(x, z), z, rng);
+}

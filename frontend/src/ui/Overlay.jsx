@@ -1,7 +1,7 @@
 // The start screen before deployment, and the game over card.
 
 import { useState } from 'react';
-import { ECONOMY } from '../sim/config/index.js';
+import { ECONOMY, PEOPLE } from '../sim/config/index.js';
 import { enemyCost, money } from '../sim/economy.js';
 import { cleanSeed } from '../game.js';
 import { view } from '../render/view.js';
@@ -64,6 +64,13 @@ function StartCard({ openDock }) {
   );
 }
 
+const casualtySummary = (groups) => Object.entries(PEOPLE)
+  .filter(([id]) => groups.some((g) => g.protection === id))
+  .map(([id, level]) => {
+    const here = groups.filter((g) => g.protection === id);
+    return `${level.name.toLowerCase()} ${here.reduce((sum, g) => sum + g.hits.length, 0)} of ${here.reduce((sum, g) => sum + g.count, 0)}`;
+  }).join(', ');
+
 function GameOverCard({ onReview }) {
   const { sim, commands, saver } = useGame();
   const { state, ledger } = sim;
@@ -73,6 +80,7 @@ function GameOverCard({ onReview }) {
         <h1>SITE LOST</h1>
         <p>You held out for <b>{Math.max(state.wave - 1, 0)}</b> full wave(s).</p>
         <p>Kills <b>{state.kills}</b> · Enemy attack cost <b>{money(enemyCost(ledger.launched))}</b> · Defence spend <b>{money(ledger.capex + ledger.consumables)}</b></p>
+        {sim.people.length > 0 && <p id="casualty-summary">Simulated casualties <b>{state.casualties}</b> of {sim.people.reduce((sum, g) => sum + g.count, 0)}: {casualtySummary(sim.people)}. These come from assumed figures (see Sources), not real data.</p>}
         {saver.message() && <p id="save-status" className="muted">{saver.message()}</p>}
         <button id="btn-restart" className="primary" onClick={() => commands.reset('keep')}>Retry with the same laydown</button>{' '}
         <button id="btn-restart-clear" onClick={() => commands.reset('clear')}>New laydown</button>

@@ -123,6 +123,16 @@ Alex confirmed the project is non-commercial, which allowed EOxCloudless for sat
 
 Alex then found that a sensor could not stand in a gap between houses. Placement read the 20 m grid, where any cell with enough building in it counts as solid, so about 57% of marked spots on both real maps were not on a building at all. Placement on real maps now reads the true outlines. Line of sight still reads the grid, as changing it would change how every real-map run plays.
 
+## Simulated people
+
+Alex asked for fake people on the map, in groups, very small and realistic, with a protection level, so that attacks could cause casualties. The first design rule was that people must not disturb the attack. Each blast therefore rolls from a stream seeded by the drone's id, and nothing is read from the run's own stream, so a run with people gives the same kills, health and budget as one without. Casualties join the digest only when a laydown has people, so every older digest still holds.
+
+Two things in the existing game shaped the rest. A drone counts as hitting the site at the 150 m edge of its disc, so blasts measured from there could never reach staff in the middle. A site strike now lands inside the disc for this purpose, aimed at the middle with scatter. And the camera stopped 400 m from the ground, where a person is about four pixels tall, so true scale would have meant never seeing anyone. The camera can now come to 40 m, and each group has a Look button.
+
+A real browser found what the tests could not: the green placement marker was large enough to hide a whole group up close, and a fourth figure squeezed the HUD's stats row together.
+
+The casualty figures are round-number assumptions and are labelled so in the Sources tab. They are not weapons-effects data, and they should not be read as any.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

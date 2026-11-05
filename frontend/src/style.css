@@ -366,3 +366,10 @@ button.wz-go:hover:not(:disabled) { background: #d4ff4d; }
 #world-real-panel select { flex: 1; min-width: 160px; }
 #site-ref { width: 190px; }
 .card { max-height: 92vh; overflow-y: auto; }
+
+.people-count { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.people-count input { width: 72px; }
+.people-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.people-list li { display: flex; align-items: center; gap: 4px; }
+.people-list li > span { flex: 1; min-width: 0; }
+.people-list button { padding: 0 6px; font-size: 12px; line-height: 18px; }
