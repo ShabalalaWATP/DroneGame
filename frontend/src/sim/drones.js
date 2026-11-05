@@ -2,11 +2,14 @@
 
 import { Vector3 } from 'three';
 import { WORLD, SITE, DRONES, ADAPT } from './config/index.js';
+import { antennaHeight, reachOnPath } from './site-range.js';
+import { terrainState } from './terrain.js';
 import { rand, gauss } from './rng.js';
 import { u, hdist, clamp, groundM, hereU, SITE_POS } from './units.js';
 import { tally } from './economy.js';
 import { pickTarget, hitStructure } from './targeting.js';
 import { blastInAir, blastOnSite } from './people.js';
+import { aimInZone } from './attack-area.js';
 
 const _v = new Vector3();
 const SPOTTER_CLEARANCE = 30; // metres
@@ -31,13 +34,14 @@ export function spawnDrone(w, type, bearing, rolls = {}) {
   const agl = def.alt[0] + altFrac * (def.alt[1] - def.alt[0]); // metres above the ground at the spawn point
   const y = hereU(sx, sz) + u(agl);
   const pos = new Vector3(sx, y, sz);
+  const aim = w.state.zone && def.role !== 'spotter' ? aimInZone(w.state.zone, rand) : null; // only a drawn area uses a random draw, so runs without one are unchanged
   const uid = ++w.droneUid;
   const d = {
     uid, def, type, pos, launch: pos.clone(),
     hp: def.hp, evade, jamResist, jamT: 0, detected: false, dead: false,
-    agl0: agl, h0: Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
+    agl0: agl, h0: aim ? Math.max(Math.hypot(sx - aim.x, sz - aim.z), 1) : Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
     mode: 'approach', angle: 0, orbitT: 0, bank: 0, heading: 0, // spotter state
-    vel: new Vector3(), freq, track: null, nav: 0, videoJammed: false, targetStructure: null,
+    vel: new Vector3(), freq, track: null, nav: 0, videoJammed: false, targetStructure: null, aim,
   };
   w.drones.push(d);
   w.rec.event('launch', `${def.name} launched`, d.uid);
@@ -88,24 +92,24 @@ function impact(w, d) {
 
 // Spotter: flies out to its standoff radius, orbits for loiterTime, then leaves. Returns false if it was removed.
 function moveSpotter(w, d, spd, dt) {
-  const r = u(d.def.loiterDist);
+  const r = u(d.def.loiterDist), c = w.state.zoneCentre;
   d.pos.y = Math.max(d.pos.y, hereU(d.pos.x, d.pos.z) + u(SPOTTER_CLEARANCE)); // it holds one height, which real mountains can reach
   if (d.mode === 'approach') {
-    if (hdist(d.pos, SITE_POS) <= r) {
-      d.mode = 'orbit'; d.angle = Math.atan2(d.pos.z, d.pos.x); d.orbitT = 0;
+    if (hdist(d.pos, c) <= r) {
+      d.mode = 'orbit'; d.angle = Math.atan2(d.pos.z - c.z, d.pos.x - c.x); d.orbitT = 0;
       w.rec.event('spotter', `${d.def.name} on station`, d.uid);
       w.emit('toast', `${d.def.name} on station: strikes +${Math.round(d.def.spotBonus * 100)}% damage`);
     } else {
-      _v.set(-d.pos.x, 0, -d.pos.z).normalize().multiplyScalar(spd);
+      _v.set(c.x - d.pos.x, 0, c.z - d.pos.z).normalize().multiplyScalar(spd);
       d.pos.add(_v);
     }
   } else if (d.mode === 'orbit') {
     d.angle += spd / r;
-    d.pos.set(Math.cos(d.angle) * r, d.pos.y, Math.sin(d.angle) * r);
+    d.pos.set(c.x + Math.cos(d.angle) * r, d.pos.y, c.z + Math.sin(d.angle) * r);
     d.orbitT += dt;
     if (d.orbitT >= d.def.loiterTime) d.mode = 'egress';
   } else {
-    _v.set(d.pos.x, 0, d.pos.z).normalize().multiplyScalar(spd);
+    _v.set(d.pos.x - c.x, 0, d.pos.z - c.z).normalize().multiplyScalar(spd);
     d.pos.add(_v);
     if (hdist(d.pos, SITE_POS) > u(WORLD.spawnDist)) { tally(w.ledger.escaped, d.type); removeDrone(w, d); return false; }
   }
@@ -117,7 +121,7 @@ function moveStrike(w, d, spd) {
   if (hdist(d.pos, SITE_POS) > u(WORLD.radius)) { tally(w.ledger.escaped, d.type); w.rec.event('escaped', `${d.def.name} left the area`, d.uid); removeDrone(w, d); return false; } // GNSS drift can turn it away for good
   const tgt = pickTarget(w, d);
   const hrem = Math.hypot(tgt.x - d.pos.x, tgt.z - d.pos.z);
-  if (tgt.structure ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(w, d, tgt.structure); else impact(w, d); return false; }
+  if (tgt.structure || d.aim ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(w, d, tgt.structure); else impact(w, d); return false; }
   // height above ground eases from the launch height down to the target height, never below the type's minimum until it
   // is within 400 m, and climbing early over rising ground
   let dirx = (tgt.x - d.pos.x) / hrem, dirz = (tgt.z - d.pos.z) / hrem;
@@ -131,6 +135,15 @@ function moveStrike(w, d, spd) {
   return true;
 }
 
+export function jamReaches(s, d) {
+  const dist = s.pos.distanceTo(d.pos);
+  if (dist > u(s.def.range)) return false;
+  // A jammer needs a radio path, the same as a radio detector. shortcut: it uses the drone's one reported band, not each link it jams.
+  const m = WORLD.metresPerUnit;
+  const from = { x: s.pos.x * m, y: s.pos.y * m + antennaHeight(s.def), z: s.pos.z * m }, to = { x: d.pos.x * m, y: d.pos.y * m, z: d.pos.z * m };
+  return dist <= u(reachOnPath(s.def, d.def, terrainState.data, from, to, d.freq));
+}
+
 // Jamming. Each jammer that is on and in range jams the bands it is set to, and what that does depends on what the
 // drone relies on: a jammed control link slows it and eventually crashes it, a jammed video link does the same more
 // slowly (it is flying blind), and jammed GNSS makes a navigating drone drift off course (and the drift stays).
@@ -139,7 +152,7 @@ function applyJamming(w, d, dt) {
   const links = d.def.links || {};
   let ctrl = false, vid = false, gnss = false, killTime = Infinity, ctrlSlow = 1;
   for (const s of w.structures) {
-    if (s.def.kind !== 'jammer' || s.mode !== 'Jam' || s.pos.distanceTo(d.pos) > u(s.def.range)) continue;
+    if (s.def.kind !== 'jammer' || s.mode !== 'Jam' || !jamReaches(s, d)) continue;
     if (links.control && s.jamBands.has(links.control)) { ctrl = true; ctrlSlow = Math.min(ctrlSlow, s.def.slow); }
     if (links.video && s.jamBands.has(links.video)) vid = true;
     if (links.gnss && s.jamBands.has('gnss')) gnss = true;

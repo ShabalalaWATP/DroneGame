@@ -1,6 +1,6 @@
 // How many sensors would see a drone of a given type at each spot. The plan map draws this, and the wizard scores the zone with it.
 
-import { BUILD, DRONES, WORLD, exportFigures } from '../sim/config/index.js';
+import { BUILD, DRONES, DRONE_CLASSES, WORLD, exportFigures } from '../sim/config/index.js';
 import { terrainState } from '../sim/terrain.js';
 import { inZone } from '../zone.js';
 
@@ -37,9 +37,9 @@ export function zoneShare(sim, threat, zone) {
   return cells ? seen / cells : 0;
 }
 
-// Every drone type, each with its height and how much of the zone is seen, with the weakest first.
+// Each of the four types, with its height and how much of the zone is seen, with the weakest first.
 export function zoneScores(sim, zone) {
-  return Object.values(DRONES)
+  return DRONE_CLASSES
     .map((def) => ({ id: def.id, name: def.name, height: Math.round((def.alt[0] + def.alt[1]) / 2), share: zoneShare(sim, def.id, zone) }))
     .sort((a, b) => a.share - b.share);
 }

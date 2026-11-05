@@ -48,18 +48,28 @@ afterEach(() => { cleanup(); resetAllFigures(); });
 describe('dock', () => {
   it('switches tabs, keeps one visible, and grows', () => {
     openDock();
-    expect($('[data-pane="messages"]').className).not.toContain('hidden');
-    tab('nodes');
-    expect($('[data-pane="messages"]').className).toContain('hidden');
     expect($('[data-pane="nodes"]').className).not.toContain('hidden');
+    tab('messages');
+    expect($('[data-pane="nodes"]').className).toContain('hidden');
+    expect($('[data-pane="messages"]').className).not.toContain('hidden');
     fireEvent.click($('#dock-max'));
     expect($('#dock').className).toContain('max');
+  });
+
+  it('puts every tab in exactly one named group', () => {
+    openDock();
+    const groups = [...document.querySelectorAll('.tabs [role="group"]')];
+    expect(groups.map((g) => g.getAttribute('aria-label'))).toEqual(['Live', 'Comms', 'Plan and cost', 'Records', 'Reference']);
+    const tabs = groups.flatMap((g) => [...g.querySelectorAll('[data-tab]')]);
+    expect(tabs).toHaveLength(document.querySelectorAll('[data-pane]').length);
+    expect(new Set(tabs.map((t) => t.dataset.tab)).size).toBe(tabs.length);
+    for (const t of tabs) expect(t.title).not.toBe('');
   });
 });
 
 describe('messages tab', () => {
   it('says when older messages are no longer kept, and does not claim to export them', () => {
-    openDock();
+    openDock('messages');
     expect($('#log-kept')).toBeNull();
     expect($('#log-export').title).not.toMatch(/every message/);
     const msg = { timestamp: 't', node_id: 'n', registration_ack: { acceptance: true } };
@@ -189,6 +199,19 @@ describe('plan tab', () => {
 });
 
 describe('network tab', () => {
+  it('keeps every system on a short canvas, where it can be clicked', () => {
+    setUp(game.sim, { seed: '1', laydown: MIXED });
+    const cv = newCanvas();
+    Object.defineProperty(cv, 'clientWidth', { value: 300 });
+    Object.defineProperty(cv, 'clientHeight', { value: 360 });
+    const d = createNetworkCanvas(cv, game.sim.net, { getSel: () => null, isVisible: () => true, getPace: () => 1 });
+    d.draw();
+    const seen = new Set();
+    for (let x = 0; x < 300; x += 10) for (let y = 0; y < 360; y += 5) seen.add(d.hitTest({ x, y }).box?.id);
+    for (const n of nodeList(game.sim.net)) expect(seen).toContain(n.nodeId);
+    d.dispose();
+  });
+
   it('wires everything, shows the cost, and clears it', () => {
     setUp(game.sim, { seed: '1', laydown: [['rf', 900, 0], ['jammer', 500, 300]] });
     game.commands.clearAll();

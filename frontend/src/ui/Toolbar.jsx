@@ -13,7 +13,7 @@ export function Toolbar() {
       {TOOLBAR.map((group) => {
         const def = STRUCTURES[game.toolChoice(group)], sizes = sizeButtons(group), sized = sizes.length > 0;
         return (
-          <div className="tool-row" key={group.kind}>
+          <div className="tool-row" key={group.kind} data-kind={group.kind}>
             <button
               data-tool={sized ? undefined : firstClass(group)}
               className={`tool${sized ? ' sized' : ''}${group.classes.includes(tool) ? ' active' : ''}${budget < def.cost ? ' poor' : ''}`}
@@ -44,9 +44,9 @@ export function Toolbar() {
         );
       })}
       <button data-tool="people" className={`tool${tool === 'people' ? ' active' : ''}`} title="Place groups of simulated people, to see what an attack would do to them" onClick={() => game.setTool('people')}>
-        <div className="n">People</div><div className="c">{game.sim.people.reduce((sum, g) => sum + g.count, 0) || ''}</div><div className="k">[8] simulated</div>
+        <div className="n">People</div><div className="c">{game.sim.people.reduce((sum, g) => sum + g.count, 0) || ''}</div><div className="k">[9] simulated</div>
       </button>
-      <button className={`tool${tool === 'sell' ? ' active' : ''}`} title="Click a structure to sell it for a refund" onClick={() => game.setTool('sell')}>
+      <button id="tool-sell" className={`tool${tool === 'sell' ? ' active' : ''}`} title="Click a structure to sell it for a refund" onClick={() => game.setTool('sell')}>
         <div className="n">Sell</div><div className="c">{Math.round(BUILD.sellRefund * 100)}%</div><div className="k">[X]</div>
       </button>
     </div>

@@ -4,7 +4,7 @@
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGame } from '../src/game.js';
-import { FUSION, resetAllFigures } from '../src/sim/config/index.js';
+import { FUSION, STRUCTURES, resetAllFigures } from '../src/sim/config/index.js';
 import { view } from '../src/render/view.js';
 import { App } from '../src/ui/App.jsx';
 import { MIXED, setUp } from './support/scenarios.js';
@@ -66,7 +66,7 @@ describe('getting started', () => {
     opened();
     fireEvent.click($('[aria-label="Collapse the wizard"]'));
     expect($('#wizard')).toBeNull();
-    expect($('#wizard-pill').textContent).toContain('Step 1 of 8');
+    expect($('#wizard-pill').textContent).toContain('Step 1 of 9');
     fireEvent.click($('#wizard-pill'));
     expect($('#wizard')).not.toBeNull();
     fireEvent.click($('[aria-label="Close the wizard"]'));
@@ -83,15 +83,35 @@ describe('placing systems', () => {
   it('walks through the sensors, suggesting a spot the game would allow', () => {
     opened();
     goToStep(2);
-    expect($('.wz-tag.now').parentElement.textContent).toContain('radar');
+    expect($('.wz-tag.now').parentElement.textContent).toContain('Radar');
+    expect($('#wz-advice').textContent).toContain('Warning it gives: Fixed-wing spotter');
     click('Show me a good spot');
-    expect(game.getTool()).toBe('radar');
+    const picked = game.getTool();
+    expect(STRUCTURES[picked].kind).toBe('radar');
     expect($('#wz-spot-why').textContent).toContain('the build area');
     const { x, z } = view.spot;
     expect(game.sim.canPlace(x, z, game.sim.structures[0]?.def ?? { cost: 0 })).toBe(true);
-    act(() => { game.commands.place('radar', x, z); });
+    act(() => { game.commands.place(picked, x, z); });
     expect(view.spot).toBeNull();
     expect($('.wz-tag.now').parentElement.textContent).toContain('RF detector');
+  });
+  it('changes what it recommends when you plan against one threat', () => {
+    opened();
+    goToStep(2);
+    const every = $('#wz-advice').textContent;
+    fireEvent.change($('#wz-threat'), { target: { value: 'fo' } });
+    expect($('#wz-advice').textContent).not.toBe(every);
+    expect($('#wz-advice').textContent).toContain('Warning it gives: Fibre-optic');
+    expect($('#wz-advice').textContent).not.toContain('Fixed-wing');
+    fireEvent.change($('#wz-threat'), { target: { value: '' } });
+    expect($('#wz-advice').textContent).toBe(every);
+  });
+  it('keeps a system of that kind the player picked from the toolbar', () => {
+    opened();
+    goToStep(2);
+    act(() => game.setTool('radar_l'));
+    click('Show me a good spot');
+    expect(game.getTool()).toBe('radar_l');
   });
   it('says why the last placement was refused, and when no spot is left', () => {
     game.lastRefusal = () => 'Too close to the station (minimum 250 m)';
@@ -125,7 +145,7 @@ describe('placing systems', () => {
   it('shows which weapon answers which drone, and what is missing', () => {
     opened();
     goToStep(3);
-    expect($('.wz-matrix').textContent).toContain('FO Strike');
+    expect($('.wz-matrix').textContent).toContain('Fibre-optic strike drone');
     expect($('.wz-warn').textContent).toMatch(/Nothing answers .* yet/);
     act(() => { armed(); });
     goToStep(3);
@@ -135,7 +155,7 @@ describe('placing systems', () => {
   });
   it('is done with sensors once every kind is in', () => {
     opened();
-    act(() => { armed(); });
+    act(() => { setUp(game.sim, { seed: '1', laydown: [...MIXED, ['acoustic', 0, 700]] }); refresh(); });
     goToStep(2);
     expect($('.wz-tag.now')).toBeNull();
     click('Next');
@@ -173,7 +193,7 @@ describe('proving it', () => {
     expect($('#dock').className).toContain('hidden');
   });
   it('rehearses in the sandbox without touching the run', () => {
-    stepWith(6);
+    stepWith(7);
     click('Enter the sandbox');
     expect(game.sim.state.sandbox).toBe(true);
     click('Launch 10');
@@ -185,19 +205,19 @@ describe('proving it', () => {
     expect(title()).toBe('Make the figures yours');
   });
   it('only counts a rehearsal that really happened', () => {
-    stepWith(6);
+    stepWith(7);
     click('Next');
-    goToStep(8);
+    goToStep(9);
     expect($('.wz-checks').textContent).toContain('Not rehearsed yet');
-    goToStep(6);
+    goToStep(7);
     click('Enter the sandbox');
     click('Launch 10');
-    goToStep(8);
+    goToStep(9);
     expect($('.wz-checks').textContent).toContain('Rehearsed in the sandbox');
   });
   it('points at the figures with no verified source', () => {
     const scroll = vi.fn();
-    stepWith(7);
+    stepWith(8);
     expect($('[data-tab="systems"]').className).toBe('active');
     expect($('#wizard').textContent).toContain('OPTIONAL');
     const first = $('[data-pane="systems"] .fb.assumption');
@@ -210,7 +230,7 @@ describe('proving it', () => {
 });
 
 describe('committing', () => {
-  const preflight = () => { opened(); act(() => { armed(); }); goToStep(8); };
+  const preflight = () => { opened(); act(() => { armed(); }); goToStep(9); };
 
   it('checks the laydown and sets who decides to fire', () => {
     preflight();
@@ -242,7 +262,7 @@ describe('committing', () => {
     expect(title()).toBe('Wave 1 in progress');
     expect($('#wizard').textContent).toContain('Nothing has reached the site');
     act(() => { game.sim.ledger.leaked.fo = 2; game.bump(); });
-    expect($('#wizard').textContent).toContain('2 FO Strike');
+    expect($('#wizard').textContent).toContain('2 Fibre-optic strike drone');
     expect($('.wz-progress')).toBeNull();
   });
 });
@@ -267,7 +287,7 @@ describe('following the game', () => {
     act(() => { armed(); });
     goToStep(5);
     act(() => { game.commands.sell(30, 0); });
-    expect($('#wizard').textContent).toContain('BACK TO STEP 2 OF 8');
+    expect($('#wizard').textContent).toContain('BACK TO STEP 2 OF 9');
     expect(title()).toBe('You sold your only radar');
     click('Carry on');
     expect(title()).toBe('Check what it can see');
@@ -283,7 +303,7 @@ describe('following the game', () => {
   it('explains other things coming undone, and drops the warning once fixed', () => {
     opened();
     act(() => { armed(); });
-    goToStep(8);
+    goToStep(9);
     act(() => { game.commands.clearAll(); });
     expect(title()).toBe('Something is offline');
     act(() => { game.commands.autoWire(); });

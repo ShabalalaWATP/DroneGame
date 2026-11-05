@@ -11,12 +11,13 @@ import { bus } from './sapient.js';
 import { createNetwork } from './network/index.js';
 import { createRecorder, takeSnapshot, SNAPSHOT_EVERY } from './recorder.js';
 import { runRecord } from './run-record.js';
-import { u } from './units.js';
+import { SITE_POS, u } from './units.js';
 import { affordable, createLedger, resetLedger } from './economy.js';
 import * as laydown from './laydown.js';
 import * as people from './people.js';
 import { spawnDrone, removeDrone, updateDrones, spotterBonus } from './drones.js';
-import { opticalLos, updateStructures, updateMissiles } from './effectors.js';
+import { opticalLos, updateStructures, updateMissiles, enoughInAir } from './effectors.js';
+import { canFire, resupply } from './magazine.js';
 import { startWave, updateWaves } from './waves.js';
 import { enterSandbox, launchSandboxWave, launchSandboxAttack, clearSandboxDrones } from './sandbox.js';
 
@@ -35,7 +36,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
 
   const state = {
     seed, terrainSeed, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, time: 0, warnedWire: false,
-    started: false, over: false, autoStart: false,
+    started: false, over: false, autoStart: false, zone: null, zoneCentre: SITE_POS,
     waveActive: false, queue: [], waveTime: 0, autoTimer: -1,
     sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, // sandbox: attacks without consequences, before the first wave
   };
@@ -44,17 +45,20 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   w.net = createNetwork({
     drones: w.drones,
     getTime: () => state.time,
+    siteCentre: () => state.zoneCentre,
     monitoring: () => state.wave > 0 || state.sandbox, // the fusion node only chases lost contact once the attack has started
     onApprovalRequest() { emit('approvalRequest'); emit('toast', 'Engagement request: your decision is needed'); },
     onApprovalDecided() { emit('approvalDecided'); },
     onKillConfirmed(tr) { w.rec.event('confirmed', `Kill confirmed on ${tr.short}`); },
+    roundsCover: (s, d) => !!d && !d.dead && enoughInAir(w, s, d), // enough on the way that this launcher can look for another target
     // An effector decides whether it can take a task from the fusion node.
     acceptTask(s, d) {
       if (!d || d.dead) return { ok: false, reasons: ['nothing found at the cued position'] };
       if (s.pos.distanceTo(d.pos) > u(s.def.range)) return { ok: false, reasons: ['target outside effector range'] };
       if (!opticalLos(s, d)) return { ok: false, reasons: ['no line of sight to target'] };
-      if (s.def.engages && !s.def.engages.includes(d.type)) return { ok: false, permanent: true, reasons: ['target outside engagement envelope (too fast or too high for this interceptor)'] };
-      if (!affordable(w, s.def)) return { ok: false, reasons: ['insufficient budget for this shot'] };
+      if (s.def.engages && !s.def.engages.includes(d.def.variantOf ?? d.type)) return { ok: false, permanent: true, reasons: ['target outside engagement envelope (too fast or too high for this interceptor)'] };
+      if (!affordable(w, s)) return { ok: false, reasons: ['insufficient budget for this shot'] };
+      if (!canFire(s)) return { ok: false, reasons: [s.reload > 0 ? 'reloading' : 'out of rounds'] };
       return { ok: true };
     },
   });
@@ -83,7 +87,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     people.clearPeople(w);
     Object.assign(state, {
       health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, time: 0, warnedWire: false, over: false,
-      waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0,
+      waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, zone: null, zoneCentre: SITE_POS,
     });
     resetLedger(w.ledger);
     w.rec.clear(); stepCount = 0; w.droneUid = 0;
@@ -163,10 +167,12 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   const commands = logged({
     deploy,
     leave,
+    setZone: (points) => laydown.setZone(w, points),
     place: (id, x, z, settings) => laydown.place(w, id, x, z, settings),
     sell: (x, z) => laydown.sell(w, x, z),
     placePeople: (x, z, count, protection) => people.placePeople(w, x, z, count, protection),
     removePeople: (id) => people.removePeople(w, id),
+    resupply: () => resupply(w),
     startWave: () => startWave(w, beginRun),
     reset: (mode) => resetRun(mode),
     setAutoStart: (on) => { state.autoStart = on; },

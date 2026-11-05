@@ -157,6 +157,13 @@ describe('casualties', () => {
     for (let uid = 1; uid <= 20; uid++) blastOnSite(w, shahed(uid));
     expect(sim.state.casualties).toBeGreaterThan(0);
   });
+  it('a strike aimed inside a drawn area lands on its aim point', () => {
+    expect(sim.commands.placePeople(...CLEAR_SPOT, 50, 'open')).toBeNull();
+    blastOnSite(fakeWorld(), { ...fpv(), aim: { x: -CLEAR_SPOT[0], z: -CLEAR_SPOT[1] } }); // far from the group
+    expect(sim.state.casualties).toBe(0);
+    blastOnSite(fakeWorld(), { ...fpv(2), aim: { x: CLEAR_SPOT[0], z: CLEAR_SPOT[1] } });
+    expect(sim.state.casualties).toBeGreaterThan(0);
+  });
 
   it('come back after a reset, with the group still there', () => {
     sim.commands.placePeople(...CLEAR_SPOT, 50, 'open');
@@ -286,7 +293,7 @@ describe('the screens', () => {
   it('marks every figure in the Sources tab as an assumption', () => {
     show(<SourcesTab key="s" active={false} />);
     const fields = [...document.querySelectorAll('input[data-key="pCasualty"], input[data-key="reachScale"], input[data-key="casualtyRadius"]')];
-    expect(fields).toHaveLength(9);
+    expect(fields.length).toBeGreaterThanOrEqual(9); // every drone, real ones included, has a casualty radius
     for (const input of fields) expect(input.closest('label').querySelector('.fb').textContent).toBe('ASSUMPTION');
     expect(document.body.textContent).toMatch(/not base real decisions/);
   });

@@ -24,6 +24,7 @@ const lay = (laydown = MIXED) => { setUp(game.sim, { seed: '1', laydown }); };
 const unit = (id) => game.sim.structures.find((s) => s.def.id === id);
 const show = (ui = <UnitPanel />) => render(<GameContext.Provider value={game}>{ui}</GameContext.Provider>);
 const pick = (s) => act(() => game.select(s));
+const openRange = () => fireEvent.click($('#unit-range'));
 
 beforeEach(() => {
   game = createGame({ seed: '1', terrainSeed: '1', api: createFakeApi(), storage: createFakeStorage() });
@@ -175,10 +176,10 @@ describe('the panel', () => {
     expect(text).toContain('600 m from the site, bearing 090°');
     if (def.role === 'sensor') {
       expect(text).toContain(`${(reachFor(def, DRONES.fpv) / 1000).toFixed(1)} km`);
-      expect(text).not.toContain('Ammunition');
+      expect(text).toContain('No rounds');
     } else {
-      expect(text).toContain(`${(def.range / 1000).toFixed(1)} km limit`);
-      expect(text).toContain('Ammunition');
+      expect(text).toContain(`${(def.range / 1000).toFixed(1)} km in an open field`);
+      expect(text).toMatch(/Magazine|Stored beam/);
     }
   });
 
@@ -187,8 +188,8 @@ describe('the panel', () => {
     show();
     pick(unit('radar'));
     const text = panel().textContent;
-    expect(text).toContain('FW Strike4.2 km');
-    expect(text).toContain('FPV Strike2.0 km');
+    expect(text).toContain('Fixed-wing strike drone6.6 km');
+    expect(text).toContain('First-person-view strike drone3.1 km');
     expect(text).toContain('About 86% chance');
     expect(text).toContain('Below 40 m');
     expect(text).toContain('Range ±8 m, bearing ±0.6°, elevation ±1.2°, velocity');
@@ -199,7 +200,7 @@ describe('the panel', () => {
     show();
     pick(unit('radar'));
     act(() => { game.commands.setFigure('structures', 'radar', 'published', 3000); });
-    expect(panel().textContent).toContain('FPV Strike3.0 km');
+    expect(panel().textContent).toContain('First-person-view strike drone3.0 km');
   });
 
   it('says an RF detector cannot hear silent drones, and gives a bearing only', () => {
@@ -207,9 +208,9 @@ describe('the panel', () => {
     show();
     pick(unit('rf'));
     const text = panel().textContent;
-    expect(text).toContain('FO Strikecannot hear');
-    expect(text).toContain('FW Strikecannot hear');
-    expect(text).toContain('FW Spotter5.5 km');
+    expect(text).toContain('Fibre-optic strike dronecannot hear');
+    expect(text).toContain('Fixed-wing strike dronecannot hear');
+    expect(text).toContain('Fixed-wing spotter drone5.5 km');
     expect(text).toContain('Bearing ±3°');
     expect(text).not.toContain('range ±');
   });
@@ -231,12 +232,46 @@ describe('the panel', () => {
     pick(unit('interceptor'));
     const shots = Math.floor(game.sim.state.budget / 5000).toLocaleString('en-US');
     expect(panel().textContent).toContain(`Budget covers ${shots} shots`);
-    expect(panel().textContent).toContain('Ready, 3 s between shots');
-    expect(panel().textContent).toContain('FPV Strike, FO Strike');
+    expect(panel().textContent).toContain('12 / 12 rounds');
+    expect(panel().textContent).toContain('Ready');
+    expect(panel().textContent).toContain('Fired0 rounds');
+    expect(panel().textContent).toContain('In storage24 rounds');
+    expect(panel().textContent).toContain('30 s to fill the magazine, 3 s between shots');
+    expect(panel().textContent).toContain('Per round$5,000');
+    expect(panel().textContent).toContain('First-person-view strike drone, Fibre-optic strike drone');
     act(() => { unit('interceptor').cd = 1.2; game.bump(); });
-    expect(panel().textContent).toContain('Reloading 1.2 s');
+    expect(panel().textContent).toContain('Next shot in 1.2 s');
     act(() => { game.sim.state.budget = 0; game.bump(); });
     expect(panel().textContent).toContain('OUT OF BUDGET');
+  });
+
+  it('shows a launcher reloading, running low and out of rounds', () => {
+    lay([['missile', 600, 0]]);
+    show();
+    const s = unit('missile');
+    pick(s);
+    act(() => { s.rounds = 1; game.bump(); });
+    expect(panel().textContent).toContain('1 / 4 rounds LOW');
+    act(() => { s.rounds = 0; s.reload = 12.2; game.bump(); });
+    expect(panel().textContent).toContain('0 / 4 rounds Reloading');
+    expect(panel().textContent).toContain('Reloading, 13 s left');
+    act(() => { s.reload = 0; s.storage = 0; game.bump(); });
+    expect(panel().textContent).toContain('0 / 4 rounds EMPTY');
+    expect(panel().textContent).toContain('Out of rounds');
+  });
+
+  it('gives a sensor the same rows, with figures of its own', () => {
+    lay([['radar', 600, 0]]);
+    show();
+    const s = unit('radar');
+    pick(s);
+    act(() => { s.scanId = 1200; s.detections = 1; game.bump(); });
+    const text = panel().textContent;
+    expect(text).toContain('No rounds: a sensor fires nothing');
+    expect(text).toContain('1,200 made, 1 detection');
+    expect(text).toContain(`Scan period${s.def.sapient.interval} s`);
+    expect(text).toContain('Per useNo cost');
+    expect(text).toContain('Price$900k');
   });
 
   it('says rounds are free in the sandbox', () => {
@@ -252,8 +287,10 @@ describe('the panel', () => {
     lay([['laser', 600, 0]]);
     show();
     pick(unit('laser'));
-    expect(panel().textContent).toContain('Paid per second of beam: $13');
-    expect(panel().textContent).toContain('$13 a second');
+    expect(panel().textContent).toContain('Per second$13');
+    expect(panel().textContent).toContain('300 / 300 s');
+    expect(panel().textContent).toContain('None: it recharges');
+    expect(panel().textContent).toContain('300 s from empty, only while not firing');
     expect(panel().textContent).toContain('Any drone');
     expect(panel().textContent).toContain('clear line of sight');
   });
@@ -263,14 +300,16 @@ describe('the panel', () => {
     show();
     pick(unit('jammer'));
     const before = panel().textContent;
-    expect(before).toContain('None needed');
+    expect(before).toContain('No rounds: unlimited while powered');
+    expect(before).toContain('0 s so far');
+    expect(before).toContain('ReloadNone needed');
     expect(before).toContain('Control 2.4 GHz, Video 5.8 GHz');
-    expect(before).toContain('FPV Strikecontrol, video');
-    expect(before).toContain('FW Spottervideo, resists 75%');
-    expect(before).toContain('FO Strikenot affected');
-    expect(before).toContain('FW Strikenot affected');
+    expect(before).toContain('First-person-view strike dronecontrol, video');
+    expect(before).toContain('Fixed-wing spotter dronevideo, resists 75%');
+    expect(before).toContain('Fibre-optic strike dronenot affected');
+    expect(before).toContain('Fixed-wing strike dronenot affected');
     act(() => { game.commands.toggleJamBand(unit('jammer'), 'gnss', true); });
-    expect(panel().textContent).toContain('FW Strikenavigation, resists 50%');
+    expect(panel().textContent).toContain('Fixed-wing strike dronenavigation, resists 50%');
     act(() => { for (const b of [...unit('jammer').jamBands]) game.commands.toggleJamBand(unit('jammer'), b, false); });
     expect(panel().textContent).toContain('No bands set');
   });
@@ -343,7 +382,7 @@ describe('the panel', () => {
     pick(s);
     s.health = 12;
     s.cd = 2;
-    game.sim.rec.frames.push({ t: 75, budget: 5000, structs: [{ id: s.nodeId, mode: 'Ready', trackShort: 'T3', target: 9, health: 24 }] });
+    game.sim.rec.frames.push({ t: 75, budget: 5000, structs: [{ id: s.nodeId, mode: 'Ready', trackShort: 'T3', target: 9, health: 24, rounds: 7, storage: 24, reload: 0, fired: 5 }] });
     game.getReplay = () => ({ active: () => true, frameIndex: () => 0 });
     refresh();
     const text = panel().textContent;
@@ -351,7 +390,9 @@ describe('the panel', () => {
     expect(text).toContain('Engaging T3');
     expect(text).toContain('24 / 30');
     expect(text).toContain('Budget covers 1 shot');
-    expect(text).not.toContain('Reloading');
+    expect(text).toContain('7 / 12 rounds');
+    expect(text).toContain('5 rounds');
+    expect(text).not.toContain('Next shot');
     expect(text).not.toContain('All INT');
     const rows = [...document.querySelectorAll('.up-row > span:first-child')].map((e) => e.textContent);
     expect(rows).toContain('Status');
@@ -398,5 +439,67 @@ describe('selecting without the map', () => {
     expect(panel()).not.toBe(null);
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(panel()).toBe(null);
+  });
+});
+
+describe('the Range side', () => {
+  it('gives every system its open-field and predicted range, or says the spot does not matter', () => {
+    for (const id of Object.keys(STRUCTURES)) {
+      lay([[id, 600, 0]]);
+      show();
+      pick(unit(id));
+      openRange();
+      const def = STRUCTURES[id];
+      if (def.fire === 'guided') expect($('#sr-guided').textContent).toContain(`${(def.range / 1000).toFixed(1)} km`);
+      else {
+        expect(panel().textContent).toContain('in an open field. Here:');
+        expect($('#sr-polar')).not.toBeNull();
+        expect($('#sr-profile')).not.toBeNull();
+      }
+      cleanup();
+    }
+  });
+
+  it('lets you pick the threat and the bearing, and explains that path', () => {
+    lay([['radar', 600, 0]]);
+    show();
+    pick(unit('radar'));
+    openRange();
+    expect(panel().textContent).toContain('the worst');
+    fireEvent.change($('#sr-bearing'), { target: { value: '45' } });
+    expect(panel().textContent).toContain('Bearing 045°');
+    expect(panel().textContent).not.toContain('the worst');
+    expect(panel().textContent).toContain('Free-space loss');
+    fireEvent.change($('#sr-threat'), { target: { value: 'fw' } });
+    expect(panel().textContent).toContain('6.6 km in an open field');
+  });
+
+  it('offers an RF detector only the drones it can hear', () => {
+    lay([['rf', 600, 0]]);
+    show();
+    pick(unit('rf'));
+    openRange();
+    const offered = [...$('#sr-threat').options].map((o) => o.value);
+    expect(offered).toContain('fpv');
+    expect(offered).not.toContain('fw');
+    expect(offered).not.toContain('fo');
+  });
+
+  it('follows the mast height', () => {
+    lay([['radar', 600, 0]]);
+    show();
+    pick(unit('radar'));
+    openRange();
+    expect(panel().textContent).toContain('25 m, 60 m');
+    act(() => { game.commands.configureUnit(unit('radar'), 'mount', 35); });
+    expect(panel().textContent).toContain('35 m, 60 m');
+  });
+
+  it('shows open field and here side by side on the Details side', () => {
+    lay([['radar', 600, 0]]);
+    show();
+    pick(unit('radar'));
+    expect(panel().textContent).toContain('Open field');
+    expect(panel().textContent).toContain('Here');
   });
 });

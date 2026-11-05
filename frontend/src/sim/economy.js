@@ -5,8 +5,8 @@ import { COMMS, DRONES } from './config/index.js';
 
 const freshLedger = () => ({
   capex: 0,                  // spent on buying systems
-  consumables: 0,            // spent on shots (interceptors, missiles, laser)
-  shots: {},                 // effector id -> { n, cost }
+  consumables: 0,            // spent on shots (interceptors, missiles, laser), including rounds bought in a resupply and not yet fired
+  shots: {},                 // effector id -> { n, cost }: only what has been fired
   launched: {}, killed: {}, leaked: {}, escaped: {},   // drone type -> count
   killedBy: {},              // effector id (or 'jammer') -> { drone type -> count }
   terminals: { starlink: 0, cellular: 0 }, // network terminals bought (counted in capex)
@@ -19,14 +19,15 @@ export const tally = (obj, key, n = 1) => { obj[key] = (obj[key] || 0) + n; };
 export const enemyCost = (counts) => Object.entries(counts).reduce((sum, [type, n]) => sum + n * DRONES[type].cost, 0);
 export const money = (v) => v >= 1e6 ? `$${(v / 1e6).toFixed(v >= 1e7 ? 1 : 2).replace(/\.?0+$/, '')}M` : v >= 1e4 ? `$${Math.round(v / 1e3)}k` : `$${Math.round(v).toLocaleString('en-US')}`;
 
-// In the sandbox shots are free.
-export const affordable = (w, def) => w.state.sandbox || w.state.budget >= (def.shotCost || 0);
+// In the sandbox shots are free, and a round bought in a resupply is already paid for.
+export const affordable = (w, s) => w.state.sandbox || s.prepaid > 0 || w.state.budget >= (s.def.shotCost || 0);
 
 // Pay for a shot out of the budget and record it in the ledger.
-export function spend(w, def) {
+export function spend(w, s) {
   const { state, ledger } = w;
-  const cost = def.shotCost || 0;
+  const def = s.def, cost = def.shotCost || 0;
   if (state.sandbox) state.sbSpent += cost; // free in the sandbox
+  else if (s.prepaid > 0) s.prepaid--; // charged when it was bought
   else { state.budget -= cost; ledger.consumables += cost; }
   const e = ledger.shots[def.id] = ledger.shots[def.id] || { n: 0, cost: 0 };
   e.n++; e.cost += cost;

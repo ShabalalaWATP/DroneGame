@@ -1,8 +1,10 @@
 // Wires the simulation to the 3D view and runs the frame loop. React reads from here through useTick and never owns game state.
 
 import * as THREE from 'three';
-import { STRUCTURES, WORLD, firstClass } from './sim/config/index.js';
-import { fieldsFor, setSetting } from './sim/unit-config.js';
+import { DRONES, STRUCTURES, WORLD, firstClass } from './sim/config/index.js';
+import { fieldsFor, setSetting, unitDef } from './sim/unit-config.js';
+import { predictRange, usesPath } from './sim/site-range.js';
+import { terrainState } from './sim/terrain.js';
 import { createSimulation, SIM_STEP } from './sim/simulation.js';
 import { createGameView } from './render/game-view.js';
 import { hereU } from './sim/units.js';
@@ -13,7 +15,7 @@ import { trackColour } from './render/belief-view.js';
 import { view } from './render/view.js';
 import { createApi } from './api/client.js';
 import { createRunSaver } from './api/run-saver.js';
-import { addZonePoint } from './zone.js';
+import { addZonePoint, zoneInReach } from './zone.js';
 import { createPackStore } from './api/pack-store.js';
 import { parseWorldId } from './sim/world-pack.js';
 
@@ -22,6 +24,8 @@ const PANEL_INTERVAL = 100; // ms between panel refreshes: panels never update p
 // Seeds are saved, so they obey the limits the backend enforces.
 // eslint-disable-next-line no-control-regex
 export const cleanSeed = (text) => (text || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 64) || '1';
+
+const ZONE_LOCKED = 'The area to defend is locked once the first wave starts';
 
 export function createGame({ seed, terrainSeed, api = createApi(), storage = globalThis.localStorage }) {
   const sim = createSimulation({ seed, terrainSeed });
@@ -107,6 +111,20 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     else setTool(group.classes.length > 1 ? group.classes[(at + 1) % group.classes.length] : tool);
   }
 
+  // What the system just placed really gets from where it stands, against the open field it is advertised for.
+  function placedSummary() {
+    const s = sim.structures[sim.structures.length - 1], km = (metres) => `${(metres / 1000).toFixed(1)} km`;
+    if (!usesPath(s.def)) return `Placed. ${km(s.def.range)} range, wherever it stands`;
+    const m = WORLD.metresPerUnit, p = predictRange(s.def, DRONES.fpv, terrainState.data, s.pos.x * m, s.pos.z * m);
+    return `Placed. ${km(p.mean)} predicted here on average, against ${km(p.open)} in an open field`;
+  }
+
+  // A closed outline is what the enemy attacks. One still being drawn is only a picture.
+  function syncZone() {
+    const points = view.zone?.closed ? view.zone.points : null;
+    if (JSON.stringify(points) !== JSON.stringify(sim.state.zone)) commands.setZone(points);
+  }
+
   function groundClick(x, z) {
     if (!tool || state.over || !state.started) return;
     if (tool === 'sell') { commands.sell(x, z); return; }
@@ -115,14 +133,19 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
       if (refusal) toast(refusal);
       return;
     }
-    if (tool === 'zone') { // a planning aid: it stays out of the simulation and its log
-      view.zone = addZonePoint(view.zone, x, z);
-      if (view.zone && view.zone.closed) setTool('zone'); else bump();
+    if (tool === 'zone') {
+      if (sim.designLocked()) toast(ZONE_LOCKED);
+      else if (!zoneInReach(x, z)) toast('The area must stay within 5 km of the station, so the attack has room to fly in');
+      else {
+        view.zone = addZonePoint(view.zone, x, z);
+        syncZone();
+        if (view.zone && view.zone.closed) setTool('zone'); else bump();
+      }
       return;
     }
     refusal = Object.keys(loadoutFor(tool)).length ? commands.place(tool, x, z, { ...loadoutFor(tool) }) : commands.place(tool, x, z);
     if (refusal) toast(refusal);
-    else if (!selectHinted) { selectHinted = true; toast('Placed. Click a system for details, or press Esc to stop placing'); }
+    else { toast(`${placedSummary()}${selectHinted ? '' : '. Click a system for details, or press Esc to stop placing'}`); selectHinted = true; }
   }
 
   // The system the Unit panel shows. It is view state, not a command, so it is not logged and cannot change a run.
@@ -191,7 +214,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     simAcc = 0; pausedForApproval = false;
     if (!begin) setSpeed(1);
     if (!kept && !loading) view.zone = null;
-    if (!begin && !loading) toast(kept ? 'Run reset: same laydown and seed' : 'New laydown: the site is empty');
+    if (!begin && !loading) toast(kept ? 'Run reset: same laydown and seed' : 'Map cleared: the site is empty and the budget is full again');
     bump();
   });
 
@@ -221,7 +244,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     gameView = createGameView(canvas, labelLayer, sim, mapSource);
     placement = createPlacement({
       scene: gameView.scene, camera: gameView.camera, canvas, getWorldMesh: gameView.getWorldMesh, sim,
-      getTool: () => tool, onGroundClick: groundClick, onSelect: mapClick,
+      getTool: () => tool, defFor: (id) => unitDef(id, loadoutFor(id)), onGroundClick: groundClick, onSelect: mapClick,
     });
     replay = createReplay({
       scene: gameView.scene, rec: sim.rec, droneTemplate, makeLabel: gameView.labels.make, placeLabel: gameView.labels.place, trackColour,
@@ -242,7 +265,9 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     getView: () => gameView,
     // settings shared with the 3D view
     setViewOption(key, value) {
+      if (key === 'zone' && sim.designLocked()) { toast(ZONE_LOCKED); return; }
       view[key] = value;
+      if (key === 'zone') syncZone();
       if (key === 'rings' && gameView) gameView.structures.setRingsVisible(value);
       if (key === 'osm' && gameView) {
         gameView.showOsm();

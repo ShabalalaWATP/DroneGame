@@ -123,6 +123,70 @@ Alex confirmed the project is non-commercial, which allowed EOxCloudless for sat
 
 Alex then found that a sensor could not stand in a gap between houses. Placement read the 20 m grid, where any cell with enough building in it counts as solid, so about 57% of marked spots on both real maps were not on a building at all. Placement on real maps now reads the true outlines. Line of sight still reads the grid, as changing it would change how every real-map run plays.
 
+## Magazines
+
+Alex asked for magazine depth, with each system showing its count, rounds fired, storage, reload time, cost per missile and range when clicked. Asked what the $15M should become, they chose to keep paying per shot as well, so a launcher can now run out of money or rounds. That made the change smaller than the plan: prices and saved runs stay as they were. Storage and reload had been left out of the plan, and they became the core of it.
+
+A radar has no rounds, so sensors show scans, detections and scan period in the same rows, and jammers show time spent jamming. The reference digests were re-baselined, because reloading changes runs: a Mixed laydown now leaks a drone it used to stop.
+
+The balance tool shows the rule matters and is not yet balanced. The Mixed laydown now falls at wave 7, not 12 or 13, with about $9.6M unspent, because nothing refills storage. One of everything with 3 lasers went the other way, from about wave 12 to about wave 25, because missiles that run out stop draining the budget.
+
+Resupply followed, which raised a question the plan had not faced: if firing costs money and rounds cost money, a bought round would be charged twice. Bought rounds are now marked as paid. Alex also pointed out that the range rings had gone. They had not: "Show ranges" was on and the rings were being drawn, but at 35% opacity and a pixel wide they vanished against the bright OS map, which arrived after they were tuned on dark ground. Real maps now draw them wider, stronger and darker. Alex's own comparison with the original game is what exposed this, because no test looks at contrast. The "New laydown" button did what they wanted but its name hid it, so it became "Clear map".
+
+The first tests passed for the wrong reason. Starting wave 1 rebuilds every system, so they were changing units that no longer existed; a failing hand-over test exposed it, and they now act after the rebuild.
+
+## A tidier SAPIENT panel
+
+Alex called the SAPIENT panel a hot mess: ten tabs in one list wrapped over two rows, and it opened on the raw message log. The tabs now sit on one row under five small headings (Live, Comms, Plan and cost, Records, Reference), so all of them stay one click away and nothing has to be expanded first. A two-level menu was the other option, but it would have hidden tab names behind a guess. The panel now opens on Nodes, which says what each system is doing. Tab ids did not change, so the wizard and tests still reach them.
+
+The map buttons and map credit drew over the panel, and at 800x600 it ran 14 px off the left of the window. Both are fixed. Inside the tabs, the empty JSON box no longer takes half the Messages tab, the filter chips fit on one row, and the Network diagram closes up its rows so a system can no longer fall below the canvas where it could not be clicked.
+
+## More sizes and acoustic sensors
+
+Alex asked for other sizes of laser, missile and interceptor, and for acoustic sensors in three sizes, using real kit with public figures. Each new entry names a real system, and its `ref` separates what is published from what is assumed. The sourcing paid for checking: the article first cited for one acoustic station's range and price turned out to hold neither, so it was replaced by the one that did.
+
+Real prices do not always rise with size. A long-range acoustic station is reported at about $500, cheaper than a medium array, and the LOCUST laser at about $8 million, four times the $2 million figure for the larger DragonFire. The figures were kept rather than bent to fit, and the test that demanded rising prices now covers only the older kinds. Launcher prices and most magazine figures remain placeholders, and each one says so.
+
+Acoustic sensors added a real rule, not just a row: they need no line of sight and hear drones that make no radio signal, but hills and built-up ground cut their reach. Those loss factors and each drone's loudness are assumptions.
+
+Models now scale with size and are 40% smaller overall. The scale also sets where a shot leaves the launcher, so the reference digests were re-recorded. The eighth toolbar row pushed Sell out of sight on a normal screen, which only a browser check showed, so Sell is now pinned to the bottom of the toolbar.
+
+## Threats by name, and real ones
+
+The wizard recommended whichever system was the medium size, whatever it faced. It now reasons from the threat: the faster a drone flies, the further out it must be seen, so it picks the cheapest system of a kind that gives a minute's warning of the most threats (twenty seconds for a weapon). The player can plan against every type or one drone. A small fixed-wing spotter gets a small radar, and a low fibre-optic drone calls for the large one, because clutter caps a radar's reach against low flyers.
+
+Abbreviations such as FO and FW went from the screen, including the tags over drones. The alert text carries the names, so three reference digests were re-recorded, and every other figure in them stayed the same.
+
+Real drones are data on top of the four types, not new rules: each one starts from its type and overrides what is public. So interceptors, the wizard and the debrief treat a Geran-2 as a fixed-wing strike drone, and the waves are untouched. Research found less than hoped in places. No named Chinese military fibre-optic drone has published figures, so the entry is a commercial one and says so, and no source gives a munition mass for most commercial drones, so those are labelled assumptions.
+
+## Real ranges, UK systems and range from where you stand
+
+Every sensor and effector was checked against datasheets where they could be read. The IRIS sheet gives real test figures by drone weight, so its 2 km became 3.1 km. The A400 sheet gives a range for each radar cross-section, and its table follows exactly the fourth-root law the game already used, which is a useful independent check. Eight UK systems were added, in their own file so that the catalogue stays under the line limit.
+
+The first pass at RF ranges was wrong. The AARTOS was cut to 5.6 km by taking the same fraction that Dedrone publishes between its ideal and normal figures. The user questioned it, and a link budget showed 14 km was believable: the "normal" figures already include real-world losses, and the game applies those itself from terrain and trees, so discounting them counted them twice. That led to the bigger change. A catalogue range now means an open field, and one path model (ITU-R P.526 Bullington, Weissberger for trees, the earth's curve) gives what a spot really gets. Detection, jamming, the rings and the path profile all call the same code, so the prediction cannot disagree with play. Sionna and other ray tracers were considered and left out: see ADR 0003.
+
+The old rule that hid RF behind a hill entirely, and only slightly weakened it in forest, was backwards. Measured foliage loss is far higher than the old figure, and signals do bend over hills. Reference runs moved by a few kills, and how long each laydown survives barely changed.
+
+An audit of the tracker, measured rather than read: one or two RF detectors alone never confirm a track, which is a deliberate rule because two bearings always cross somewhere. Three do, with about 160 m mean error at a 3 degree bearing error, and 2.9 km at 30 degrees. A fourth adds little.
+
+## Drawing the area to defend without the wizard
+
+Alex pointed out there was no way to draw the area to defend on the map outside the wizard. The tool already existed, but only the wizard's zone step could switch it on. A new button beside the minimap now opens a small panel to draw, undo, close and clear the area, and shows how much of it the sensors can see for each drone type, using the wizard's own scoring. It is still a planning aid that stays out of the simulation, so drones attack the same way whatever is drawn.
+
+## Drones attack the drawn area
+
+The drawn area had been a planning aid, and Alex asked for drones to attack it instead. A closed outline now goes into the simulation as a logged command and saves in the laydown. Each strike drone aims for a random spot inside it, spotters circle its centre, and the fusion node measures threats from that centre, so it engages whatever is closest to the area. FPV and FO strikes can still turn on a loud emitter.
+
+It locks when the first wave starts, like the laydown. Drawing is limited to 5 km from the station, because drones appear at 6 km and need room to fly in. Runs with no area draw no extra random numbers, so the recorded reference digests did not change. Systems can still only be built within 2.5 km of the station, so a far area is deliberately hard to defend.
+
+## Rounds that can miss, and error that grows with range
+
+Until now a guided round always arrived, and a laser did the same damage at any range. Each weapon now has a hit chance, lowered by evasion, by how fast the target is against the round, by range and by the quality of the track when it was fired. That last one is what ties sensor accuracy to results for the first time. Where there is evidence the figure is worked back from it: with the other effects, the Sting's claimed 80 to 90% comes to about 66% against an FPV, close to the 68% average President Zelenskyy gave, and the P1-SUN's $3,000 a kill at $1,000 a drone comes to about 1 in 3. Most others have no published rate, and say so.
+
+A beam stays at full strength to a quarter of its range and then falls with distance, so dwell doubles when range doubles, as ST Engineering publishes for its CDLE laser. Sensor error follows the monopulse relationship, where error goes with 1 / sqrt(SNR), so it stays near the quoted figure close in and is about 2.2 times larger at the limit of reach. Hills and trees shorten the reach and so worsen it too.
+
+Measuring the first version showed a problem the code did not show. The Mixed laydown fell from wave 11 to wave 7, and leaks were all fixed-wing drones. Its one missile launcher was firing, then sitting idle for a 40 s flight while others got through. It was a fire control flaw that perfect rounds had hidden. Launchers now shoot, look and shoot while there is time, salvo when there is not, and move to the next target while their rounds fly. Mixed then reached wave 9 or 10, spending far more of its budget.
+
 ## Simulated people
 
 Alex asked for fake people on the map, in groups, very small and realistic, with a protection level, so that attacks could cause casualties. The first design rule was that people must not disturb the attack. Each blast therefore rolls from a stream seeded by the drone's id, and nothing is read from the run's own stream, so a run with people gives the same kills, health and budget as one without. Casualties join the digest only when a laydown has people, so every older digest still holds.
@@ -132,6 +196,8 @@ Two things in the existing game shaped the rest. A drone counts as hitting the s
 A real browser found what the tests could not: the green placement marker was large enough to hide a whole group up close, and a fourth figure squeezed the HUD's stats row together.
 
 The casualty figures are round-number assumptions and are labelled so in the Sources tab. They are not weapons-effects data, and they should not be read as any.
+
+After main gained drawn attack areas, a strike aimed at a spot inside the area now blasts there rather than scattered over the station. People also joined the wizard as an optional step before the rehearsal, so a rehearsal can show casualties. A test measures every figure drawn at between 1.55 and 1.95 m tall and about half a metre wide on both kinds of ground, because generated ground draws trees and houses twice life size and people must not pick that up.
 
 ## Numbers at the end of Phase 8
 

@@ -38,7 +38,7 @@ function GameMapControls() {
 
 function Screen() {
   const [dockOpen, setDockOpen] = useState(false);
-  const [dockTab, setDockTab] = useState('messages');
+  const [dockTab, setDockTab] = useState('nodes');
   const [tuningOpen, setTuningOpen] = useState(false);
   const openDock = (tab) => { setDockTab(tab); setDockOpen(true); };
   useHotkeys();

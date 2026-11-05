@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { FUSION } from '../sim/config/index.js';
 import { view } from '../render/view.js';
 import { useArmed, useGame, useTick } from './hooks.js';
+import { ResupplyButton } from './ResupplyButton.jsx';
 
 const SPEEDS = [[0, '❚❚', 'Pause (Space)'], [1, '1x'], [2, '2x'], [3, '3x']];
 
@@ -26,6 +27,7 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
       <button id="btn-wave" className="primary" disabled={state.waveActive || state.over || state.sandbox} onClick={() => commands.startWave()}>
         {state.sandbox ? 'Exit sandbox to start' : state.waveActive ? `Wave ${state.wave} in progress` : `Start wave ${state.wave + 1}`}
       </button>
+      <ResupplyButton />
       <div className="row">
         {SPEEDS.map(([s, text, title]) => (
           <button key={s} className={`speed${clock.speed === s ? ' active' : ''}`} data-speed={s} title={title} onClick={() => game.setSpeed(s)}>{text}</button>
@@ -46,7 +48,7 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
       </button>
       <div className="row">
         <button id="btn-reset" title="Start the run again with the same laydown, wiring and seed" onClick={() => { if (state.started) commands.reset('keep'); }}>Reset run</button>
-        <button id="btn-clear" title="Remove everything and start with an empty site" onClick={state.started ? clear.confirm('clear', () => commands.reset('clear')) : undefined}>{clear.armed ? 'Sure? Click again' : 'New laydown'}</button>
+        <button id="btn-clear" className="danger" title="Remove every system, refund the budget and go back to before wave 1" disabled={!sim.structures.length && !state.wave} onClick={state.started ? clear.confirm('clear', () => commands.reset('clear')) : undefined}>{clear.armed ? 'Sure? Click again' : 'Clear map'}</button>
       </div>
       <button id="btn-sapient" onClick={onToggleDock}>SAPIENT</button>
       <button id="btn-tuning" onClick={onToggleTuning}>Tuning</button>

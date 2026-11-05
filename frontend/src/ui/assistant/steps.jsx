@@ -2,32 +2,40 @@
 // Anything that changes the game goes through commands, so a run can still be reproduced.
 
 import { useEffect } from 'react';
-import { BUILD, DRONES, ECONOMY, FUSION, SITE, STRUCTURES } from '../../sim/config/index.js';
+import { BUILD, DRONES, DRONE_CLASSES, ECONOMY, FUSION, SITE, STRUCTURES } from '../../sim/config/index.js';
 import { money } from '../../sim/economy.js';
 import { view } from '../../render/view.js';
 import { closeZone, ringZone, undoZonePoint } from '../../zone.js';
 import { zoneScores } from '../coverage.js';
+import { ThreatOptions } from '../ThreatOptions.jsx';
+import { ATTACK_NOTE, CoverageBars } from '../ZonePanel.jsx';
 import { useGame } from '../hooks.js';
+import { PeopleStep } from './PeopleStep.jsx';
 import { Spotlight } from './Spotlight.jsx';
-import { answer, effectorColumns, effectorFor, sensorChecklist, unanswered } from './guide.js';
+import { answer, effectorColumns, effectorFor, kindName, sensorChecklist, unanswered, warningAgainst } from './guide.js';
 import { suggestSpot } from './spots.js';
 
 const WEAK = 0.5; // below this share of the zone, the wizard calls a drone type a weak spot
-const RF_DEAF = Object.values(DRONES).filter((d) => !d.rfEmitter).map((d) => d.name).join(' and ');
+const RF_DEAF = DRONE_CLASSES.filter((d) => !d.rfEmitter).map((d) => d.name).join(' and ');
 const SENSOR_TEXT = {
   radar: 'Finds most drones. Low flyers hide in clutter until close.',
   rf: `Hears radio links: direction, but no range. Deaf to ${RF_DEAF}.`,
   camera: 'Narrow view, cued by other sensors. Names what it sees.',
+  acoustic: 'Listens for engines, so radio silence does not hide a drone. Short reach against quiet ones.',
 };
 const km = (metres) => `${(metres / 1000).toFixed(1).replace(/\.0$/, '')} km`;
+const planned = () => (view.threat ? [DRONES[view.threat]] : DRONE_CLASSES);
+const warningText = (def, d) => (warningAgainst(def, d) ? `${Math.round(warningAgainst(def, d))} s` : 'none');
 
 function GoodSpot({ def, label = 'Show me a good spot' }) {
   const game = useGame();
   const show = () => {
-    if (game.getTool() !== def.id) game.setTool(def.id);
-    const spot = suggestSpot(game.sim, def, view.zone);
+    // a system of this kind the player has already picked from the toolbar stands, over the wizard's choice
+    const held = STRUCTURES[game.getTool()], use = held && held.kind === def.kind ? held : def;
+    if (game.getTool() !== use.id) game.setTool(use.id);
+    const spot = suggestSpot(game.sim, use, view.zone);
     game.setViewOption('spot', spot);
-    if (!spot) { game.toast(`Nowhere nearby will take a ${def.name}, or the budget is too low`); return; }
+    if (!spot) { game.toast(`Nowhere nearby will take a ${use.name}, or the budget is too low`); return; }
     const popup = document.querySelector('#wizard'), panel = document.querySelector('#hud-top-right');
     if (popup && panel) game.reveal(spot.x, spot.z, (popup.getBoundingClientRect().right + panel.getBoundingClientRect().left) / 2, innerHeight / 2); // the popup must not hide it
   };
@@ -51,9 +59,9 @@ function ZoneStep({ next }) {
   }, [game]);
   return (
     <>
-      <p>The red ring is the station. A strike drone that gets within {SITE.radius} m hits it. You can build from {BUILD.minDist} m out to the blue ring at {km(BUILD.maxDist)}.</p>
-      {closed ? <p>Your zone is drawn on the map. I will use it to score your sensor coverage.</p> : <p>Click the map to outline the area you care about, then double-click to close it. I will use it to score your sensor coverage.</p>}
-      <p className="wz-small wz-muted">A planning aid: drones still aim for the station and for loud emitters.</p>
+      <p>The red ring is the station. With no area drawn, a strike drone that gets within {SITE.radius} m of it hits it. You can build from {BUILD.minDist} m out to the blue ring at {km(BUILD.maxDist)}.</p>
+      {closed ? <p>Your zone is drawn on the map. The attack now comes for it, and I will use it to score your sensor coverage.</p> : <p>Click the map to outline the area you care about, then double-click to close it. I will use it to score your sensor coverage.</p>}
+      <p className="wz-small wz-muted">{ATTACK_NOTE}</p>
       <div className="wz-actions">
         {closed
           ? <><button className="wz-go" onClick={next}>Next</button><button onClick={() => { set(null); if (game.getTool() !== 'zone') game.setTool('zone'); }}>Redraw</button></>
@@ -69,18 +77,36 @@ function ZoneStep({ next }) {
   );
 }
 
+function ThreatPicker() {
+  const game = useGame();
+  return (
+    <label className="wz-threat">Plan against
+      <select id="wz-threat" value={view.threat ?? ''} onChange={(e) => game.setViewOption('threat', e.target.value || null)}>
+        <option value="">Every type of drone</option>
+        <ThreatOptions />
+      </select>
+    </label>
+  );
+}
+
 function SensorsStep({ next }) {
   const { sim } = useGame();
-  const rows = sensorChecklist(sim), now = rows.find((r) => !r.done);
+  const rows = sensorChecklist(sim, planned()), now = rows.find((r) => !r.done);
   return (
     <>
-      {now && <Spotlight selector={`[data-tool="${now.def.id}"]`} />}
+      {now && <Spotlight selector={`[data-kind="${now.kind}"]`} />}
       <p>Undetected drones cannot be targeted, and no one sensor sees them all.</p>
+      <ThreatPicker />
       <div className="wz-list">
         {rows.map((r) => (
-          <div key={r.def.id}>
+          <div key={r.kind}>
             <span className={`wz-tag${r === now ? ' now' : ''}`}>{r.done ? 'DONE' : r === now ? 'NOW' : 'THEN'}</span>
-            <b>{r.def.name}</b> {money(r.def.cost)}<br />{SENSOR_TEXT[r.def.kind]}
+            <b>{r.name}</b><br />{SENSOR_TEXT[r.kind]}
+            {r === now && (
+              <p id="wz-advice" className="wz-small">
+                For {view.threat ? DRONES[view.threat].name : 'every type of drone'}: <b>{r.def.product}</b>, {money(r.def.cost)}. Warning it gives: {r.threats.map((d) => `${d.label} ${warningText(r.def, d)}`).join(', ')}.
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -97,16 +123,16 @@ function SensorsStep({ next }) {
 function EffectorsStep({ next }) {
   const { sim } = useGame();
   const columns = effectorColumns(), have = new Set(sim.structures.map((s) => s.def.kind));
-  const gap = unanswered(sim)[0], fix = gap && effectorFor(gap);
+  const gap = unanswered(sim)[0], fix = gap && effectorFor(gap, sim.state.budget);
   const spotter = Object.values(DRONES).find((d) => d.loiterDist);
   return (
     <>
-      {fix && <Spotlight selector={`[data-tool="${fix.id}"]`} />}
+      {fix && <Spotlight selector={`[data-kind="${fix.kind}"]`} />}
       <p>Match weapons to drones. No single system handles them all.</p>
       <table className="wz-matrix">
-        <thead><tr><th scope="col">Drone</th>{columns.map((c) => <th scope="col" key={c.id} className={have.has(c.kind) ? 'have' : ''} title={c.name}>{c.short}</th>)}</tr></thead>
+        <thead><tr><th scope="col">Drone</th>{columns.map((c) => <th scope="col" key={c.id} className={have.has(c.kind) ? 'have' : ''}>{kindName(c.kind)}</th>)}</tr></thead>
         <tbody>
-          {Object.values(DRONES).map((d) => (
+          {[...new Set([...DRONE_CLASSES, ...planned()])].map((d) => (
             <tr key={d.id} className={gap && gap.id === d.id ? 'gap' : ''}>
               <th scope="row">{d.name}</th>
               {columns.map((c) => <td key={c.id} className={have.has(c.kind) ? 'have' : ''}>{answer(d, c)}</td>)}
@@ -115,7 +141,7 @@ function EffectorsStep({ next }) {
         </tbody>
       </table>
       <p className="wz-small wz-muted">Last: kept for close calls, at {money(STRUCTURES.missile.shotCost)} a shot against a {money(DRONES.fpv.cost)} drone. Far: spotters orbit {km(spotter.loiterDist)} out and a laser reaches {km(STRUCTURES.laser.range)}.</p>
-      {gap && <p className="wz-warn">Nothing answers {gap.name} yet. {fix.name} would.</p>}
+      {gap && <p className="wz-warn">Nothing answers {gap.name} yet. For that threat: {kindName(fix.kind)}, {fix.product}, {money(fix.cost)}.</p>}
       <p>{money(sim.state.budget)} left. Every shot comes out of this too, and nothing is earned back.</p>
       <SpotReason />
       <Refusal />
@@ -158,14 +184,7 @@ function CoverageStep({ next, goTo }) {
   return (
     <>
       <p>How much of {view.zone && view.zone.closed ? 'your zone' : 'the build area'} is seen, for each drone type. They fly at different heights, and some make no radio noise.</p>
-      <div className="wz-bars">
-        {[...scores].reverse().map((s) => (
-          <div key={s.id} className={weak && s === weakest ? 'gap' : ''}>
-            <div className="wz-bar-label"><span>{s.name}, {s.height} m</span><b>{Math.round(s.share * 100)}%</b></div>
-            <div className="wz-bar"><i style={{ width: `${s.share * 100}%` }} /></div>
-          </div>
-        ))}
-      </div>
+      <CoverageBars scores={scores} gap={weak ? weakest : null} />
       {weak && <p className="wz-warn">{weakest.name} is your weak spot{DRONES[weakest.id].rfEmitter ? '.' : ': it makes no radio noise, so only radar and cameras count.'}</p>}
       <div className="wz-actions">
         <button className={weak ? 'wz-go' : ''} onClick={() => goTo('sensors')}>Go back and add a sensor</button>
@@ -178,11 +197,11 @@ function CoverageStep({ next, goTo }) {
 function RehearseStep({ next, passed }) {
   const { sim, commands } = useGame();
   const { state, drones } = sim;
-  const weakest = zoneScores(sim, view.zone)[0];
+  const weakest = view.threat ? DRONES[view.threat] : zoneScores(sim, view.zone)[0];
   return (
     <>
       {!state.sandbox && <Spotlight selector="#btn-sandbox" />}
-      <p>Nothing in the sandbox can hurt the site, and shots are free. You can still move systems. Try the drone you are weakest against.</p>
+      <p>Nothing in the sandbox can hurt the site, and shots are free. You can still move systems. Try the drone you are {view.threat ? 'planning against' : 'weakest against'}.</p>
       {state.sandbox && <p className="wz-warn">In the air {drones.length} · waiting {state.sbQueue.length} · reached the site {state.leaks}</p>}
       <p className="wz-small wz-muted">Leaving the sandbox resets the run and keeps your systems.</p>
       <div className="wz-actions">
@@ -259,12 +278,13 @@ function PreflightStep({ goTo, openDock, passed, status }) {
 // title, what the step does, and the questions a new player tends to ask at that point
 export const STEPS = {
   zone: { title: 'Mark what you are defending', Body: ZoneStep, why: [
-    ['Why draw a zone?', 'It tells me what to score. Coverage only means something against the ground you care about.'],
-    ['Does it change the attack?', 'No. It is a planning aid, so the same seed and laydown give the same run with or without it.'],
+    ['Why draw a zone?', 'It is what the enemy attacks, and it tells me what to score. Coverage only means something against the ground you care about.'],
+    ['Does it change the attack?', 'Yes. Strike drones aim for spots inside it instead of the station, and spotters circle it. The same seed, laydown and zone still give the same run.'],
   ] },
   sensors: { title: 'See them first', Body: SensorsStep, why: [
     ['Why a radar first?', 'It gives range as well as direction, so tracks are sharp. The other sensors make up for what it misses.'],
     ["Why can't an RF detector see every drone?", `It only hears radio. ${RF_DEAF} make none.`],
+    ['Why this one, and not a bigger one?', 'The faster a threat flies, the further out you must see it. I pick the cheapest system that gives about a minute of warning of the most threats. Pick a different one from the toolbar if you prefer.'],
     ['Where should it go?', 'High, open ground sees further. Trees block low flyers, and strike drones go for loud emitters.'],
   ] },
   effectors: { title: 'Stop what you can see', Body: EffectorsStep, why: [
@@ -278,6 +298,10 @@ export const STEPS = {
   coverage: { title: 'Check what it can see', Body: CoverageStep, why: [
     ['Why is one drone so much lower?', 'Each type flies at its own height. Low flyers are hidden by hills and trees for longer.'],
     ['What do the colours mean?', 'Red is unseen, green is one sensor, blue is two, and white is three or more.'],
+  ] },
+  people: { title: 'Who is on site?', optional: true, Body: PeopleStep, why: [
+    ['Do I need to do this?', 'No. People change nothing about the attack. They only show what a blast near them would do.'],
+    ['Where do the casualty numbers come from?', 'Assumed round figures, marked ASSUMPTION in the Sources tab. They are not weapons-effects data.'],
   ] },
   rehearse: { title: 'Rehearse before it counts', Body: RehearseStep, why: [
     ['Why rehearse?', 'The laydown locks at the first wave. Here you can still fix what you find.'],

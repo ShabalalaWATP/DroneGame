@@ -41,8 +41,8 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
 
   // ---------- terrain and the protected site ----------
   const siteMat = new THREE.MeshStandardMaterial({ color: 0x8aa0b4, roughness: 0.7, emissive: 0xff0000, emissiveIntensity: 0 });
-  const siteRing = drapedRing(u(SITE.radius), 0.5, 0xff5252, 0.6);
-  const buildRing = drapedRing(u(BUILD.maxDist), 0.8, 0x5c7bb0, 0.4);
+  const siteRing = drapedRing(u(SITE.radius), 0.8, 0xff5252, 0.6);
+  const buildRing = drapedRing(u(BUILD.maxDist), 1.2, 0x5c7bb0, 0.4);
   scene.add(siteRing.mesh, buildRing.mesh);
   let worldView = null, flash = 0, ownMaterial = null, relief = null;
   const osmMap = createOsmMap(renderer);
@@ -72,6 +72,8 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
     else showOsm();
     siteRing.update(0, 0);
     buildRing.update(0, 0);
+    siteRing.mesh.material.opacity = terrainState.data.geo ? 0.9 : 0.6; // a real map is bright, so these need more to show
+    buildRing.mesh.material.opacity = terrainState.data.geo ? 0.9 : 0.4;
   }
   // Plan view is the same camera looking straight down, as the minimap reads its field of view and placement raycasts through it.
   let beforePlan = null;

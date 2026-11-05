@@ -1,7 +1,8 @@
 // Draws the plan view of the laydown. Returns { draw, dispose }.
 
-import { BUILD, SITE, WORLD } from '../../sim/config/index.js';
+import { BUILD, DRONES, SITE, WORLD } from '../../sim/config/index.js';
 import { bus } from '../../sim/sapient.js';
+import { BEARINGS, predictRange, usesPath } from '../../sim/site-range.js';
 import { terrainState } from '../../sim/terrain.js';
 import { view } from '../../render/view.js';
 import { coverageGrid } from '../coverage.js';
@@ -9,6 +10,18 @@ import { hex } from '../hooks.js';
 
 const TR_COL = { tentative: '#8a94a3', confirmed: '#ffcc66', coasting: '#ff9800' };
 const mpu = () => WORLD.metresPerUnit;
+
+// The outline of what a system really reaches from where it stands, against a small drone. Weapons that fly over the ground get a plain circle.
+function traceRange(g, n, X, Y, k) {
+  const e = n.pos.x * mpu(), north = -n.pos.z * mpu();
+  g.beginPath();
+  if (!usesPath(n.def)) { g.arc(X(e), Y(north), (n.def.range || 0) * k, 0, Math.PI * 2); return; }
+  predictRange(n.def, DRONES.fpv, terrainState.data, e, -north).first.forEach((r, i) => {
+    const b = (i / BEARINGS) * Math.PI * 2;
+    g.lineTo(X(e + Math.sin(b) * r), Y(north + Math.cos(b) * r));
+  });
+  g.closePath();
+}
 
 export function createPlanCanvas(cv, sim) {
   const { net, drones } = sim;
@@ -59,10 +72,11 @@ export function createPlanCanvas(cv, sim) {
 
     const nodes = [...net.nodes.values()].filter((n) => (n.def.role === 'sensor' || n.def.role === 'effector') && n.def.id !== 'perimeter');
     for (const n of nodes) { // coverage
-      const col = hex(n.def.color), r = (n.def.range || 0) * k;
-      if (n.def.role === 'sensor') { g.fillStyle = col + '14'; g.beginPath(); g.arc(X(n.pos.x * mpu()), Y(-n.pos.z * mpu()), r, 0, Math.PI * 2); g.fill(); }
+      const col = hex(n.def.color);
+      traceRange(g, n, X, Y, k);
+      if (n.def.role === 'sensor') { g.fillStyle = col + '14'; g.fill(); }
       g.strokeStyle = col + (n.def.role === 'sensor' ? '88' : '66'); g.setLineDash(n.def.role === 'sensor' ? [] : [6, 4]);
-      g.beginPath(); g.arc(X(n.pos.x * mpu()), Y(-n.pos.z * mpu()), r, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+      g.stroke(); g.setLineDash([]);
     }
     const now = performance.now();
     for (const n of nodes) { // links to fusion

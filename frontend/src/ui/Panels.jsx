@@ -24,10 +24,11 @@ export function Tuning({ open }) {
 }
 
 const LEGEND = [
-  ['#ffd600', 'FW Spotter: high, orbits, hard to jam, boosts strikes'],
-  ['#ff9100', 'FO Strike: slow FPV on fibre: no radio, no jam'],
-  ['#ff1744', 'FPV Strike: fast, agile, jammable, emits RF'],
-  ['#d500f9', 'FW Strike: fast, high, RF-silent, partly jammable'],
+  ['#ffd600', 'Fixed-wing spotter drone: high, orbits, hard to jam, boosts strikes'],
+  ['#ff9100', 'Fibre-optic strike drone: slower, flown down a fibre line, so no radio and no jamming'],
+  ['#ff1744', 'First-person-view strike drone: a pilot flies it by live video over radio. Fast, agile, can be jammed'],
+  ['#d500f9', 'Fixed-wing strike drone: fast, high, flies itself with no radio link, partly jammable'],
+  ['#5f7596', 'Real drones (sandbox) take the colour of their type'],
   ['#8a94a3', 'Grey ghost: real drone no sensor has (truth overlay)'],
   ['#ffffff', 'Faint diamond: a fused track (tick Highlight tracks to colour it: white = unclassified, red = multirotor, magenta = fixed-wing)'],
 ];

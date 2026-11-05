@@ -1,19 +1,23 @@
+import { REAL_DRONES } from './real-drones.js';
+
 export const DRONES = {
   // model: 'quad' | 'fw'. alt: spawn altitude range above ground (m). minAgl: lowest it will fly above ground until
   // it is close to the site (m). Strikes follow the terrain. jamResist: 0 = fully jammable, 1 = immune.
-  // evade: 1 = no manoeuvrability, lower = harder to hit. It scales missile fuze radius and laser dwell.
+  // evade: 1 = no manoeuvrability, lower = harder to hit. It lowers a shot's hit chance and slows a laser's burn.
   // adapt: how strongly this type gets better at evading/resisting each wave (see ADAPT).
+  // sound: how much further it is heard than a small FPV, an assumption. A piston-engined fixed-wing drone is far louder than a quadcopter.
   // rfEmitter: has an active radio link an RF detector can hear. airframe is what a camera classifies it as.
   // cost: what one drone costs the attacker in dollars, with the evidence in costRef.
   // casualtyRadius: how far from its blast an unprotected person can become a casualty (m). An assumption, not weapons data.
+  // label: the tag drawn over it on the map.
   spotter: {
-    name: 'FW Spotter', role: 'spotter', model: 'fw', hp: 50, speed: 30, damage: 0, scale: 1.3, evade: 0.9,
+    name: 'Fixed-wing spotter drone', label: 'Fixed-wing spotter', role: 'spotter', model: 'fw', hp: 50, speed: 30, damage: 0, scale: 1.3, evade: 0.9,
     links: { control: 'control900', video: 'video58', gnss: true }, // radio dependencies, for jamming
     color: 0xffd600, alt: [400, 500], jamResist: 0.75, adapt: 0.5, rfEmitter: true, airframe: 'Fixed wing',
     loiterDist: 2500, loiterTime: 60, // orbit radius (m) and seconds on station before it leaves
     spotBonus: 0.5,                   // each spotter on station adds this to strike damage
     bank: 0.35,                       // bank angle (radians) while orbiting
-    cost: 100000, rcs: 0.15, size: 3.0, rfPower: 2.5, // rcs (m^2), size (m) and link power relative to a small FPV: assumptions
+    cost: 100000, rcs: 0.15, size: 3.0, rfPower: 2.5, sound: 3, // rcs (m^2), size (m) and link power relative to a small FPV: assumptions
     costRef: {
       note: 'Orlan-10 class reconnaissance drone: estimates $80,000–$120,000 per aircraft (the full system is about 18 million rubles). Game uses $100,000.',
       confidence: 'Wartime press estimates, not procurement prices',
@@ -22,10 +26,10 @@ export const DRONES = {
   },
   fo: {
     // fibre-optic FPV: an FPV that is slower and less agile, flies low, emits no radio and cannot be jammed
-    name: 'FO Strike', model: 'quad', hp: 20, speed: 18, damage: 12, scale: 0.7, evade: 0.8,
+    name: 'Fibre-optic strike drone', label: 'Fibre-optic', model: 'quad', hp: 20, speed: 18, damage: 12, scale: 0.7, evade: 0.8,
     links: {}, seeksEmitters: true, // fibre: nothing to jam; operator-guided, so it goes for emitters too
     rfEmitter: false, airframe: 'Multirotor', color: 0xff9100, alt: [10, 25], minAgl: 8, jamResist: 1, adapt: 0, fibre: true,
-    cost: 1000, rcs: 0.01, size: 0.35, rfPower: 1, casualtyRadius: 25,
+    cost: 1000, rcs: 0.01, size: 0.35, rfPower: 1, casualtyRadius: 25, sound: 1,
     costRef: {
       note: 'Ukrainian contracts in 2025 priced fibre-optic FPVs at about 30,000–60,000 UAH each (roughly $700–$1,500 at about 40–42 UAH/$; the dollar conversion is mine), depending on spool size. Game uses $1,000.',
       confidence: 'Contract reporting; currency converted by approximation',
@@ -36,10 +40,10 @@ export const DRONES = {
     },
   },
   fpv: {
-    name: 'FPV Strike', model: 'quad', hp: 20, speed: 30, damage: 12, scale: 0.7, evade: 0.6,
+    name: 'First-person-view strike drone', label: 'First-person-view', model: 'quad', hp: 20, speed: 30, damage: 12, scale: 0.7, evade: 0.6,
     links: { control: 'control24', video: 'video58' }, seeksEmitters: true, // goes for the loudest emitter it can find
     rfEmitter: true, airframe: 'Multirotor', color: 0xff1744, alt: [30, 90], minAgl: 15, jamResist: 0, adapt: 1,
-    cost: 400, rcs: 0.01, size: 0.35, rfPower: 1, casualtyRadius: 25,
+    cost: 400, rcs: 0.01, size: 0.35, rfPower: 1, casualtyRadius: 25, sound: 1,
     costRef: {
       note: 'Ukrainian FPV strike drones are reported at about $400 each (some makers claim under $400 before the warhead; forum estimates run $500–$1,500). Game uses $400.',
       confidence: 'Press and manufacturer figures',
@@ -50,10 +54,10 @@ export const DRONES = {
     },
   },
   fw: {
-    name: 'FW Strike', model: 'fw', hp: 60, speed: 45, damage: 30, scale: 1.3, evade: 0.8,
+    name: 'Fixed-wing strike drone', label: 'Fixed-wing strike', model: 'fw', hp: 60, speed: 45, damage: 30, scale: 1.3, evade: 0.8,
     links: { gnss: true }, // autonomous, navigates by GNSS
     rfEmitter: false, airframe: 'Fixed wing', color: 0xd500f9, alt: [150, 300], minAgl: 30, jamResist: 0.5, adapt: 0.7,
-    cost: 35000, rcs: 0.2, size: 2.5, rfPower: 1, casualtyRadius: 80,
+    cost: 35000, rcs: 0.2, size: 2.5, rfPower: 1, casualtyRadius: 80, sound: 5,
     costRef: {
       note: 'Shahed-136 / Geran-2 class: most estimates $20,000–$50,000 per drone (CSIS about $35,000; Forbes Ukraine uses $50,000); later Geran-2 variants closer to $80,000; export price in leaked documents $193,000. Game uses $35,000.',
       confidence: 'Analyst estimates; wide spread',
@@ -64,4 +68,14 @@ export const DRONES = {
     },
   },
 };
+// A real drone starts from its type's rules and adds what is publicly known, so anything not public stays a labelled class value.
+for (const [id, real] of Object.entries(REAL_DRONES)) DRONES[id] = { ...DRONES[real.variantOf], ...real };
 for (const [id, def] of Object.entries(DRONES)) def.id = id;
+
+// The four types the waves send and the wizard reasons about. Every real drone belongs to one of them (variantOf).
+export const DRONE_CLASSES = Object.values(DRONES).filter((d) => !d.variantOf);
+// Every drone, grouped for pickers.
+export const THREAT_GROUPS = [
+  { name: 'Generic types', drones: DRONE_CLASSES },
+  ...['Russia', 'Iran', 'China', 'Commercial off the shelf'].map((name) => ({ name, drones: Object.values(DRONES).filter((d) => d.origin === name) })),
+];

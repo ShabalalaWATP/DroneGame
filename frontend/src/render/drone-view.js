@@ -8,7 +8,6 @@ import { droneTemplate } from './models.js';
 import { hexCss } from './labels.js';
 import { view } from './view.js';
 
-export const DRONE_CODE = { spotter: 'SPT', fo: 'FO', fpv: 'FPV', fw: 'FW' };
 const barGeo = new THREE.PlaneGeometry(2, 0.25).translate(1, 0, 0);
 const dropGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, -1, 0)]);
 
@@ -48,7 +47,7 @@ export function createDroneViews(scene, sim, labels, camera) {
       fibre.frustumCulled = false;
       scene.add(fibre);
     }
-    const v = { group, model, unseen, rotors, bar, fill, fillMat, drop, dropMat, fibre, hp: d.hp, phase: (d.uid * 1.7) % 6, label: labels.make(DRONE_CODE[d.type], hexCss(def.color), 'dlabel') };
+    const v = { group, model, unseen, rotors, bar, fill, fillMat, drop, dropMat, fibre, hp: d.hp, phase: (d.uid * 1.7) % 6, label: labels.make(def.label, hexCss(def.color), 'dlabel') };
     views.set(d, v);
     return v;
   }

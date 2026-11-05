@@ -26,7 +26,7 @@ export function useHotkeys() {
       if (e.key === 't' || e.key === 'T') { game.setViewOption('truth', !view.truth); return; }
       if (e.key === 'l' || e.key === 'L') { game.setViewOption('labels', !view.labels); return; }
       if (e.key === 'x' || e.key === 'X') { game.setTool('sell'); return; }
-      if (e.key === '8') { game.setTool('people'); return; }
+      if (e.key === '9') { game.setTool('people'); return; }
       if (e.key === 'p' || e.key === 'P') { game.setViewOption('planView', !view.planView); return; }
       if (game.sim.state.terrainSeed.startsWith('pack:')) {
         if (e.key === 'g' || e.key === 'G') { game.setViewOption('mapGrid', !view.mapGrid); return; }

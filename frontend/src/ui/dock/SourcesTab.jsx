@@ -3,7 +3,7 @@
 // resets it to the researched value. "Export" saves just your changes as JSON so an experiment can be repeated.
 
 import { useRef, useState } from 'react';
-import { COMMS, DRONES, FIGURE_FIELDS, PEOPLE, RESEARCHED, STRUCTURES, WAVES, WORLD, exportFigures } from '../../sim/config/index.js';
+import { COMMS, DRONES, FIGURE_FIELDS, PEOPLE, RESEARCHED, STRUCTURES, THREAT_GROUPS, WAVES, WORLD, exportFigures } from '../../sim/config/index.js';
 import { download, hex, useGame } from '../hooks.js';
 import { NumberInput } from '../NumberInput.jsx';
 import { SourceLinks } from './SourceLinks.jsx';
@@ -66,7 +66,7 @@ export function SourcesTab({ active }) {
         Every number here can be changed and takes effect at once. <b>published</b> and <b>price</b> figures come from the sources shown (mostly vendor claims; check them before relying on them), <b>ASSUMPTION</b> had no verified figure, <b>game rule</b> is a balance setting. Message formats follow <a href="https://github.com/dstl/SAPIENT-Proto-Files" target="_blank" rel="noopener noreferrer">BSI Flex 335 v2.0</a>.
         <div className="src-tools">
           <label>Range scale <NumberInput id="src-rangescale" value={WORLD.rangeScale} step={0.1} min={0.1} onCommit={(v) => { if (v > 0) { commands.setRangeScale(v); changed(); } }} /> x published</label>
-          <label>FPV gap <NumberInput id="src-fpvgap" value={WAVES.fpvGap} step={1} min={1} onCommit={(v) => { if (v > 0) commands.setFpvGap(v); }} /> s</label>
+          <label>First-person-view drone gap <NumberInput id="src-fpvgap" value={WAVES.fpvGap} step={1} min={1} onCommit={(v) => { if (v > 0) commands.setFpvGap(v); }} /> s</label>
           <button id="src-reset" onClick={() => { commands.resetAllFigures(); changed(); }}>Reset all</button>
           <button id="src-export" onClick={() => download('site-guard-figures.json', JSON.stringify(exportFigures(), null, 2), 'application/json')}>Export changes</button>
           <button id="src-import" onClick={() => file.current.click()}>Import</button>
@@ -110,14 +110,23 @@ export function SourcesTab({ active }) {
         </div>
       ))}
       <h4 className="src-h">Enemy drones</h4>
-      {Object.values(DRONES).map((d) => (
-        <div className="sys" key={d.id}>
-          <div className="sys-h"><i style={{ background: hex(d.color) }} /><b>{d.name}</b> <span className="muted">enemy drone · {d.airframe}{d.rfEmitter ? ' · emits RF' : ' · RF-silent'}</span></div>
-          <Figures kind="drones" id={d.id} def={d} onChange={changed} />
-          <Row k="Cost basis">{d.costRef.note} <Conf text={d.costRef.confidence} /></Row>
-          <Row k="Sources"><SourceLinks sources={d.costRef.sources} /></Row>
-          <div className="muted">Radar cross-section, size, link power and speed are rough class values I chose, not measurements. Tune them to test how sensitive a laydown is.</div>
-        </div>
+      {THREAT_GROUPS.map((group, i) => (
+        <details key={group.name} open={i === 0}>
+          <summary>{group.name} ({group.drones.length})</summary>
+          {group.drones.map((d) => (
+            <div className="sys" key={d.id}>
+              <div className="sys-h"><i style={{ background: hex(d.color) }} /><b>{d.name}</b> <span className="muted">enemy drone · {d.airframe}{d.rfEmitter ? ' · has a radio link' : ' · no radio link'}</span></div>
+              <Figures kind="drones" id={d.id} def={d} onChange={changed} />
+              {d.published && <Row k="Public figures">{d.published}</Row>}
+              {d.usedBy && <Row k="Used by">{d.usedBy}</Row>}
+              <Row k="Cost basis">{d.costRef.note} <Conf text={d.costRef.confidence} /></Row>
+              <Row k="Sources"><SourceLinks sources={d.costRef.sources} /></Row>
+              <div className="muted">{d.variantOf
+                ? `Speed, height and size come from the public figures above. Damage is a game rule worked out from the warhead. Radar cross-section, link power, evasion, health and jam resistance are not public, so they are assumed or carried over from the ${DRONES[d.variantOf].name}.`
+                : 'Radar cross-section, size, link power and speed are rough class values I chose, not measurements. Tune them to test how sensitive a laydown is.'}</div>
+            </div>
+          ))}
+        </details>
       ))}
     </>
   );

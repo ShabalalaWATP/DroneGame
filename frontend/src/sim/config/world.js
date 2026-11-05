@@ -6,7 +6,7 @@
 // independent test results. Edit freely, or use the in-game Tuning panel.
 
 // Stored with saved laydowns and runs. Raise it when a change means old saves no longer replay the same.
-export const GAME_VERSION = '0.2.0';
+export const GAME_VERSION = '0.4.0';
 
 export const WORLD = {
   metresPerUnit: 20,     // 3D scene scale: 1 scene unit = this many metres
@@ -47,7 +47,7 @@ export const TERRAIN = {
   clearRadius: 450,      // no trees within this of the station (m)
   hamlets: 3,            // small clusters of buildings
   treeStep: 40,          // one drawn tree per this many metres of forest
-  rfCanopyLength: 300,   // RF detection range falls by 1/e for each this many metres of canopy it passes through
+  rfCanopyLength: 300,   // a network link's signal falls by 1/e for each three of these through canopy. Detection and jamming use propagation.js.
   opticalCanopyTol: 40,  // radar/EO/guns are blocked by more than this many metres of canopy on the path
   endClear: 50,          // trees within this distance of a sensor or weapon are assumed cleared
   pylonSpacing: 260, pylonHeight: 42, // power lines run out from the switchyard
@@ -112,4 +112,4 @@ export const FUSION_DEF = {
 export const ADAPT = { evadePerWave: 0.07, evadeFloor: 0.25, jamResistPerWave: 0.05, jamResistCap: 0.95 };
 
 // Structures are drawn this much larger than true size. Muzzle heights scale with it, so it is part of the rules.
-export const STRUCT_SCALE = 3;
+export const STRUCT_SCALE = 1.8;

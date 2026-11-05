@@ -49,7 +49,7 @@ describe('what a setting does', () => {
 
   it('radar power trades range and signature', () => {
     const def = set('radar', 'power', 50);
-    expect(def.range).toBe(Math.round(2000 * Math.pow(0.5, 0.25)));
+    expect(def.range).toBe(Math.round(3100 * Math.pow(0.5, 0.25)));
     expect(def.signature).toBeCloseTo(0.5);
     expect(def.cost).toBe(900000);
   });
@@ -62,7 +62,7 @@ describe('what a setting does', () => {
   it('a slower scan reaches further and really scans less often', () => {
     lay('radar', 'radar_s');
     game.commands.configureUnit(unit('radar'), 'scan', 0.5);
-    expect(unit('radar').def.range).toBe(Math.round(2000 * Math.pow(0.5, 0.25)));
+    expect(unit('radar').def.range).toBe(Math.round(3100 * Math.pow(0.5, 0.25)));
     sim.state.warnedWire = true;
     sim.run(400);
     expect(unit('radar').scanId).toBeGreaterThan(unit('radar_s').scanId * 1.8);
@@ -78,7 +78,7 @@ describe('what a setting does', () => {
   });
 
   it('a camera\'s view sets its reach, with the large one matching the lens figures', () => {
-    expect(set('camera', 'view', 2.5).range).toBe(4000);
+    expect(set('camera', 'view', 2.5).range).toBe(2600);
     expect(set('camera_l', 'view', 0.5).range).toBe(6400);
     expect(unit('camera_l').def.fov).toBe(0.5);
   });
@@ -288,7 +288,7 @@ describe('the Configure side of the panel', () => {
     expect($('#unit-editor').textContent).toContain('$1.03M');
     expect($('#unit-editor').textContent).toContain('+$135k');
     commit($('#unit-power'), '50');
-    expect($('#unit-editor').textContent).toContain('1.7 km');
+    expect($('#unit-editor').textContent).toContain('2.6 km');
   });
 
   it('goes back to the standard value with its reset button', () => {

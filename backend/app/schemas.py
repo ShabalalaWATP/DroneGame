@@ -7,8 +7,10 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, JsonValue, St
 
 # Names the game uses. A test compares these with the frontend's config, so they cannot drift apart.
 SystemId = Literal[
-    "radar", "radar_s", "radar_a800", "radar_l", "rf", "rf_s", "rf_elysion", "rf_l", "camera", "camera_s", "camera_l",
-    "jammer", "jammer_s", "jammer_l", "interceptor", "interceptor_p1", "missile", "laser",
+    "radar", "radar_s", "radar_a400", "radar_a800", "radar_giraffe", "radar_l", "rf", "rf_s", "rf_elysion", "rf_l", "camera", "camera_s", "camera_l", "acoustic", "acoustic_s", "acoustic_l",
+    "jammer", "jammer_s", "jammer_l", "jammer_auds", "interceptor", "interceptor_s", "interceptor_l", "interceptor_p1",
+    "missile", "missile_s", "missile_l", "missile_rr", "missile_hvm", "missile_paladin", "missile_skysabre",
+    "laser", "laser_s", "laser_l", "laser_rfdew",
 ]
 Uplink = Literal["starlink", "cellular"]
 CellBand = Literal["B8", "B3", "n78"]
@@ -73,7 +75,7 @@ class PlacedPeople(Strict):
 
 
 class LaydownSpec(Strict):
-    """The shape of captureLaydown() in frontend/src/sim/laydown.js, plus the area to defend, which the simulation never reads."""
+    """The shape of captureLaydown() in frontend/src/sim/laydown.js, including the area to defend, which the enemy attacks."""
 
     structures: list[PlacedSystem] = Field(max_length=MAX_SYSTEMS)
     fusionUplinks: list[Uplink] = Field(max_length=2)

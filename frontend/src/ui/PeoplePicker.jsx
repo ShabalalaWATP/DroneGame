@@ -1,4 +1,5 @@
 // Opens beside the toolbar with the People tool: the size and protection of the next group, and the groups already placed.
+// The wizard's people step shows the same controls.
 
 import { PEOPLE, PEOPLE_LIMITS } from '../sim/config/index.js';
 import { view } from '../render/view.js';
@@ -7,17 +8,13 @@ import { NumberInput } from './NumberInput.jsx';
 
 const LOOK_DISTANCE = 4; // scene units: close enough to make out each person
 
-export function PeoplePicker({ onHide }) {
+export function PeopleChoice() {
   const game = useGame();
   const { sim, commands } = game;
   const choice = view.people, locked = sim.designLocked();
   const set = (change) => { Object.assign(view.people, change); game.bump(); };
   return (
-    <div id="tool-picker" className="panel" role="region" aria-label="Place simulated people">
-      <div className="up-head" style={{ borderLeftColor: hex(PEOPLE[choice.protection].color) }}>
-        <b>People: place a group</b>
-        <button id="picker-close" aria-label="Hide this list" title="Hide this list. Keep clicking the map to place." onClick={onHide}>×</button>
-      </div>
+    <>
       <label className="people-count">People in the group
         <NumberInput id="people-count" value={choice.count} min={1} max={PEOPLE_LIMITS.perGroup} step={1} onCommit={(v) => set({ count: Math.min(Math.max(Math.round(v), 1), PEOPLE_LIMITS.perGroup) })} />
       </label>
@@ -41,6 +38,18 @@ export function PeoplePicker({ onHide }) {
           ))}
         </ul>
       )}
+    </>
+  );
+}
+
+export function PeoplePicker({ onHide }) {
+  return (
+    <div id="tool-picker" className="panel" role="region" aria-label="Place simulated people">
+      <div className="up-head" style={{ borderLeftColor: hex(PEOPLE[view.people.protection].color) }}>
+        <b>People: place a group</b>
+        <button id="picker-close" aria-label="Hide this list" title="Hide this list. Keep clicking the map to place." onClick={onHide}>×</button>
+      </div>
+      <PeopleChoice />
     </div>
   );
 }

@@ -43,7 +43,7 @@ Screenshots use scenario seed 7 and terrain seed 3 (`?seed=7&terrain=3`) with th
 
 New to it? Press **Guide me through it** on the start screen. The wizard walks you from an empty site to the first wave: mark the area you are defending, place sensors and effectors, network them, check coverage, rehearse in the sandbox, adjust the figures if you want to, then commit. It works out where you are from the game itself, so you can skip around or close it at any time, and **Open the wizard** brings it back. Drag it by its header if it is in the way. Once a run starts it steps back, with no tips during a wave. When the site falls, a debrief shows what got through and can replay the first leak.
 
-The area you mark is a planning aid. It scores your coverage and saves with the laydown, but drones still aim for the station and for loud emitters, and it cannot change a run.
+The area you mark is what the enemy attacks. Strike drones aim for spots inside it instead of the station, spotters circle it, and it saves with the laydown. FPV and FO strikes can still turn on a loud emitter. It must stay within 5 km of the station, and it locks when the first wave starts.
 
 ### 1. Build a laydown
 
@@ -53,17 +53,19 @@ Press **Deploy**, pick a system from the left (or press 1 to 7), and click the g
 
 | Key | System | Small | Medium | Large | Per shot | Notes |
 |---|---|---|---|---|---|---|
-| 1 | Radar | $45k, 1 km | $900k, 2 km | $2.5M, 4.3 km | | Range, bearing and velocity. Low flyers hide in ground clutter until close |
-| 2 | RF detector | $10k, 1 km | $40k, 3.5 km | $400k, 8 km | | Passive direction finding with no range. Cannot see RF-silent drones |
-| 3 | EO/IR camera | $25k, 260 m | $100k, 1 km | $500k, 1.6 km | | Narrow view cued by other sensors, with strong classification |
-| 4 | RF jammer | $40k, 500 m | $60k, 1 km | $350k, 1.6 km | | On only while tracks are in range. Fibre-optic drones ignore it |
-| 5 | Interceptor drones | | $100k, 5 km | | $5,000 | Good against FPV and fibre-optic strikes. Cannot catch fixed-wing drones |
-| 6 | Missile | | $1M, 10 km | | $200,000 | Can hit fixed-wing drones |
-| 7 | Laser | | $2M, 1 km | | $13 | Needs dwell time, so evasive targets take longer |
+| 1 | Radar | $45k, 1 km | $900k, 3.1 km | $2.5M, 4.3 km | | Range, bearing and velocity. Low flyers hide in ground clutter until close |
+| 2 | RF detector | $10k, 2 km | $40k, 3.5 km | $400k, 14 km | | Passive direction finding with no range, on a 9 m mast. Cannot see RF-silent drones |
+| 3 | EO/IR camera | $25k, 260 m | $100k, 650 m | $500k, 1.6 km | | Narrow view cued by other sensors, with strong classification |
+| 4 | RF jammer | $40k, 500 m | $60k, 1 km | $350k, 3 km | | On only while tracks are in range, on a 9 m mast. Fibre-optic drones ignore it |
+| 5 | Interceptor drones | $100k, 3 km | $100k, 25 km | $300k, 15 km | $1,000 to $15,000 | Good against first-person-view and fibre-optic strike drones. Only the large one catches fixed-wing drones |
+| 6 | Missile | $100k, 2 km | $1M, 10 km | $5M, 25 km | $45,000 to $1.2M | Can hit fixed-wing drones |
+| 7 | Laser | $8M, 2 km | $2M, 3 km | $14M, 10 km | $3.50 to $13 | Needs dwell time, so evasive targets take longer |
 
-Sensor ranges are against a small quadcopter. Pick a row to see the real systems of that kind, such as the Robin Radar IRIS or Blighter A800, and the settings for the next one you place. Press a key again for the next one.
+These ranges are for an open field, on the standard mast, and sensors are against a small quadcopter. Where you place a system changes what it really gets: the ring on the map follows the predicted range, and the Range side of its panel shows each bearing and the ground in the way ([ADR 0003](docs/adr/0003-range-from-a-terrain-path-model.md)). UK systems such as Rapid Ranger, Stormer HVM, Sky Sabre, Terrahawk Paladin, RapidDestroyer, AUDS and the Blighter A400 are listed with the rest. Pick a row to see the real systems of that kind, such as the Robin Radar IRIS or Blighter A800, and the settings for the next one you place. Press a key again for the next one.
 
-The attack is made of FPV strike drones ($400), fibre-optic strike drones that fly low and emit no radio ($1,000), fixed-wing strike drones ($35,000) and fixed-wing spotters that make strikes hit harder ($100,000). They get harder to hit and jam each wave.
+Rounds can miss. The Unit panel gives each weapon's chance against each drone, close in and at its limit, or for a laser the time to burn through. Sensor error grows as the signal weakens, and a poor track lowers a shot's chance. Most hit chances are labelled assumptions, because few are published.
+
+The attack is made of first-person-view (FPV) strike drones ($400), fibre-optic strike drones that fly low and emit no radio ($1,000), fixed-wing strike drones ($35,000) and fixed-wing spotters that make strikes hit harder ($100,000). They get harder to hit and jam each wave.
 
 ### 2. Network it
 
@@ -87,7 +89,7 @@ The **Sandbox** launches any wave's attack, or a custom one, without risk: the s
 
 Press **Start wave**. The laydown locks at this point and the fusion node takes over: it builds tracks from noisy detections, cues cameras and tasks effectors. **Engagement authority** decides whether it fires by itself, or asks you first for costly shots or for every engagement.
 
-With **Truth overlay** on, as in the screenshot at the top, a tag like `FPV` marks where a drone really is, and a marker like `T88 · UAV ±52 m` marks where the fusion node believes it is. Tracks can lag, get confused or turn out to be ghosts, and effectors only hit a real drone they find at the cued position.
+With **Truth overlay** on, as in the screenshot at the top, a tag like `First-person-view` marks where a drone really is, and a marker like `T88 · UAV ±52 m` marks where the fusion node believes it is. Tracks can lag, get confused or turn out to be ghosts, and effectors only hit a real drone they find at the cued position.
 
 ### 6. Read the messages
 
@@ -102,6 +104,8 @@ Pause at any moment and scrub back through the run. Markers on the timeline show
 ![A paused replay 6 seconds behind live, with the timeline and its event markers](docs/screenshots/replay.jpg)
 
 ### 8. Count the cost
+
+The sandbox can also launch 21 real drones: Russian, Iranian and Chinese types, and commercial drones reported carrying munitions. Tick any mix of them. Their public figures, and how solid each one is, are in the **Sources** tab. The waves still send the four generic types.
 
 The **Cost** tab compares what you spent with what the attack cost the enemy, broken down by system, effector and drone type.
 
@@ -245,7 +249,7 @@ There is no sign-in, so the service binds to this machine only, and refuses othe
 
 The start screen opens with a real map ready, if map packs are installed, so you can deploy straight away. To defend somewhere else, click the Leaflet map, type a position, or press **Use my location**. The map's layer list has street, light, dark, satellite and hybrid styles, plus offline OS and satellite pictures from the packs. Satellite and hybrid come from EOxCloudless, which is free for non-commercial use only (CC BY-NC-SA 4.0), at 10 m per pixel. Positions can be a grid reference, decimal latitude and longitude (51.39, -1.68), or eastings and northings (422000 166000). Most laptops have no GPS chip and estimate from Wi-Fi, so the app shows how good the position is. If there is no map there yet, the app offers to build one.
 
-In the game, the buttons beside the minimap open the map switcher, centre on your location, centre on the site, and change between 3D and plan view. The switcher shows a preview of each map: OS, light, dark, satellite, hybrid, topographic, shaded relief and live OpenStreetMap. M moves to the next one. The topographic map uses the world's own heights, with height colours, hill shading and labelled contours. Contours (C), roads and names, and the national grid (G) can be added to any map. If your location is outside the current world, **Open a map here** goes back to the start screen on that spot, and **Change world** switches between generated ground and real maps. A typed grid reference moves there, or places the system you have picked.
+In the game, the buttons beside the minimap open the map switcher, centre on your location, centre on the site, draw the area to defend, and change between 3D and plan view. The switcher shows a preview of each map: OS, light, dark, satellite, hybrid, topographic, shaded relief and live OpenStreetMap. M moves to the next one. The topographic map uses the world's own heights, with height colours, hill shading and labelled contours. Contours (C), roads and names, and the national grid (G) can be added to any map. If your location is outside the current world, **Open a map here** goes back to the start screen on that spot, and **Change world** switches between generated ground and real maps. A typed grid reference moves there, or places the system you have picked.
 
 To share a map, choose it on the start screen and press **Export** to save it as a `.sgmap` file. Anyone else presses **Import** and picks that file. It is checked in full, kept in their browser, and needs no further downloads.
 
@@ -305,7 +309,7 @@ Raise `GAME_VERSION` in `frontend/src/sim/config/world.js` at the same time, so 
 
 ## Simulated people
 
-The **People** tool (key **8**) places groups of simulated people to see what an attack would do to them. Choose how many (1 to 500, up to 50 groups) and their protection: unarmoured, in a building (click on a building, and on a real map they stand inside its true outline) or in a bunker (drawn as a low concrete block). They cost nothing, and they lock with the laydown when the first wave starts.
+The **People** tool (key **9**) places groups of simulated people to see what an attack would do to them. Choose how many (1 to 500, up to 50 groups) and their protection: unarmoured, in a building (click on a building, and on a real map they stand inside its true outline) or in a bunker (drawn as a low concrete block). They cost nothing, and they lock with the laydown when the first wave starts. The wizard has the same choices in its optional step 6, "Who is on site?".
 
 People are drawn to true scale, so they are too small to see from far away: each group has a name tag, and **Look** in the People panel flies the camera down to them. A blast can make anyone near it a casualty: likelier the closer they are and the less protected. Blasts come from a strike on the site, a strike on a system, and a drone destroyed in flight, where its height shelters those below. Casualties drop to the ground in the view, and appear in the HUD, on the timeline and in the end-of-run summary. They also count in the sandbox, and come back on leaving it.
 

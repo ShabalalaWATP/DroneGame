@@ -131,6 +131,7 @@ export function blastOnGround(w, d, x, z) {
 // A drone counts as hitting the site at its edge, but lands inside it: aimed at the middle, with scatter out to the edge.
 export function blastOnSite(w, d) {
   if (!affects(w, d)) return;
+  if (d.aim) { blast(w, d.def, d.aim.x, hereU(d.aim.x, d.aim.z), d.aim.z, blastRng(w, d)); return; } // a drawn area: it lands on its aim point
   const rng = blastRng(w, d), a = rng() * Math.PI * 2, r = u(SITE.radius) * rng();
   const x = Math.cos(a) * r, z = Math.sin(a) * r;
   blast(w, d.def, x, hereU(x, z), z, rng);

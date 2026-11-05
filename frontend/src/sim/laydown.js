@@ -4,9 +4,11 @@
 import { Vector3 } from 'three';
 import { WORLD, BUILD, COMMS, ECONOMY, STRUCTURES } from './config/index.js';
 import { terrainState } from './terrain.js';
-import { u, hdist, hereU } from './units.js';
+import { SITE_POS, u, hdist, hereU } from './units.js';
+import { cleanZone, zoneCentre } from './attack-area.js';
 import { buyTerminal, money } from './economy.js';
 import { capturePeople, clearPeople, restorePeople } from './people.js';
+import { fillMagazine } from './magazine.js';
 import { cleanCallsign, cleanName, cleanSettings, fieldsFor, setSetting, unitCost, unitDef } from './unit-config.js';
 
 // saved holds a unit's settings and custom names, and reserved the callsigns other saved units will need.
@@ -16,6 +18,7 @@ export function addStructure(w, id, x, z, saved = {}, reserved) {
   const s = { def, health: def.health || 30, pos: new Vector3(x, y, z), cd: 0, aim: 0, beamTarget: null };
   const name = cleanName(saved.name), callsign = cleanCallsign(saved.callsign);
   if (name || callsign) s.custom = { name, callsign };
+  fillMagazine(s);
   w.structures.push(s);
   w.net.registerNode(s, reserved);
   return s;
@@ -75,6 +78,7 @@ export function captureLaydown(w) {
       .sort((a, b) => a.id.localeCompare(b.id) || a.x - b.x || a.z - b.z),
     fusionUplinks: [...w.net.fusion.uplinks], fusionCell: w.net.fusion.cellBand,
     ...capturePeople(w),
+    ...(w.state.zone ? { zone: w.state.zone } : {}),
   };
 }
 
@@ -100,6 +104,19 @@ export function restoreLaydown(w, spec) {
   w.net.fusion.cellBand = spec.fusionCell;
   clearPeople(w);
   restorePeople(w, spec.people);
+  applyZone(w, cleanZone(spec.zone));
+}
+
+function applyZone(w, points) {
+  w.state.zone = points;
+  w.state.zoneCentre = points ? zoneCentre(points) : SITE_POS;
+}
+
+// The area the enemy attacks, in place of the station. Like the laydown, it is locked once the first wave starts. Returns why not, or null.
+export function setZone(w, points) {
+  if (designLocked(w)) return 'The area to defend is locked once the first wave starts';
+  applyZone(w, cleanZone(points));
+  return null;
 }
 
 // Change one field on one unit, paying or being refunded the difference. A null value goes back to the standard one. Returns why not, or null.

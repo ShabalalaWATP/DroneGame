@@ -98,6 +98,54 @@ describe('the zone', () => {
   });
 });
 
+describe('drawing the area without the wizard', () => {
+  const openPanel = () => { deployed(); fireEvent.click($('#map-zone')); };
+
+  it('starts drawing from the map rail, closes the area and scores it', () => {
+    openPanel();
+    expect(game.getTool()).toBe('zone');
+    expect($('#wizard')).toBeNull();
+    expect($('#zone-finish').disabled).toBe(true);
+    setView('zone', { points: TRIANGLE.points, closed: false });
+    expect($('#zone-panel').textContent).toContain('3 points so far');
+    fireEvent.click($('#zone-finish'));
+    expect(view.zone.closed).toBe(true);
+    expect(game.getTool()).toBe(null);
+    expect(document.querySelectorAll('#zone-panel .wz-bars > div').length).toBeGreaterThan(0);
+  });
+  it('undoes a point, redraws and clears', () => {
+    openPanel();
+    setView('zone', { points: TRIANGLE.points, closed: false });
+    fireEvent.click($('#zone-undo'));
+    expect(view.zone.points.length).toBe(2);
+    fireEvent.click($('#zone-clear'));
+    expect(view.zone).toBe(null);
+    setView('zone', { points: TRIANGLE.points, closed: true });
+    fireEvent.click($('#map-zone')); // closing the panel stops drawing
+    expect(game.getTool()).toBe(null);
+    fireEvent.click($('#map-zone')); // an area is already drawn, so opening shows it and leaves the map clicks alone
+    expect(game.getTool()).toBe(null);
+    fireEvent.click($('#zone-redraw'));
+    expect(view.zone).toBe(null);
+    expect(game.getTool()).toBe('zone');
+  });
+  it('leaves a system being placed alone when it closes', () => {
+    deployed();
+    setView('zone', { points: TRIANGLE.points, closed: true });
+    fireEvent.click($('#map-zone'));
+    act(() => game.setTool('radar'));
+    fireEvent.click($('#map-zone'));
+    expect(game.getTool()).toBe('radar');
+  });
+  it('makes way for the map panel', () => {
+    openPanel();
+    expect($('#zone-panel')).not.toBeNull();
+    setView('mapPanel', true);
+    expect($('#zone-panel')).toBeNull();
+    setView('mapPanel', false);
+  });
+});
+
 describe('moving it out of the way', () => {
   const BOX = { left: 262, top: 400, width: 300, height: 300 };
   const dragTo = (el, x, y) => {

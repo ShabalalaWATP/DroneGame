@@ -67,7 +67,7 @@ export const ENUM_HELP = {
   ALERT_TYPE_INFORMATION: 'for your information', ALERT_TYPE_WARNING: 'needs attention', ALERT_TYPE_CRITICAL: 'urgent',
   SYSTEM_OK: 'working normally', SYSTEM_GOODBYE: 'leaving the network', INFO_NEW: 'something changed', INFO_UNCHANGED: 'no change since last time',
   NODE_TYPE_RADAR: 'a radar', NODE_TYPE_CAMERA: 'a camera', NODE_TYPE_PASSIVE_RF: 'a passive radio sensor', NODE_TYPE_JAMMER: 'a jammer', NODE_TYPE_KINETIC: 'a physical interceptor',
-  NODE_TYPE_LDEW: 'a laser', NODE_TYPE_FUSION_NODE: 'the fusion node', NODE_TYPE_PROXIMITY_SENSOR: 'a close-range sensor',
+  NODE_TYPE_LDEW: 'a laser', NODE_TYPE_ACOUSTIC: 'an acoustic sensor', NODE_TYPE_FUSION_NODE: 'the fusion node', NODE_TYPE_PROXIMITY_SENSOR: 'a close-range sensor',
   MODE_TYPE_DEFAULT: 'the mode it starts in', MODE_TYPE_TEMPORARY: 'a mode it can be switched into',
   DISCRETE_PRIORITY_HIGH: 'high', DISCRETE_PRIORITY_MEDIUM: 'medium', DISCRETE_PRIORITY_LOW: 'low',
   RANGE_BEARING_COORDINATE_SYSTEM_DEGREES_M: 'angles in degrees, range in metres', RANGE_BEARING_DATUM_TRUE: 'measured from true north', RANGE_BEARING_DATUM_GRID: 'measured from grid north',

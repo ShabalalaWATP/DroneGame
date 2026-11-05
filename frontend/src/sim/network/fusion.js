@@ -5,7 +5,7 @@ import { FUSION } from '../config/index.js';
 import { round, classDepth } from './core.js';
 
 export function createFusion(core, { raiseAlert }) {
-  const { ctx, mpu, T, tracker, fusion, gui, send, siteDist } = core;
+  const { ctx, mpu, T, tracker, fusion, gui, send, fromSite, siteDist } = core;
   let trackSeq = 0, fusedT = 0;
 
   function feed(s, f) {
@@ -51,7 +51,8 @@ export function createFusion(core, { raiseAlert }) {
     const dist = siteDist(tr);
     if (!dist || tr.speed < FUSION.loiterMinSpeed) return false;
     const e = tracker.estimate(tr, T());
-    const radial = (tr.est.east * e.vel[0] + tr.est.north * e.vel[1]) / dist;
+    const { east, north } = fromSite(tr);
+    const radial = (east * e.vel[0] + north * e.vel[1]) / dist;
     return Math.abs(radial) < FUSION.loiterRadial * tr.speed;
   }
   const isLoitering = (tr) => tr.loiterSince != null && T() - tr.loiterSince >= FUSION.loiterAfter;

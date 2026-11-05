@@ -2,6 +2,7 @@
 
 import * as S from '../sapient.js';
 import { FUSION, DRONES } from '../config/index.js';
+import { canFire } from '../magazine.js';
 
 // Would this effector ever take this airframe? Unknown tracks are offered, and the effector can reject them.
 const takesAirframe = (def, airframe) => !def.engages || !airframe || airframe === 'Unknown' || def.engages.some((t) => DRONES[t].airframe === airframe);
@@ -114,6 +115,12 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
         }
         continue;
       }
+      // Out of rounds or reloading: give the target up so another launcher can take it, and offer this one nothing for now.
+      // shortcut: the fusion node reads the magazine directly. Report it in SAPIENT status if a lost launcher should be able to look armed.
+      if (!canFire(s)) {
+        completeTask(s, 'TASK_STATUS_FAILED', [s.reload > 0 ? 'reloading' : 'out of rounds']);
+        continue;
+      }
       // finish a task that has run its course
       if (s.task) {
         const d = s.task.drone, tr = tracker.tracks.get(s.task.trackId);
@@ -134,14 +141,14 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
       let best = null, bd = Infinity;
       for (const tr of live) {
         if (distToTrack(s, tr) > s.def.range) continue;
-        if (!eligible(s, tr)) continue;
+        if (!eligible(s, tr) || ctx.roundsCover(s, tr.drone)) continue;
         const dd = siteDist(tr);
         if (dd < bd) { bd = dd; best = tr; }
       }
       if (!best || (s.task && s.task.trackId === best.id)) continue;
       if (s.task) {
         const cur = tracker.tracks.get(s.task.trackId);
-        if (cur && siteDist(cur) - bd < FUSION.retaskAdvantage) continue;
+        if (cur && !ctx.roundsCover(s, cur.drone) && siteDist(cur) - bd < FUSION.retaskAdvantage) continue;
         sendTask(s, { control: 'CONTROL_STOP' }, `Stop ${cur ? cur.short : 'task'}`, 'Re-tasked to a closer threat');
         completeTask(s, 'TASK_STATUS_COMPLETED', ['re-tasked']);
       }

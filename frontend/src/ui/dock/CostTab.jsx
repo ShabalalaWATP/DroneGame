@@ -1,8 +1,10 @@
-// What you have spent, against what the attack cost the enemy.
+// How deep the magazines are, and what you have spent against what the attack cost the enemy.
 
 import { COMMS, DRONES, ECONOMY, STRUCTURES } from '../../sim/config/index.js';
 import { enemyCost } from '../../sim/economy.js';
+import { magazineWord } from '../../sim/magazine.js';
 import { hex, usd, useGame, useTick } from '../hooks.js';
+import { ResupplyButton } from '../ResupplyButton.jsx';
 import { SourceLinks } from './SourceLinks.jsx';
 
 const sum = (obj) => Object.values(obj).reduce((a, b) => a + b, 0);
@@ -27,6 +29,26 @@ function LaydownTable({ net, ledger }) {
   );
 }
 
+function MagazineDepth({ structures }) {
+  const armed = structures.filter((s) => s.def.magazine);
+  const launchers = armed.filter((s) => s.def.fire !== 'beam');
+  const shown = (s, n) => (s.def.fire === 'beam' ? `${Math.ceil(n)} s` : n);
+  return (
+    <div className="sys" id="magazine-depth">
+      <div className="sys-h"><b>Magazine depth</b> <span className="muted">{sum(launchers.map((s) => s.rounds))} rounds ready, {sum(launchers.map((s) => s.storage))} in storage</span></div>
+      <table className="mini">
+        <thead><tr><th>System</th><th>Magazine</th><th>Storage</th><th>Fired</th><th>State</th></tr></thead>
+        <tbody>
+          {armed.map((s) => <tr key={s.nodeId}><td>{s.short}</td><td>{shown(s, s.rounds)} / {shown(s, s.def.magazine)}</td><td>{s.def.fire === 'beam' ? 'Recharges' : s.storage}</td><td>{shown(s, s.fired)}</td><td>{magazineWord(s, s.def)}</td></tr>)}
+          {!armed.length && <tr><td colSpan="5" className="muted">No launchers or lasers placed yet</td></tr>}
+        </tbody>
+      </table>
+      <ResupplyButton />
+      <div className="muted">Sensors and jammers use no rounds. Every shot also comes out of the budget below, so you can run out of either. You can resupply between waves.</div>
+    </div>
+  );
+}
+
 export function CostTab({ active }) {
   useTick(active);
   const { sim } = useGame();
@@ -35,10 +57,11 @@ export function CostTab({ active }) {
   const capex = ledger.capex, shots = ledger.consumables, spend = capex + shots;
   return (
     <>
+      <MagazineDepth structures={sim.structures} />
       <div className="sys">
         <div className="sys-h"><b>Budget</b> <span className="muted">{usd(ECONOMY.budget)} for the whole run</span></div>
         <div className="budget-bar"><span className="b-capex" style={{ width: pct(capex) }} /><span className="b-shots" style={{ width: pct(shots) }} /></div>
-        <div className="muted">Systems {usd(capex)} ({pct(capex)}) · shots fired {usd(shots)} ({pct(shots)}) · <b>left {usd(state.budget)}</b></div>
+        <div className="muted">Systems {usd(capex)} ({pct(capex)}) · shots and rounds bought {usd(shots)} ({pct(shots)}) · <b>left {usd(state.budget)}</b></div>
       </div>
       <div className="sys">
         <div className="sys-h"><b>Cost exchange</b></div>
@@ -65,7 +88,7 @@ export function CostTab({ active }) {
         <table className="mini">
           <thead><tr><th>Drone</th><th>Each</th><th>Launched</th><th>Destroyed</th><th>Leaked</th><th>Left</th><th>Attack cost</th></tr></thead>
           <tbody>
-            {Object.values(DRONES).map((d) => {
+            {Object.values(DRONES).filter((d) => !d.variantOf || ledger.launched[d.id]).map((d) => {
               const l = ledger.launched[d.id] || 0;
               return <tr key={d.id}><td><i style={{ background: hex(d.color) }} />{d.name}</td><td>{usd(d.cost)}</td><td>{l}</td><td>{ledger.killed[d.id] || 0}</td><td>{ledger.leaked[d.id] || 0}</td><td>{ledger.escaped[d.id] || 0}</td><td>{usd(l * d.cost)}</td></tr>;
             })}

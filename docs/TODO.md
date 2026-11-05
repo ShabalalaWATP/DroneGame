@@ -31,14 +31,21 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 **Feature B: magazine depth**
 
-- [ ] B1: magazine rules in the simulation
-- [ ] B2: re-baseline the digests and balance rack size and missile capacity
-- [ ] B3: the magazine tab
+- [x] B1: magazine, storage and reload rules in the simulation. Shots are still paid for from the budget, at the user's request
+- [ ] B2: balance rack size, storage and reload time. The digests are re-baselined; the balance is not done
+- [x] Resupply between waves: buy back used rounds, emptiest launcher first. A bought round is paid for once
+- [x] B3: the Cost tab is now Magazine depth, with a row for each launcher and laser. Expanding rows and Refill buttons are not built
+
+**Systems added outside the plan**
+
+- [x] Small and large interceptors, missiles and lasers, and three acoustic sensors, all from public sources
+- [ ] Review the placeholder prices. The DragonFire's $2M looks low beside about $8M reported for the smaller LOCUST, and the Iron Beam and NASAMS launcher prices are set low only so that they fit the budget
+- [ ] Balance the new systems. Cheap long-range acoustic stations and the Large missile have not been tuned
 
 **Feature C: unit panel** (build this first)
 
 - [x] C1: click a sensor or effector on the map to see its details, read-only
-- [ ] C2: ammunition state, alongside B1
+- [x] C2: every system shows its magazine, rounds fired, storage, reload, cost per round and range. Sensors and jammers show their own figures instead of rounds
 
 **Feature D: wizard** (the guided steps, zone and debrief are built)
 
@@ -50,7 +57,24 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 **Later: named real systems**
 
 - [x] Real systems listed by name when you pick a kind in the toolbar, with settings for the next one placed
-- [ ] More real systems beyond those the Sources tab first named, and replacing the two generic entries
+- [x] UK systems added: Blighter A400, Saab Giraffe 1X, AUDS jammer, Rapid Ranger, Stormer HVM, Terrahawk Paladin, Sky Sabre, RapidDestroyer
+- [x] Ranges checked against datasheets and sources, with each assessment stated, and open-field range separated from predicted range at a spot
+- [x] One terrain path model for radar, RF and jamming, with rings, a polar plot and a path profile ([ADR 0003](adr/0003-range-from-a-terrain-path-model.md))
+- [ ] More real systems, such as Giraffe AMB and Aveillant Gamekeeper, and replacing the two generic entries. A row for guns and one for RF weapons, which sit under Missile and Laser for now
+- [x] Hit chance for guided rounds, by weapon, evasion, target speed, range and track quality. Launchers shoot, look and shoot while there is time, salvo when there is not, and move to the next target while rounds fly
+- [x] A beam's damage falls with distance, and sensor error grows as the signal weakens
+- [ ] Better figures for hit chance: 8 of 11 are assumptions, because no rate is published. Only the Sting, P1-SUN and DroneHunter have reported figures
+- [ ] Jamming strength that falls with distance: inside its reach a jammer works fully, then stops. Real jamming depends on how far the drone is from its own controller too
+- [ ] Use the bands a detector listens on: `listens` is only drawn on the Spectrum tab, so it does not limit what is heard. Each jammed link should use its own band
+- [ ] A radar that classifies by micro-Doppler, as the IRIS and A400 do. Only cameras identify an airframe now
+- [ ] The Sting is built to hit Shahed-type drones, but a game rule says interceptors cannot catch fixed-wing drones
+- [ ] Check the path model offline against NTIA ITM, and against any real measurements
+- [ ] Rain and haze for lasers and cameras, and ground reflection lobes for radar
+
+**Real drones**
+
+- [ ] Letting the waves send real drones, by choosing who is attacking. They fly in the sandbox and the wizard can plan against them, but the waves still send the four generic types, so that saved runs stay comparable.
+- [ ] Spelling out the systems' own short names (RDR, RFS, EO/IR, RF) as the threat names now are. They appear on the map, in the node list and in logs.
 
 **Real-world mapping** (see `docs/REAL_MAPPING_PLAN.md`)
 

@@ -468,6 +468,10 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 | A6 | RF, libraries and jammer physics | Tests confirm band matching, jam range and self-interference |
 | A7 | Balance using `tools/balance.js`. Optionally, later waves move to non-standard bands such as 3.3 GHz, as reported in Ukraine. | Results are recorded and the game is playable |
 
+**Hit chance and accuracy:** `sim/hit-chance.js` gives each guided round's chance and a beam's fall with distance, used by play and by the Unit panel. `pk` is tunable in the Sources tab, and each system's `ref` says whether it is evidence or an assumption. `errorScale` in `sim/site-range.js` widens sensor error as the signal weakens, in the reports and the tracker alike. `enoughInAir` in `sim/effectors.js` decides between waiting, a salvo and the next target.
+
+**Range from where you stand:** a catalogue range means an open field on the standard mast. `sim/propagation.js` (ITU-R P.526 Bullington, Weissberger foliage, 4/3 earth) gives the loss on a real path, and `sim/site-range.js` turns it into a reach, used by detection, jamming, the rings, the plan map, the placing preview and the Range side of the Unit panel. See [ADR 0003](adr/0003-range-from-a-terrain-path-model.md). RF detectors and jammers default to a 9 m mast. UK systems are in `config/uk-systems.js`.
+
 **Real systems in the toolbar:** clicking a row opens `ui/ToolPicker.jsx`, which lists the real systems of that kind by name, with the settings the next one will be placed with. S, M and L stay as quick choices. The list starts with the systems the Sources tab already named, three of which gained their own entries, marked `variantOf`: Blighter A800 (Ku band, 3 km against a Phantom, price assumed), Hensoldt Elysion RF DF (unverified ±30° and bands, range and price assumed) and SkyFall P1-SUN (about $1,000 a drone, performance copied from the Sting). "Generic EO/IR turret" and "Generic fixed site jammer" have no real product behind them. Until A7 the P1-SUN is simply cheaper to fire than the Sting, and until A4 the A800 sees all round, so it beats the IRIS.
 
 **What A3 can edit today:** only fields that already change the game, as design rule 1 requires. The limits, prices and threshold factors are assumptions in `sim/unit-config.js`.
@@ -487,7 +491,16 @@ Radar 2D or 3D, panels, band, arcs and blanking, clutter filter and micro-Dopple
 
 ### Feature B: Magazine depth
 
-The Cost tab becomes **Magazine depth** and keeps all its cost information. Launchers have unlimited rounds today, so this adds a new game rule as well as a new name.
+The Cost tab becomes **Magazine depth** and keeps all its cost information.
+
+**What was built differs from the rules below, on the user's decisions.** Read this first; where it conflicts with the rest of this section, this wins.
+
+- **Both limits apply.** The budget still pays for every shot, and launcher prices do not include rounds. A launcher also has a magazine and storage, so it can run out of either. `munitions` and the `munitions_bought` column are therefore not needed.
+- **Ready and reserve stocks are separate, with a reload between them**, which this plan had left out. An emptied magazine reloads from storage: 12 and 24 rounds with 30 s for interceptors, 4 and 8 rounds with 60 s for missiles. The laser stores 300 s of beam, recharges while not firing, and locks out for 300 s if drained. Only the four-round missile magazine and the laser store have a source behind them; the rest are assumptions, editable in the Sources tab.
+- **The fusion node reads the magazine directly**, not through a SAPIENT `Empty` mode. A launcher that cannot fire fails its task with the reason, and is offered nothing until it can.
+- **The sandbox** reloads without using up storage, and its resupply is free.
+- **Resupply** is allowed between waves and buys back every missing round, emptiest launcher first if the budget is short. Rounds a launcher came with are paid for when fired, and rounds bought are paid for now and marked `prepaid`, so no round is paid for twice. `ledger.consumables` therefore includes bought rounds not yet fired, while `ledger.shots` counts only what was fired.
+- **Not built:** loading fewer rounds, rounds on 3D labels, expanding rows in the tab. Balance (B2) is still open.
 
 #### Tab layout
 
@@ -708,8 +721,12 @@ A popup that guides a new player from an empty site to the first wave. Built, ap
 - **It only reads the game,** and anything that changes it goes through `commands`. A test runs the same game with the wizard reading it throughout and compares digests.
 - **It only uses what the player could see:** the config and the laydown, never `state.queue` or true drone positions. The debrief reads the truth, because the run is over.
 - **Progress comes from the game,** not from stored state, so loading a laydown or selling a radar moves it. Skipped steps are remembered until the run ends.
-- **The zone is a planning aid.** It lives in `view`, never in `sim/`, and saves in the laydown's `spec`. Making it a rule would change targeting and re-baseline every digest.
+- **The zone is a rule.** It began as a planning aid, and Alex then asked for drones to attack it. A closed zone goes to `sim/` through `setZone`, and saves in the laydown's `spec`. With no zone a run is unchanged, so the digests still hold.
 - **No tips during a wave,** so a run plays like a simulation. It closes when the first wave starts.
+
+### Threat names and real drones
+
+Built. `frontend/src/sim/config/real-drones.js` holds 21 real drones as variants of the four types (`variantOf`), grouped by `origin`. `DRONE_CLASSES` is what the waves send and the wizard scores. `THREAT_GROUPS` is what the pickers show. `systemFor` in `frontend/src/ui/assistant/guide.js` recommends a system by threat, using the warning times in `WARNING`, which are assumptions. Still open: see `docs/TODO.md`.
 
 ## Feature parity checklist
 
@@ -722,7 +739,7 @@ Check in a real browser at the end of Phase 5 and again at the end of Phase 8.
 - [x] Toggles: ranges, truth overlay, labels, highlight tracks
 - [x] Engagement authority: all three modes, approval cards, auto-pause and expiry
 - [x] Sandbox: wave levels, custom attacks, clear, exit keeps the laydown
-- [x] Reset run and New laydown, including the two-click confirmation
+- [x] Reset run and Clear map (once New laydown), including the two-click confirmation
 - [x] Replay: timeline, stepping, play, event markers, keyboard shortcuts
 - [x] Messages tab: filters, freeze, clear, export, inject fault, explain
 - [x] Nodes tab, and Plan tab with coverage maps

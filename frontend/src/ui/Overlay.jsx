@@ -83,7 +83,7 @@ function GameOverCard({ onReview }) {
         {sim.people.length > 0 && <p id="casualty-summary">Simulated casualties <b>{state.casualties}</b> of {sim.people.reduce((sum, g) => sum + g.count, 0)}: {casualtySummary(sim.people)}. These come from assumed figures (see Sources), not real data.</p>}
         {saver.message() && <p id="save-status" className="muted">{saver.message()}</p>}
         <button id="btn-restart" className="primary" onClick={() => commands.reset('keep')}>Retry with the same laydown</button>{' '}
-        <button id="btn-restart-clear" onClick={() => commands.reset('clear')}>New laydown</button>
+        <button id="btn-restart-clear" onClick={() => commands.reset('clear')}>Clear map</button>
       </div>
       <Debrief onReview={onReview} />
     </div>

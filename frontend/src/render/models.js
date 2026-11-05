@@ -18,6 +18,11 @@ export function buildModel(def) {
       head.add(new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 0.15), mat(def.color, 0.3)));
       parts.spin = head; break;
     }
+    case 'acoustic': { // a microphone ball on a short mast
+      mast(2); head.position.y = 2.8;
+      head.add(new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 10), mat(def.color, 0.3)));
+      break;
+    }
     case 'rf': {
       mast(3); head.position.y = 3.8;
       for (let i = 0; i < 3; i++) {

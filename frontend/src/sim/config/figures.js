@@ -7,8 +7,8 @@ import { PEOPLE } from './people.js';
 // ---------- tuneable research figures ----------
 // Every number that came from research (or is a labelled assumption) can be edited in the Sources tab. These helpers
 // remember the researched values so each one can be reset, and export/import a set of edits as JSON.
-const STRUCT_KEYS = ['published', 'cost', 'shotCost', 'missileSpeed', 'damage', 'splash', 'fuze', 'cooldown', 'dps', 'falseAlarm', 'lowRange', 'fov', 'dwell', 'slow', 'killTime'];
-const DRONE_KEYS = ['cost', 'speed', 'hp', 'rcs', 'size', 'rfPower', 'evade', 'jamResist', 'casualtyRadius'];
+const STRUCT_KEYS = ['published', 'cost', 'shotCost', 'missileSpeed', 'pk', 'damage', 'splash', 'fuze', 'cooldown', 'magazine', 'storage', 'reloadTime', 'dps', 'falseAlarm', 'lowRange', 'fov', 'dwell', 'slow', 'killTime'];
+const DRONE_KEYS = ['cost', 'speed', 'hp', 'rcs', 'size', 'rfPower', 'sound', 'evade', 'jamResist', 'casualtyRadius'];
 const PEOPLE_KEYS = ['pCasualty', 'reachScale'];
 
 export const FIGURE_FIELDS = {
@@ -16,10 +16,14 @@ export const FIGURE_FIELDS = {
   cost: { label: 'Price', unit: '$', step: 1000, basis: 'price' },
   shotCost: { label: 'Per shot', unit: '$', step: 100, basis: 'price' },
   missileSpeed: { label: 'Speed', unit: 'm/s', step: 10, basis: 'research' },
+  pk: { label: 'Hit chance', unit: '0–1', step: 0.05, basis: 'assumption' },
   damage: { label: 'Damage', unit: 'hp', step: 5, basis: 'rule' },
   splash: { label: 'Blast radius', unit: 'm', step: 5, basis: 'rule' },
   fuze: { label: 'Fuze radius', unit: 'm', step: 5, basis: 'rule' },
-  cooldown: { label: 'Reload', unit: 's', step: 0.5, basis: 'rule' },
+  cooldown: { label: 'Between shots', unit: 's', step: 0.5, basis: 'rule' },
+  magazine: { label: 'Magazine', unit: 'rounds', step: 1, basis: 'assumption' },
+  storage: { label: 'In storage', unit: 'rounds', step: 1, basis: 'assumption' },
+  reloadTime: { label: 'Reload', unit: 's', step: 5, basis: 'assumption' },
   dps: { label: 'Beam damage', unit: 'hp/s', step: 2, basis: 'rule' },
   falseAlarm: { label: 'False alarms', unit: 'per scan', step: 0.01, basis: 'rule' },
   lowRange: { label: 'Clutter range', unit: 'm', step: 50, basis: 'rule' },
@@ -35,7 +39,8 @@ export const FIGURE_FIELDS = {
   hp: { label: 'Health', unit: 'hp', step: 5, basis: 'rule' },
   rcs: { label: 'Radar cross-section', unit: 'm²', step: 0.01, basis: 'assumption' },
   size: { label: 'Size', unit: 'm', step: 0.05, basis: 'assumption' },
-  rfPower: { label: 'RF link power', unit: 'x FPV', step: 0.5, basis: 'assumption' },
+  rfPower: { label: 'RF link power', unit: 'x first-person-view drone', step: 0.5, basis: 'assumption' },
+  sound: { label: 'Loudness', unit: 'x first-person-view drone reach', step: 0.5, basis: 'assumption' },
   evade: { label: 'Evasion', unit: '1=easy', step: 0.05, basis: 'rule' },
   jamResist: { label: 'Jam resistance', unit: '0–1', step: 0.05, basis: 'rule' },
   casualtyRadius: { label: 'Casualty radius', unit: 'm', step: 5, basis: 'assumption' },
