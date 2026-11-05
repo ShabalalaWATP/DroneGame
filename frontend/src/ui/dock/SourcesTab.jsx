@@ -3,7 +3,7 @@
 // resets it to the researched value. "Export" saves just your changes as JSON so an experiment can be repeated.
 
 import { useRef, useState } from 'react';
-import { COMMS, DRONES, FIGURE_FIELDS, RESEARCHED, STRUCTURES, THREAT_GROUPS, WAVES, WORLD, exportFigures } from '../../sim/config/index.js';
+import { COMMS, DRONES, FIGURE_FIELDS, PEOPLE, RESEARCHED, STRUCTURES, THREAT_GROUPS, WAVES, WORLD, exportFigures } from '../../sim/config/index.js';
 import { download, hex, useGame } from '../hooks.js';
 import { NumberInput } from '../NumberInput.jsx';
 import { SourceLinks } from './SourceLinks.jsx';
@@ -101,6 +101,14 @@ export function SourcesTab({ active }) {
           </div>
         );
       })}
+      <h4 className="src-h">Simulated people</h4>
+      <div className="sys note"><span className="conf assume">ASSUMPTION</span> Every casualty figure is a round number chosen to show the idea, including each drone's casualty radius below. None of them is real casualty or weapons-effects data, so do not base real decisions on them.</div>
+      {Object.entries(PEOPLE).map(([id, d]) => (
+        <div className="sys" key={id}>
+          <div className="sys-h"><i style={{ background: hex(d.color) }} /><b>{d.name}</b> <span className="muted">{d.desc}</span></div>
+          <Figures kind="people" id={id} def={d} onChange={changed} />
+        </div>
+      ))}
       <h4 className="src-h">Enemy drones</h4>
       {THREAT_GROUPS.map((group, i) => (
         <details key={group.name} open={i === 0}>

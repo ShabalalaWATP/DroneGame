@@ -307,4 +307,12 @@ Raise `GAME_VERSION` in `frontend/src/sim/config/world.js` at the same time, so 
 
 ## Accuracy
 
+## Simulated people
+
+The **People** tool (key **8**) places groups of simulated people to see what an attack would do to them. Choose how many (1 to 500, up to 50 groups) and their protection: unarmoured, in a building (click on a building, and on a real map they stand inside its true outline) or in a bunker (drawn as a low concrete block). They cost nothing, and they lock with the laydown when the first wave starts.
+
+People are drawn to true scale, so they are too small to see from far away: each group has a name tag, and **Look** in the People panel flies the camera down to them. A blast can make anyone near it a casualty: likelier the closer they are and the less protected. Blasts come from a strike on the site, a strike on a system, and a drone destroyed in flight, where its height shelters those below. Casualties drop to the ground in the view, and appear in the HUD, on the timeline and in the end-of-run summary. They also count in the sandbox, and come back on leaving it.
+
+People are not targets and never change the attack: their rolls come from a random stream of their own, so a run plays out the same with or without them. **Every casualty figure is a round-number assumption, not real casualty or weapons-effects data.** They are all labelled so in the Sources tab, where you can change them. A laydown's people are saved with it.
+
 The figures are drawn from public sources, mostly vendor claims and press reports, and many are labelled assumptions. The **Sources** tab shows the evidence and confidence for each one, and lets you change it. This is a game and a teaching tool, not a model to base real decisions on.

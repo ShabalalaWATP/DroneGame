@@ -71,15 +71,18 @@ export function makeWorld({ seed, N, cell, R, ground, canopy, bldg, cover, build
   function onBuilding(x, z) {
     if (!bldg[cellOf(x, z)]) return false;
     if (!geo || !buildings.length) return true;
-    return buildings.some((b) => {
+    return !!buildingAt(x, z);
+  }
+  function buildingAt(x, z) {
+    return buildings.find((b) => {
       const dx = x - b.x, dz = z - b.z, c = Math.cos(b.angle || 0), s = Math.sin(b.angle || 0);
       return Math.abs(dx * c - dz * s) <= b.w / 2 + WALL_GAP && Math.abs(dx * s + dz * c) <= b.d / 2 + WALL_GAP;
-    });
+    }) || null;
   }
 
   return {
     seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, station, geo, // geo: where a real world is on the grid, or null
-    groundAt, cellOf, los, onBuilding,
+    groundAt, cellOf, los, onBuilding, buildingAt,
     coverAt: (x, z) => cover[cellOf(x, z)],
     canopyAt: (x, z) => canopy[cellOf(x, z)],
     bldgAt: (x, z) => bldg[cellOf(x, z)],

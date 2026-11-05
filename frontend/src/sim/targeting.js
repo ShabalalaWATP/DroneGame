@@ -7,6 +7,7 @@ import { u, hdist, hereU } from './units.js';
 import { tally } from './economy.js';
 import { removeStructure } from './laydown.js';
 import { removeDrone, spotterBonus } from './drones.js';
+import { blastOnGround } from './people.js';
 
 function emitterScore(s) {
   const def = s.def;
@@ -38,6 +39,7 @@ export function pickTarget(w, d) {
 export function hitStructure(w, d, s) {
   const { state, ledger, net } = w;
   w.emit('explosion', { pos: d.pos, r: u(60), color: 0xff5252 });
+  blastOnGround(w, d, s.pos.x, s.pos.z);
   if (!state.sandbox) s.health -= d.def.damage * (1 + spotterBonus(w)); // the sandbox protects the laydown too
   state.hits++;
   removeDrone(w, d);

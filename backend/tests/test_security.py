@@ -9,7 +9,7 @@ from conftest import SPEC, figure_set, laydown, run
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.schemas import MAX_COMMANDS, MAX_SYSTEMS, CellBand, JamBand, SystemId, Uplink
+from app.schemas import MAX_COMMANDS, MAX_PEOPLE_GROUPS, MAX_PEOPLE_PER_GROUP, MAX_SYSTEMS, CellBand, JamBand, Protection, SystemId, Uplink
 from app.security import MAX_BODY_BYTES
 
 API = "/api/v1"
@@ -238,3 +238,6 @@ def test_the_names_the_api_accepts_match_the_game():
     assert set(Uplink.__args__) <= set(re.findall(r"^  (\w+): \{$", comms, re.M))
     assert set(CellBand.__args__) == set(re.findall(r"^      (\w+): \{ label: '(?:Band|n)", comms, re.M))
     assert set(JamBand.__args__) == set(re.findall(r"^    (\w+): \{ label: ", comms, re.M))
+    people = (config / "people.js").read_text(encoding="utf-8")
+    assert set(Protection.__args__) == set(re.findall(r"^  (\w+): \{ name: ", people, re.M))
+    assert f"groups: {MAX_PEOPLE_GROUPS}, perGroup: {MAX_PEOPLE_PER_GROUP}" in people

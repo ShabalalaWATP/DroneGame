@@ -2,12 +2,14 @@ import { ADAPT, WORLD, WAVES } from './world.js';
 import { COMMS } from './comms.js';
 import { STRUCTURES, applyRangeScale } from './systems.js';
 import { DRONES } from './drones.js';
+import { PEOPLE } from './people.js';
 
 // ---------- tuneable research figures ----------
 // Every number that came from research (or is a labelled assumption) can be edited in the Sources tab. These helpers
 // remember the researched values so each one can be reset, and export/import a set of edits as JSON.
 const STRUCT_KEYS = ['published', 'cost', 'shotCost', 'missileSpeed', 'pk', 'damage', 'splash', 'fuze', 'cooldown', 'magazine', 'storage', 'reloadTime', 'dps', 'falseAlarm', 'lowRange', 'fov', 'dwell', 'slow', 'killTime'];
-const DRONE_KEYS = ['cost', 'speed', 'hp', 'rcs', 'size', 'rfPower', 'sound', 'evade', 'jamResist'];
+const DRONE_KEYS = ['cost', 'speed', 'hp', 'rcs', 'size', 'rfPower', 'sound', 'evade', 'jamResist', 'casualtyRadius'];
+const PEOPLE_KEYS = ['pCasualty', 'reachScale'];
 
 export const FIGURE_FIELDS = {
   published: { label: 'Range', unit: 'm', step: 100, basis: 'research' },
@@ -41,12 +43,16 @@ export const FIGURE_FIELDS = {
   sound: { label: 'Loudness', unit: 'x first-person-view drone reach', step: 0.5, basis: 'assumption' },
   evade: { label: 'Evasion', unit: '1=easy', step: 0.05, basis: 'rule' },
   jamResist: { label: 'Jam resistance', unit: '0–1', step: 0.05, basis: 'rule' },
+  casualtyRadius: { label: 'Casualty radius', unit: 'm', step: 5, basis: 'assumption' },
+  pCasualty: { label: 'Casualty chance at the blast', unit: '0–1', step: 0.05, basis: 'assumption' },
+  reachScale: { label: 'Blast reach', unit: 'x radius', step: 0.05, basis: 'assumption' },
 };
 
 const grab = (obj, keys) => Object.fromEntries(keys.filter((k) => typeof obj[k] === 'number').map((k) => [k, obj[k]]));
 export const RESEARCHED = {
   structures: Object.fromEntries(Object.entries(STRUCTURES).map(([id, d]) => [id, grab(d, STRUCT_KEYS)])),
   drones: Object.fromEntries(Object.entries(DRONES).map(([id, d]) => [id, grab(d, DRONE_KEYS)])),
+  people: Object.fromEntries(Object.entries(PEOPLE).map(([id, d]) => [id, grab(d, PEOPLE_KEYS)])),
   comms: {
     starlink: grab(COMMS.starlink, ['cost', 'latency', 'capacity', 'loss']),
     cellular: grab(COMMS.cellular, ['cost', 'latency', 'capacity', 'loss', 'towerRange']),
@@ -55,10 +61,10 @@ export const RESEARCHED = {
   waves: { fpvGap: WAVES.fpvGap },
   adapt: { evadePerWave: ADAPT.evadePerWave, jamResistPerWave: ADAPT.jamResistPerWave },
 };
-const STORE = { structures: STRUCTURES, drones: DRONES, comms: COMMS };
-const KINDS = ['structures', 'drones', 'comms'];
+const STORE = { structures: STRUCTURES, drones: DRONES, comms: COMMS, people: PEOPLE };
+const KINDS = ['structures', 'drones', 'comms', 'people'];
 
-// Set one figure. kind is 'structures', 'drones' or 'comms'.
+// Set one figure. kind is 'structures', 'drones', 'comms' or 'people'.
 export function setFigure(kind, id, key, value) {
   STORE[kind][id][key] = value;
   if (kind === 'structures' && key === 'published') applyRangeScale();
@@ -74,13 +80,14 @@ export function resetAllFigures() {
 }
 // Only the figures that differ from the researched values.
 export function exportFigures() {
-  const out = { structures: {}, drones: {}, comms: {}, world: {}, waves: {}, adapt: {} };
+  const out = { structures: {}, drones: {}, comms: {}, people: {}, world: {}, waves: {}, adapt: {} };
   for (const kind of KINDS) {
     for (const [id, vals] of Object.entries(RESEARCHED[kind])) {
       const src = STORE[kind][id];
       for (const [k, v] of Object.entries(vals)) if (src[k] !== v) (out[kind][id] = out[kind][id] || {})[k] = src[k];
     }
   }
+  if (!Object.keys(out.people).length) delete out.people; // saved sets stay as they were until someone edits one
   if (WORLD.rangeScale !== RESEARCHED.world.rangeScale) out.world.rangeScale = WORLD.rangeScale;
   if (WAVES.fpvGap !== RESEARCHED.waves.fpvGap) out.waves.fpvGap = WAVES.fpvGap;
   for (const [k, v] of Object.entries(RESEARCHED.adapt)) if (ADAPT[k] !== v) out.adapt[k] = ADAPT[k];

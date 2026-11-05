@@ -186,6 +186,15 @@ Until now a guided round always arrived, and a laser did the same damage at any 
 A beam stays at full strength to a quarter of its range and then falls with distance, so dwell doubles when range doubles, as ST Engineering publishes for its CDLE laser. Sensor error follows the monopulse relationship, where error goes with 1 / sqrt(SNR), so it stays near the quoted figure close in and is about 2.2 times larger at the limit of reach. Hills and trees shorten the reach and so worsen it too.
 
 Measuring the first version showed a problem the code did not show. The Mixed laydown fell from wave 11 to wave 7, and leaks were all fixed-wing drones. Its one missile launcher was firing, then sitting idle for a 40 s flight while others got through. It was a fire control flaw that perfect rounds had hidden. Launchers now shoot, look and shoot while there is time, salvo when there is not, and move to the next target while their rounds fly. Mixed then reached wave 9 or 10, spending far more of its budget.
+## Simulated people
+
+Alex asked for fake people on the map, in groups, very small and realistic, with a protection level, so that attacks could cause casualties. The first design rule was that people must not disturb the attack. Each blast therefore rolls from a stream seeded by the drone's id, and nothing is read from the run's own stream, so a run with people gives the same kills, health and budget as one without. Casualties join the digest only when a laydown has people, so every older digest still holds.
+
+Two things in the existing game shaped the rest. A drone counts as hitting the site at the 150 m edge of its disc, so blasts measured from there could never reach staff in the middle. A site strike now lands inside the disc for this purpose, aimed at the middle with scatter. And the camera stopped 400 m from the ground, where a person is about four pixels tall, so true scale would have meant never seeing anyone. The camera can now come to 40 m, and each group has a Look button.
+
+A real browser found what the tests could not: the green placement marker was large enough to hide a whole group up close, and a fourth figure squeezed the HUD's stats row together.
+
+The casualty figures are round-number assumptions and are labelled so in the Sources tab. They are not weapons-effects data, and they should not be read as any.
 
 ## Numbers at the end of Phase 8
 
