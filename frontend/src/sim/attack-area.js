@@ -1,5 +1,28 @@
 // The area the player is defending, which is what the enemy attacks once one is drawn. Points are [x, z] in scene units.
 
+import { WORLD } from './config/index.js';
+import { u } from './units.js';
+
+const EDGE_MARGIN = 200; // metres: drones start this far inside the edge of the map
+const MIN_RUN = 2000; // metres: an attack with less room than this to fly in comes from somewhere else
+
+// How far from the centre, along this direction, before the edge of the map.
+function roomToEdge(centre, dx, dz) {
+  const edge = u(WORLD.radius - EDGE_MARGIN);
+  const along = (c, d) => (d > 0 ? (edge - c) / d : d < 0 ? (-edge - c) / d : Infinity);
+  return Math.min(along(centre.x, dx), along(centre.z, dz));
+}
+
+// Where a drone starts: out from what is being defended along its bearing, and always on the map. Defending near the map's edge,
+// a bearing may have no room to fly in, so it uses the opposite one. In a corner both can be short, and the middle of the map never is.
+export function launchPoint(centre, angle) {
+  const cos = Math.cos(angle), sin = Math.sin(angle), toMiddle = Math.hypot(centre.x, centre.z);
+  const options = [[cos, sin], [-cos, -sin], [-centre.x / toMiddle, -centre.z / toMiddle]];
+  const [dx, dz] = options.find(([x, z]) => roomToEdge(centre, x, z) >= u(MIN_RUN));
+  const reach = Math.min(u(WORLD.spawnDist), roomToEdge(centre, dx, dz));
+  return { x: centre.x + dx * reach, z: centre.z + dz * reach };
+}
+
 export function inZone(points, x, z) {
   let inside = false;
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {

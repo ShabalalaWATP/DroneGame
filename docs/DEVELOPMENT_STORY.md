@@ -177,7 +177,11 @@ Alex pointed out there was no way to draw the area to defend on the map outside 
 
 The drawn area had been a planning aid, and Alex asked for drones to attack it instead. A closed outline now goes into the simulation as a logged command and saves in the laydown. Each strike drone aims for a random spot inside it, spotters circle its centre, and the fusion node measures threats from that centre, so it engages whatever is closest to the area. FPV and FO strikes can still turn on a loud emitter.
 
-It locks when the first wave starts, like the laydown. Drawing is limited to 5 km from the station, because drones appear at 6 km and need room to fly in. Runs with no area draw no extra random numbers, so the recorded reference digests did not change. Systems can still only be built within 2.5 km of the station, so a far area is deliberately hard to defend.
+It locks when the first wave starts, like the laydown. Runs with no area draw no extra random numbers, so the recorded reference digests did not change. Systems can still only be built within 2.5 km of the station, so a far area is deliberately hard to defend.
+
+## Defending anywhere on the map
+
+Alex tried to draw a site and was told it was too far from the station. The first version of the attacked area kept the station as the middle of everything, limiting drawing to 5 km because drones appeared on a ring around it. Alex's point was that the player should be able to defend anywhere in the map region, not a set site. So a drawn area now replaces the station: drones start out from the area's centre, and you can build anywhere on the map. Near the map's edge an attack starts at the edge, and with under 2 km of room it comes from the other side or from the middle of the map, which is a game rule. With no area drawn, every number is the same as before, so the reference digests did not change.
 
 ## Rounds that can miss, and error that grows with range
 

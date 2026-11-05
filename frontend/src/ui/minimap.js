@@ -40,9 +40,11 @@ export function createMinimap(sim, canvas, camera, controls) {
     const ring = (r, col, dash) => {
       g.beginPath(); g.arc(ox, oy, px(r), 0, Math.PI * 2); g.strokeStyle = col; g.setLineDash(dash || []); g.lineWidth = 1; g.stroke(); g.setLineDash([]);
     };
-    ring(BUILD.maxDist, 'rgba(92,123,176,0.9)', [3, 3]);
-    ring(WORLD.spawnDist, 'rgba(255,255,255,0.18)', [2, 4]);
-    ring(SITE.radius, 'rgba(255,82,82,0.95)');
+    if (!sim.state.zone) { // a drawn area is the site, and you can build anywhere
+      ring(BUILD.maxDist, 'rgba(92,123,176,0.9)', [3, 3]);
+      ring(WORLD.spawnDist, 'rgba(255,255,255,0.18)', [2, 4]);
+      ring(SITE.radius, 'rgba(255,82,82,0.95)');
+    }
     if (view.zone) { // the area to defend
       g.beginPath();
       view.zone.points.forEach(([x, z]) => g.lineTo(...mmXY(x * mpu, z * mpu)));

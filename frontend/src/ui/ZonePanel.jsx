@@ -38,7 +38,7 @@ export function ZonePanel({ onClose }) {
       {drawing && <p>Click the map to mark each corner, then double-click to close it.{count > 0 && ` ${count} point${count > 1 ? 's' : ''} so far.`}</p>}
       {!drawing && closed && <p>How much of your area your sensors can see, for each drone type:</p>}
       {!drawing && closed && <CoverageBars scores={zoneScores(game.sim, zone)} />}
-      {!drawing && !closed && <p>{count ? 'Drawing is paused.' : 'No area drawn, so drones attack the station.'}</p>}
+      {!drawing && !closed && <p>{count ? 'Drawing is paused.' : 'No area drawn, so drones attack the station. Draw one anywhere on the map to defend that instead, and build anywhere.'}</p>}
       {!locked && <div className="wz-actions">
         {drawing && <button id="zone-finish" className="wz-go" disabled={count < 3} onClick={finish}>Close the area</button>}
         {!drawing && !closed && <button id="zone-draw" className="wz-go" onClick={draw}>{count ? 'Keep drawing' : 'Draw an area'}</button>}

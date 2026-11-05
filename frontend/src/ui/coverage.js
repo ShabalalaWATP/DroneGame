@@ -16,7 +16,7 @@ export function coverageGrid(sim, threat) {
   if (!caches.has(sim)) caches.set(sim, new Map());
   const cache = caches.get(sim), hit = cache.get(threat);
   if (hit && hit.key === key) return hit;
-  const cell = 250, half = Math.min(terrainState.data.R - 200, 6000), n = Math.round((2 * half) / cell);
+  const cell = 250, half = terrainState.data.R - 200, n = Math.round((2 * half) / cell);
   const counts = new Uint8Array(n * n);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) counts[j * n + i] = net.coverageAt(-half + (i + 0.5) * cell, -half + (j + 0.5) * cell, agl, def);
   const grid = { key, n, cell, half, counts };

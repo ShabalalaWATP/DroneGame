@@ -2,20 +2,18 @@
 // to the simulation, where the enemy attacks it. Points are [x, z] in scene units, like a laydown's systems.
 
 import { WORLD } from './sim/config/index.js';
+import { onMap } from './sim/units.js';
 
 export { inZone } from './sim/attack-area.js';
 
-const REACH = 250; // scene units, 5 km: drones appear 6 km from the station, and need room to fly in
 const MAX_POINTS = 32; // MAX_ZONE_POINTS in backend/app/schemas.py
 const NEAR_FIRST = 8, DOUBLE_CLICK = 1.5; // scene units: 160 m and 30 m
 
 const apart = ([ax, az], [bx, bz]) => Math.hypot(ax - bx, az - bz);
 
-export const zoneInReach = (x, z) => Math.hypot(x, z) <= REACH;
-
 // A click while drawing. Clicking near the first point or double-clicking closes the zone. A closed zone starts again.
 export function addZonePoint(zone, x, z) {
-  if (!zoneInReach(x, z)) return zone;
+  if (!onMap(x, z)) return zone;
   const points = zone && !zone.closed ? zone.points : [], at = [x, z];
   if (points.length >= 3 && (apart(at, points[0]) < NEAR_FIRST || apart(at, points[points.length - 1]) < DOUBLE_CLICK)) return { points, closed: true };
   if (points.length && apart(at, points[points.length - 1]) < DOUBLE_CLICK) return zone;

@@ -58,7 +58,7 @@ function ZoneStep({ next }) {
   }, [game]);
   return (
     <>
-      <p>The red ring is the station. With no area drawn, a strike drone that gets within {SITE.radius} m of it hits it. You can build from {BUILD.minDist} m out to the blue ring at {km(BUILD.maxDist)}.</p>
+      <p>Draw the area you want to defend, anywhere on the map. It becomes the site: the attack comes for it, and you can build anywhere. With no area drawn, drones go for the red ring, and you build from {BUILD.minDist} m out to the blue ring at {km(BUILD.maxDist)}.</p>
       {closed ? <p>Your zone is drawn on the map. The attack now comes for it, and I will use it to score your sensor coverage.</p> : <p>Click the map to outline the area you care about, then double-click to close it. I will use it to score your sensor coverage.</p>}
       <p className="wz-small wz-muted">{ATTACK_NOTE}</p>
       <div className="wz-actions">

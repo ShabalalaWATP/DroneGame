@@ -5,10 +5,10 @@ import { WORLD, SITE, DRONES, ADAPT } from './config/index.js';
 import { antennaHeight, reachOnPath } from './site-range.js';
 import { terrainState } from './terrain.js';
 import { rand, gauss } from './rng.js';
-import { u, hdist, clamp, groundM, hereU, SITE_POS } from './units.js';
+import { u, hdist, clamp, groundM, hereU, onMap } from './units.js';
 import { tally } from './economy.js';
 import { pickTarget, hitStructure } from './targeting.js';
-import { aimInZone } from './attack-area.js';
+import { aimInZone, launchPoint } from './attack-area.js';
 
 const _v = new Vector3();
 const SPOTTER_CLEARANCE = 30; // metres
@@ -29,7 +29,7 @@ export function spawnDrone(w, type, bearing, rolls = {}) {
   const altFrac = rolls.altFrac ?? rand();
   const freq = rolls.freq ?? (rand() < 0.5 ? 2.4e9 : 5.8e9);
   const a = bearing + jitter;
-  const sx = Math.cos(a) * u(WORLD.spawnDist), sz = Math.sin(a) * u(WORLD.spawnDist);
+  const { x: sx, z: sz } = launchPoint(w.state.zoneCentre, a);
   const agl = def.alt[0] + altFrac * (def.alt[1] - def.alt[0]); // metres above the ground at the spawn point
   const y = hereU(sx, sz) + u(agl);
   const pos = new Vector3(sx, y, sz);
@@ -108,14 +108,14 @@ function moveSpotter(w, d, spd, dt) {
   } else {
     _v.set(d.pos.x - c.x, 0, d.pos.z - c.z).normalize().multiplyScalar(spd);
     d.pos.add(_v);
-    if (hdist(d.pos, SITE_POS) > u(WORLD.spawnDist)) { tally(w.ledger.escaped, d.type); removeDrone(w, d); return false; }
+    if (hdist(d.pos, c) > u(WORLD.spawnDist) || !onMap(d.pos.x, d.pos.z)) { tally(w.ledger.escaped, d.type); removeDrone(w, d); return false; }
   }
   return true;
 }
 
 // Strike: fly at the target, hugging the terrain. Returns false if it was removed.
 function moveStrike(w, d, spd) {
-  if (hdist(d.pos, SITE_POS) > u(WORLD.radius)) { tally(w.ledger.escaped, d.type); w.rec.event('escaped', `${d.def.name} left the area`, d.uid); removeDrone(w, d); return false; } // GNSS drift can turn it away for good
+  if (hdist(d.pos, w.state.zoneCentre) > u(WORLD.radius) || !onMap(d.pos.x, d.pos.z)) { tally(w.ledger.escaped, d.type); w.rec.event('escaped', `${d.def.name} left the area`, d.uid); removeDrone(w, d); return false; } // GNSS drift can turn it away for good
   const tgt = pickTarget(w, d);
   const hrem = Math.hypot(tgt.x - d.pos.x, tgt.z - d.pos.z);
   if (tgt.structure || d.aim ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(w, d, tgt.structure); else impact(w, d); return false; }

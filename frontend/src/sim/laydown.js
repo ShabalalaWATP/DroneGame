@@ -4,7 +4,7 @@
 import { Vector3 } from 'three';
 import { WORLD, BUILD, COMMS, ECONOMY, STRUCTURES } from './config/index.js';
 import { terrainState } from './terrain.js';
-import { SITE_POS, u, hdist, hereU } from './units.js';
+import { SITE_POS, u, hdist, hereU, onMap } from './units.js';
 import { cleanZone, zoneCentre } from './attack-area.js';
 import { buyTerminal, money } from './economy.js';
 import { fillMagazine } from './magazine.js';
@@ -33,8 +33,12 @@ export function placementProblem(w, x, z, def, cost = def.cost) {
   const r = Math.hypot(x, z);
   const xm = x * WORLD.metresPerUnit, zm = z * WORLD.metresPerUnit;
   if (BUILD.lockAfterStart && w.state.wave > 0) return 'The laydown is locked once the first wave starts';
-  if (r < u(BUILD.minDist)) return `Too close to the station (minimum ${BUILD.minDist} m)`;
-  if (r > u(BUILD.maxDist)) return `Outside the build zone (maximum ${BUILD.maxDist} m)`;
+  if (w.state.zone) { // the drawn area is the site, so the old station no longer limits anything
+    if (!onMap(x, z)) return 'That is off the map';
+  } else {
+    if (r < u(BUILD.minDist)) return `Too close to the station (minimum ${BUILD.minDist} m)`;
+    if (r > u(BUILD.maxDist)) return `Outside the build zone (maximum ${BUILD.maxDist} m). Draw an area to defend anywhere on the map`;
+  }
   if (terrainState.data.onBuilding(xm, zm)) return 'There is a building here';
   if (terrainState.data.coverAt(xm, zm) === 4) return 'You cannot build in water';
   if (terrainState.data.slope(xm, zm) > 0.4) return 'The ground is too steep';

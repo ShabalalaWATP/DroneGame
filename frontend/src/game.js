@@ -15,7 +15,7 @@ import { trackColour } from './render/belief-view.js';
 import { view } from './render/view.js';
 import { createApi } from './api/client.js';
 import { createRunSaver } from './api/run-saver.js';
-import { addZonePoint, zoneInReach } from './zone.js';
+import { addZonePoint } from './zone.js';
 import { createPackStore } from './api/pack-store.js';
 import { parseWorldId } from './sim/world-pack.js';
 
@@ -130,7 +130,6 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     if (tool === 'sell') { commands.sell(x, z); return; }
     if (tool === 'zone') {
       if (sim.designLocked()) toast(ZONE_LOCKED);
-      else if (!zoneInReach(x, z)) toast('The area must stay within 5 km of the station, so the attack has room to fly in');
       else {
         view.zone = addZonePoint(view.zone, x, z);
         syncZone();

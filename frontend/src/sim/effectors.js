@@ -6,7 +6,7 @@ import { beamFactor, evasionFactor, hitChance } from './hit-chance.js';
 import { rand } from './rng.js';
 import { antennaHeight } from './site-range.js';
 import { terrainState } from './terrain.js';
-import { u, hereU, hdist, SITE_POS } from './units.js';
+import { u, hereU, hdist } from './units.js';
 import { affordable, spend } from './economy.js';
 import { damageDrone } from './drones.js';
 import { canFire, updateMagazine, useRound } from './magazine.js';
@@ -41,7 +41,7 @@ export function enoughInAir(w, s, t) {
   const flying = w.missiles.filter((m) => m.target === t);
   if (flying.reduce((sum, m) => sum + m.def.damage, 0) < t.hp) return false; // not enough to kill it even if they all hit
   const m = WORLD.metresPerUnit, flight = (s.pos.distanceTo(t.pos) * m) / s.def.missileSpeed;
-  if ((hdist(t.pos, SITE_POS) * m) / t.def.speed > 2 * flight + s.def.cooldown) return true;
+  if ((hdist(t.pos, w.state.zoneCentre) * m) / t.def.speed > 2 * flight + s.def.cooldown) return true;
   const allMiss = flying.reduce((chance, r) => chance * (1 - hitChance(r.def, { speed: t.def.speed, evade: t.evade }, r.from, r.cueError)), 1);
   return 1 - allMiss >= SALVO_ASSURANCE;
 }

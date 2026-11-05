@@ -43,7 +43,7 @@ Screenshots use scenario seed 7 and terrain seed 3 (`?seed=7&terrain=3`) with th
 
 New to it? Press **Guide me through it** on the start screen. The wizard walks you from an empty site to the first wave: mark the area you are defending, place sensors and effectors, network them, check coverage, rehearse in the sandbox, adjust the figures if you want to, then commit. It works out where you are from the game itself, so you can skip around or close it at any time, and **Open the wizard** brings it back. Drag it by its header if it is in the way. Once a run starts it steps back, with no tips during a wave. When the site falls, a debrief shows what got through and can replay the first leak.
 
-The area you mark is what the enemy attacks. Strike drones aim for spots inside it instead of the station, spotters circle it, and it saves with the laydown. FPV and FO strikes can still turn on a loud emitter. It must stay within 5 km of the station, and it locks when the first wave starts.
+You can mark an area anywhere on the map, and it becomes the site: you can build anywhere, and the attack starts out from it. The area you mark is what the enemy attacks. Strike drones aim for spots inside it instead of the station, spotters circle it, and it saves with the laydown. FPV and FO strikes can still turn on a loud emitter. It must stay within 5 km of the station, and it locks when the first wave starts.
 
 ### 1. Build a laydown
 

@@ -7,7 +7,7 @@ import { enoughInAir, updateMissiles } from '../src/sim/effectors.js';
 import { beamFactor, burnTime, hitChance } from '../src/sim/hit-chance.js';
 import { ERROR_AT_LIMIT, errorScale } from '../src/sim/site-range.js';
 import { createSimulation } from '../src/sim/simulation.js';
-import { u } from '../src/sim/units.js';
+import { SITE_POS, u } from '../src/sim/units.js';
 import { setUp } from './support/scenarios.js';
 
 const sim = createSimulation();
@@ -114,7 +114,7 @@ describe('when to hold fire', () => {
   const launcher = { def: sting, pos: new Vector3(0, 0, 0) };
   const target = (metresFromSite, hp = 20) => ({ pos: new Vector3(u(metresFromSite), 0, 0), def: fpv, evade: 0.6, hp });
   const inAir = (t, n, def = sting) => Array.from({ length: n }, () => ({ def, target: t, from: 500, cueError: 0 }));
-  const hold = (t, n, def) => enoughInAir({ missiles: inAir(t, n, def) }, launcher, t);
+  const hold = (t, n, def) => enoughInAir({ missiles: inAir(t, n, def), state: { zoneCentre: SITE_POS } }, launcher, t);
 
   it('fires when nothing is in the air', () => {
     expect(hold(target(5000), 0)).toBe(false);

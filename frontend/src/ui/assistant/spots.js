@@ -8,6 +8,7 @@ import { reachFor } from '../../sim/network/sensors.js';
 import { terrainState } from '../../sim/terrain.js';
 import { hereU } from '../../sim/units.js';
 import { inZone } from '../../zone.js';
+import { zoneCentre } from '../../sim/attack-area.js';
 import { answer, COUNTS } from './guide.js';
 
 const OUTSIDE_WEIGHT = 0.5, OUTSIDE_POINTS = 16, OUTSIDE_MARGIN = 1000; // a look past the edge of the zone, for early warning
@@ -84,6 +85,8 @@ export function suggestSpot(sim, def, zone = null) {
   const points = samplePoints(zone);
   const ours = sim.structures.filter((s) => s.def.role === def.role);
   const insideCount = points.filter((p) => p.inside).length;
+  const drawn = zone && zone.closed; // the search starts from the area, wherever it is on the map
+  const { x: cx0, z: cz0 } = drawn ? zoneCentre(zone.points) : { x: 0, z: 0 };
 
   // What each drone type can do today: how many of our systems cover each point.
   const rows = threatsFor(def).map((drone) => {
@@ -105,7 +108,7 @@ export function suggestSpot(sim, def, zone = null) {
     });
     // Between spots that do as well, keep effectors closer in and everything away from what is already there.
     const nearest = Math.min(1000, ...sim.structures.map((o) => Math.hypot(o.pos.x - x, o.pos.z - z) * mpu));
-    const closer = def.role === 'effector' ? 1 - Math.hypot(x, z) * mpu / BUILD.maxDist : 0;
+    const closer = def.role === 'effector' ? 1 - Math.hypot(x - cx0, z - cz0) * mpu / BUILD.maxDist : 0;
     return value / total + 0.02 * closer + 0.02 * (nearest / 1000);
   }
 
@@ -116,10 +119,10 @@ export function suggestSpot(sim, def, zone = null) {
     if (value > bestScore) { bestScore = value; best = { x, z }; }
   };
   let ring = 0;
-  for (let r = BUILD.minDist + 50; r <= BUILD.maxDist; r += RING_STEP, ring++) {
+  for (let r = drawn ? 50 : BUILD.minDist + 50; r <= BUILD.maxDist; r += RING_STEP, ring++) {
     for (let a = 0; a < RING_POINTS; a++) {
       const angle = ((a + (ring % 2) / 2) / RING_POINTS) * 2 * Math.PI; // alternate rings are staggered
-      consider((r * Math.cos(angle)) / mpu, (r * Math.sin(angle)) / mpu);
+      consider(cx0 + (r * Math.cos(angle)) / mpu, cz0 + (r * Math.sin(angle)) / mpu);
     }
   }
   if (!best) return null;

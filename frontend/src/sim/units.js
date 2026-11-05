@@ -9,3 +9,4 @@ export const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 export const groundM = (xu, zu) => terrainState.data.groundAt(xu * WORLD.metresPerUnit, zu * WORLD.metresPerUnit); // metres
 export const hereU = (xu, zu) => groundM(xu, zu) / WORLD.metresPerUnit; // scene units
 export const SITE_POS = { x: 0, y: 0, z: 0 };
+export const onMap = (xu, zu) => Math.max(Math.abs(xu), Math.abs(zu)) <= u(WORLD.radius); // the ground is a square, whatever is defended on it

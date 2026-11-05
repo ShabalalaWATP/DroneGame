@@ -159,6 +159,7 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
     flash = Math.max(0, flash - real);
     siteMat.emissiveIntensity = flash > 0 ? flash * 1.5 : 0;
     siteRing.mesh.material.opacity = flash > 0 ? 1 : 0.6; // a real site has no station to light up
+    siteRing.mesh.visible = buildRing.mesh.visible = !sim.state.zone; // a drawn area is the site, and you can build anywhere
   }
 
   function resize() {
