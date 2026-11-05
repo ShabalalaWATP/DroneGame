@@ -117,6 +117,8 @@ Stage A2 delivered sizes when the user had asked for types: S, M and L are abstr
 
 The lesson is about reading the request. It had been said more than once, and each time it was answered with a plan stage instead.
 
+Alex then asked for Leaflet-style light and dark maps, and reported that location timed out on a weak connection. Leaflet itself draws flat tiles in the page and cannot wrap a map over 3D ground, so it was not used. The light and dark maps are the pack's OS map recoloured, which works offline and needs no new provider. Live tiles now appear as they arrive. Location asks for a rough and a precise reading together, and uses whichever comes first.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |
