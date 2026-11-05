@@ -364,6 +364,6 @@ button.wz-go:hover:not(:disabled) { background: #d4ff4d; }
 #world-picker { margin: 10px 0; }
 #world-picker .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
 #world-real-panel select { flex: 1; min-width: 160px; }
-#site-ref { width: 170px; }
+#site-ref { width: 190px; }
 #site-map { display: block; width: 100%; max-width: 420px; cursor: crosshair; border: 1px solid #2f4468; border-radius: 6px; margin-top: 6px; }
 .card { max-height: 92vh; overflow-y: auto; }

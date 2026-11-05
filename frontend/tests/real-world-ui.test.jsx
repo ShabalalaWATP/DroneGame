@@ -211,7 +211,7 @@ describe('choosing a world', () => {
     await until(() => $('#pack-list').options.length === 2);
     type('#site-ref', 'not a ref');
     fireEvent.click($('#site-ref-go'));
-    await until(() => $('#world-note')?.textContent.includes('not a grid reference'));
+    await until(() => $('#world-note')?.textContent.includes('not a position'));
     type('#site-ref', 'SU 225 665');
     fireEvent.click($('#site-ref-go'));
     await until(() => $('#site-info')?.textContent.includes('SU 2250 6650'));
@@ -219,6 +219,29 @@ describe('choosing a world', () => {
     fireEvent.click($('#site-ref-go'));
     await until(() => $('#pack-build'));
     expect($('#btn-deploy').disabled).toBe(true);
+  }, 30000);
+  it('takes typed latitude and longitude or eastings and northings, refuses off the grid, and keeps them out of the URL', async () => {
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    await until(() => $('#pack-list').options.length === 2);
+    type('#site-ref', '422500, 166500');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#site-info')?.textContent.includes('SU 2250 6650'));
+    type('#site-ref', `${NEAR[0]}, ${NEAR[1]}`);
+    fireEvent.click($('#site-ref-go'));
+    await until(() => /SU 22[23]\d 66[23]\d/.test($('#site-info')?.textContent));
+    const here = $('#site-info').textContent;
+    type('#site-ref', '51.3954° N, 1.6808° W');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#site-info').textContent === here);
+    type('#site-ref', '48.85, 2.35');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#world-note')?.textContent.includes('outside Great Britain'));
+    expect($('#site-info').textContent).toBe(here); // a refused position leaves the start point alone
+    type('#site-ref', '700000 100000');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#world-note')?.textContent.includes('outside Great Britain'));
+    expect(location.search + location.hash).toBe('');
   }, 30000);
 
   describe('the map controls', () => {
