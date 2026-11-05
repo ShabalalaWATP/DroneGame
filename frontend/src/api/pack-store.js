@@ -92,19 +92,21 @@ export function createPackStore({ api, idb = globalThis.indexedDB, fetchFile = (
     return { packs: [...found.values()], serverDown };
   }
 
-  async function load(entry) {
-    if (loaded.has(entry.hash)) return loaded.get(entry.hash);
-    let buffer;
+  // The whole pack file, wherever it is kept.
+  async function fileOf(entry) {
     if (entry.source === 'browser') {
       const row = await inStore(idb, 'readonly', (s) => s.get(entry.hash));
       if (!row) throw new Error('That map pack is no longer in this browser.');
-      buffer = await row.blob.arrayBuffer();
-    } else {
-      const reply = await fetchFile(entry.file);
-      if (!reply.ok) throw new Error('The map pack could not be fetched from the server.');
-      buffer = await reply.arrayBuffer();
+      return row.blob;
     }
-    const decoded = await decodePack(buffer);
+    const reply = await fetchFile(entry.file);
+    if (!reply.ok) throw new Error('The map pack could not be fetched from the server.');
+    return reply.blob();
+  }
+
+  async function load(entry) {
+    if (loaded.has(entry.hash)) return loaded.get(entry.hash);
+    const decoded = await decodePack(await (await fileOf(entry)).arrayBuffer());
     if (decoded.pack.hash !== entry.hash) throw new Error('That map pack has changed since it was listed.');
     loaded.set(decoded.pack.hash, decoded);
     return decoded;
@@ -124,5 +126,5 @@ export function createPackStore({ api, idb = globalThis.indexedDB, fetchFile = (
     return entry;
   }
 
-  return { list, load, importFile, get: (hash) => loaded.get(hash) || null };
+  return { list, load, fileOf, importFile, get: (hash) => loaded.get(hash) || null };
 }

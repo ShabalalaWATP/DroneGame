@@ -65,7 +65,7 @@ describe('the pack store', () => {
     const buffer = await encodePack();
     const { pack } = await decodePack(buffer);
     const api = { packs: { list: async () => [{ file: 'a.sgmap', hash: pack.header.gridsSha256, name: 'A', east: CENTRE.east, north: CENTRE.north, half: 8000 }] } };
-    const fetchFile = vi.fn(async () => ({ ok: true, arrayBuffer: async () => buffer }));
+    const fetchFile = vi.fn(async () => ({ ok: true, blob: async () => new NodeBlob([buffer]) }));
     const store = createPackStore({ api, idb: null, fetchFile });
     const { packs } = await store.list();
     expect(packs[0].hash).toBe(pack.hash);
@@ -76,9 +76,16 @@ describe('the pack store', () => {
     const down = createPackStore({ api: { packs: { list: async () => { throw new Error('down'); } } }, idb: null });
     expect(await down.list()).toEqual({ packs: [], serverDown: true });
   });
+  it('exports a pack as a file that another player can import', async () => {
+    const buffer = await encodePack();
+    const mine = createPackStore({ api: {}, idb: null, fetchFile: async () => ({ ok: true, blob: async () => new NodeBlob([buffer]) }) });
+    const file = await mine.fileOf({ source: 'server', file: 'a.sgmap' });
+    const added = await createPackStore({ api: {}, idb: null }).importFile(file);
+    expect(added.hash).toBe((await decodePack(buffer)).pack.hash);
+  });
   it('notices a pack that has changed, or cannot be fetched', async () => {
     const buffer = await encodePack();
-    const store = createPackStore({ api: {}, idb: null, fetchFile: async () => ({ ok: true, arrayBuffer: async () => buffer }) });
+    const store = createPackStore({ api: {}, idb: null, fetchFile: async () => ({ ok: true, blob: async () => new NodeBlob([buffer]) }) });
     await expect(store.load({ hash: 'b'.repeat(32), file: 'a.sgmap' })).rejects.toThrow(/changed/);
     const gone = createPackStore({ api: {}, idb: null, fetchFile: async () => ({ ok: false }) });
     await expect(gone.load({ hash: 'b'.repeat(32), file: 'a.sgmap' })).rejects.toThrow(/could not be fetched/);
@@ -145,7 +152,7 @@ describe('choosing a world', () => {
     entry = { file: 'a.sgmap', hash: pack.header.gridsSha256, name: 'Fixture', east: CENTRE.east, north: CENTRE.north, half: 8000, tier: 'lidar', lidarHalf: 7000 };
     const api = createFakeApi();
     api.packs = { list: vi.fn(async () => [entry]), build: vi.fn(async () => ({ running: true, message: 'Starting' })), buildStatus: vi.fn(async () => ({ running: false, ok: true, message: 'Finished' })) };
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, arrayBuffer: async () => buffer })));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, blob: async () => new NodeBlob([buffer]) })));
     vi.stubGlobal('indexedDB', undefined);
     game = createGame({ seed: '1', terrainSeed: '1', api, storage: createFakeStorage() });
     Object.assign(view, { baseMap: 'os', mapRoads: false, mapGrid: true, mapContours: false, mapPanel: true, mapLoading: false, startAt: null, planView: false, me: null, osm: false, zone: null, wizard: 'closed' });
