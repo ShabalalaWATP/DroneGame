@@ -75,7 +75,7 @@ function GameOverCard({ onReview }) {
         <p>Kills <b>{state.kills}</b> · Enemy attack cost <b>{money(enemyCost(ledger.launched))}</b> · Defence spend <b>{money(ledger.capex + ledger.consumables)}</b></p>
         {saver.message() && <p id="save-status" className="muted">{saver.message()}</p>}
         <button id="btn-restart" className="primary" onClick={() => commands.reset('keep')}>Retry with the same laydown</button>{' '}
-        <button id="btn-restart-clear" onClick={() => commands.reset('clear')}>New laydown</button>
+        <button id="btn-restart-clear" onClick={() => commands.reset('clear')}>Clear map</button>
       </div>
       <Debrief onReview={onReview} />
     </div>

@@ -186,7 +186,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     simAcc = 0; pausedForApproval = false;
     if (!begin) setSpeed(1);
     if (!kept && !loading) view.zone = null;
-    if (!begin && !loading) toast(kept ? 'Run reset: same laydown and seed' : 'New laydown: the site is empty');
+    if (!begin && !loading) toast(kept ? 'Run reset: same laydown and seed' : 'Map cleared: the site is empty and the budget is full again');
     bump();
   });
 

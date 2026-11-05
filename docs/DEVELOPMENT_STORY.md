@@ -123,6 +123,28 @@ Alex confirmed the project is non-commercial, which allowed EOxCloudless for sat
 
 Alex then found that a sensor could not stand in a gap between houses. Placement read the 20 m grid, where any cell with enough building in it counts as solid, so about 57% of marked spots on both real maps were not on a building at all. Placement on real maps now reads the true outlines. Line of sight still reads the grid, as changing it would change how every real-map run plays.
 
+## Magazines
+
+Alex asked for magazine depth, with each system showing its count, rounds fired, storage, reload time, cost per missile and range when clicked. Asked what the $15M should become, they chose to keep paying per shot as well, so a launcher can now run out of money or rounds. That made the change smaller than the plan: prices and saved runs stay as they were. Storage and reload had been left out of the plan, and they became the core of it.
+
+A radar has no rounds, so sensors show scans, detections and scan period in the same rows, and jammers show time spent jamming. The reference digests were re-baselined, because reloading changes runs: a Mixed laydown now leaks a drone it used to stop.
+
+The balance tool shows the rule matters and is not yet balanced. The Mixed laydown now falls at wave 7, not 12 or 13, with about $9.6M unspent, because nothing refills storage. One of everything with 3 lasers went the other way, from about wave 12 to about wave 25, because missiles that run out stop draining the budget.
+
+Resupply followed, which raised a question the plan had not faced: if firing costs money and rounds cost money, a bought round would be charged twice. Bought rounds are now marked as paid. Alex also pointed out that the range rings had gone. They had not: "Show ranges" was on and the rings were being drawn, but at 35% opacity and a pixel wide they vanished against the bright OS map, which arrived after they were tuned on dark ground. Real maps now draw them wider, stronger and darker. Alex's own comparison with the original game is what exposed this, because no test looks at contrast. The "New laydown" button did what they wanted but its name hid it, so it became "Clear map".
+
+The first tests passed for the wrong reason. Starting wave 1 rebuilds every system, so they were changing units that no longer existed; a failing hand-over test exposed it, and they now act after the rebuild.
+
+## More sizes and acoustic sensors
+
+Alex asked for other sizes of laser, missile and interceptor, and for acoustic sensors in three sizes, using real kit with public figures. Each new entry names a real system, and its `ref` separates what is published from what is assumed. The sourcing paid for checking: the article first cited for one acoustic station's range and price turned out to hold neither, so it was replaced by the one that did.
+
+Real prices do not always rise with size. A long-range acoustic station is reported at about $500, cheaper than a medium array, and the LOCUST laser at about $8 million, four times the $2 million figure for the larger DragonFire. The figures were kept rather than bent to fit, and the test that demanded rising prices now covers only the older kinds. Launcher prices and most magazine figures remain placeholders, and each one says so.
+
+Acoustic sensors added a real rule, not just a row: they need no line of sight and hear drones that make no radio signal, but hills and built-up ground cut their reach. Those loss factors and each drone's loudness are assumptions.
+
+Models now scale with size and are 40% smaller overall. The scale also sets where a shot leaves the launcher, so the reference digests were re-recorded. The eighth toolbar row pushed Sell out of sight on a normal screen, which only a browser check showed, so Sell is now pinned to the bottom of the toolbar.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

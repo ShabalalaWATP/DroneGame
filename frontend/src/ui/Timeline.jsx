@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { fmtTime, useGame, useTick } from './hooks.js';
 
-const MARKER = { kill: '#66bb6a', leak: '#ff5252', spotter: '#ffd600', lost: '#ff9100' };
+const MARKER = { kill: '#66bb6a', leak: '#ff5252', spotter: '#ffd600', lost: '#ff9100', empty: '#ffcf66' };
 
 function Markers({ rec, n }) {
   // only needs redrawing when the history or the events change; a full history keeps its length but drops its oldest frames

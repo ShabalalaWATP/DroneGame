@@ -4,15 +4,20 @@
 import * as THREE from 'three';
 import { STRUCT_SCALE } from '../sim/config/index.js';
 import { muzzle } from '../sim/effectors.js';
+import { terrainState } from '../sim/terrain.js';
 import { u } from '../sim/units.js';
 import { buildModel } from './models.js';
 import { drapedRing } from './terrain-view.js';
 import { hexCss } from './labels.js';
 import { view } from './view.js';
 
-export const ringThickness = (r) => Math.max(0.4, r * 0.006);
+// A real map is bright and busy, so its rings are wider, stronger and darker than on generated ground, or they disappear.
+const onRealMap = () => !!terrainState.data.geo;
+export const ringThickness = (r) => (onRealMap() ? Math.max(1, r * 0.012) : Math.max(0.4, r * 0.006));
 export const LABEL_LIFT = 9; // a name tag sits this far above its system, in scene units
-const RING_OPACITY = 0.35, SELECTED_RING_OPACITY = 0.95;
+const ringOpacity = () => (onRealMap() ? 0.8 : 0.35);
+const SELECTED_RING_OPACITY = 0.95;
+const ringColour = (def) => (onRealMap() ? new THREE.Color(def.color).multiplyScalar(0.7) : def.color);
 const _m = new THREE.Vector3();
 
 export function createStructureViews(scene, sim, labels) {
@@ -21,7 +26,7 @@ export function createStructureViews(scene, sim, labels) {
   function makeRing(s, v) {
     if (v.ringObj) { v.holder.remove(v.ringObj.mesh); v.ringObj.dispose(); }
     const r = u(s.def.range);
-    v.ringObj = drapedRing(r, ringThickness(r), s.def.color, RING_OPACITY);
+    v.ringObj = drapedRing(r, ringThickness(r), ringColour(s.def), ringOpacity());
     v.ringObj.update(s.pos.x, s.pos.z);
     v.ringObj.mesh.visible = view.rings;
     v.ringRange = s.def.range;
@@ -68,7 +73,7 @@ export function createStructureViews(scene, sim, labels) {
       if (v.ringRange !== s.def.range) makeRing(s, v); // this unit was reconfigured
       const selected = s === view.selected;
       v.ringObj.mesh.visible = view.rings || selected;
-      v.ringObj.mesh.material.opacity = selected ? SELECTED_RING_OPACITY : RING_OPACITY;
+      v.ringObj.mesh.material.opacity = selected ? SELECTED_RING_OPACITY : ringOpacity();
       v.label.classList.toggle('selected', selected);
       if (v.parts.spin) v.parts.spin.rotation.y += real * (s.def.id === 'radar' ? 2.2 : 0.6);
       else v.parts.head.rotation.y = s.aim;

@@ -6,6 +6,7 @@ import { WORLD, BUILD, COMMS, ECONOMY, STRUCTURES } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { u, hdist, hereU } from './units.js';
 import { buyTerminal, money } from './economy.js';
+import { fillMagazine } from './magazine.js';
 import { cleanCallsign, cleanName, cleanSettings, fieldsFor, setSetting, unitCost, unitDef } from './unit-config.js';
 
 // saved holds a unit's settings and custom names, and reserved the callsigns other saved units will need.
@@ -15,6 +16,7 @@ export function addStructure(w, id, x, z, saved = {}, reserved) {
   const s = { def, health: def.health || 30, pos: new Vector3(x, y, z), cd: 0, aim: 0, beamTarget: null };
   const name = cleanName(saved.name), callsign = cleanCallsign(saved.callsign);
   if (name || callsign) s.custom = { name, callsign };
+  fillMagazine(s);
   w.structures.push(s);
   w.net.registerNode(s, reserved);
   return s;

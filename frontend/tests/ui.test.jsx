@@ -121,7 +121,7 @@ describe('control panel', () => {
     expect($('#btn-clear').textContent).toBe('Sure? Click again');
     expect(game.sim.structures.length).toBe(MIXED.length);
     act(() => { vi.advanceTimersByTime(3100); });
-    expect($('#btn-clear').textContent).toBe('New laydown');
+    expect($('#btn-clear').textContent).toBe('Clear map');
     fireEvent.click($('#btn-clear'));
     fireEvent.click($('#btn-clear'));
     expect(game.sim.structures.length).toBe(0);
@@ -132,7 +132,7 @@ describe('control panel', () => {
     const onSandbox = vi.fn(), onToggleDock = vi.fn(), onToggleTuning = vi.fn();
     panel({ onSandbox, onToggleDock, onToggleTuning });
     fireEvent.click($('#btn-clear')); // not deployed yet, so this does nothing
-    expect($('#btn-clear').textContent).toBe('New laydown');
+    expect($('#btn-clear').textContent).toBe('Clear map');
     fireEvent.click($('#btn-reset'));
     armed();
     fireEvent.click($('#btn-sandbox'));
@@ -223,6 +223,20 @@ describe('sandbox panel', () => {
     expect($('#sb-info').textContent).toContain('0 drone(s) queued');
     fireEvent.click($('#sb-exit'));
     expect(game.sim.state.sandbox).toBe(false);
+  });
+
+  it('minimises to its title and live figures, keeps the form, and expands again', () => {
+    armed();
+    show(<Sandbox />);
+    act(() => game.commands.enterSandbox());
+    fireEvent.change($('#sb-count'), { target: { value: '7' } });
+    fireEvent.click($('#sb-minimise'));
+    expect($('#sb-launch')).toBeNull();
+    expect($('#sandbox h3').textContent).toBe('SANDBOX');
+    expect($('#sb-info').textContent).toContain('in the air');
+    expect($('#sb-minimise').getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click($('#sb-minimise'));
+    expect($('#sb-count').value).toBe('7');
   });
 });
 

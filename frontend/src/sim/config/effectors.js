@@ -1,4 +1,4 @@
-// The effectors you can buy. The jammer comes in three sizes, with the medium one first, and `variantOf` marks a further real
+// The effectors you can buy. Each effector comes in three sizes, with the medium one first, and `variantOf` marks a further real
 // system of a kind. `product` is the name the toolbar lists it by.
 // Costs are in US dollars. `cost` buys and deploys a system, and `shotCost` is charged every time a consumable (interceptor drone,
 // missile, laser shot) is used. Each system's `ref` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
@@ -67,17 +67,17 @@ export const EFFECTORS = {
     },
   },
   interceptor: {
-    product: 'Wild Hornets Sting', name: 'Interceptor drones', short: 'INT', cost: 100000, shotCost: 5000, color: 0x00e5ff, role: 'effector', kind: 'interceptor', published: 5000, muzzleY: 1.6, fire: 'guided',
+    product: 'Wild Hornets Sting', size: 'M', name: 'Interceptor drones', short: 'INT', cost: 100000, shotCost: 5000, color: 0x00e5ff, role: 'effector', kind: 'interceptor', published: 5000, muzzleY: 1.6, fire: 'guided',
     health: 30, signature: 0.2, emits: [],
     engages: ['fpv', 'fo'], // too slow to catch the fixed-wing drones (game rule)
-    damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80,
+    damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80, magazine: 12, storage: 24, reloadTime: 30,
     desc: 'Cheap ram-type interceptor drones. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Low-cost kinetic interceptor drone',
       analogues: ['Wild Hornets Sting', 'SkyFall P1-SUN'],
       published: 'Sting: about $2,000–2,500 per unit (outliers up to $15,000), flies faster than 100 mph; Ukrainian kinetic interceptors generally $2,000–$5,000.',
-      basis: 'Per-launch cost $5,000 (your figure, the top of the reported $2,000–5,000 band). Range 5 km and speed 80 m/s are assumptions.',
+      basis: 'Per-launch cost $5,000 (your figure, the top of the reported $2,000–5,000 band). Range 5 km and speed 80 m/s are assumptions. Magazine, storage and reload time are ASSUMPTIONS: no published launcher capacity was found.',
       confidence: 'Manufacturer and press figures; range and speed are assumptions',
       sources: [
         { label: 'Wikipedia: Sting (drone)', url: 'https://en.wikipedia.org/wiki/Sting_(drone)' },
@@ -94,14 +94,14 @@ export const EFFECTORS = {
     product: 'SkyFall P1-SUN', variantOf: 'interceptor', name: 'P1-SUN interceptor', short: 'P1S', model: 'interceptor', cost: 100000, shotCost: 1000, color: 0x18ffff, role: 'effector', kind: 'interceptor', published: 5000, muzzleY: 1.6, fire: 'guided',
     health: 30, signature: 0.2, emits: [],
     engages: ['fpv', 'fo'],
-    damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80,
+    damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80, magazine: 12, storage: 24, reloadTime: 30,
     desc: 'Mass-produced ram-type interceptor drone, cheaper per launch. Good against FPV and FO strikes; cannot catch the fixed-wing drones.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Low-cost kinetic interceptor drone',
       analogues: ['SkyFall P1-SUN'],
       published: 'Reported at about $1,000 a drone, or about $3,000 per kill. No verified speed or range was found.',
-      basis: 'Per-launch cost is the $1,000 figure. Range, speed and damage are ASSUMPTIONS, copied from the Sting entry, so it is simply cheaper to fire until stage A7 rebalances it.',
+      basis: 'Per-launch cost is the $1,000 figure. Range, speed, damage, magazine, storage and reload time are ASSUMPTIONS, copied from the Sting entry, so it is simply cheaper to fire until stage A7 rebalances it.',
       confidence: 'Press figures for price; performance is an assumption',
       sources: [
         { label: 'Oboronka: P1-SUN price', url: 'https://oboronka.mezha.ua/en/skyfall-rozpovila-pro-cinu-na-dron-perehoplyuvach-p1-sun-308453/' },
@@ -111,21 +111,22 @@ export const EFFECTORS = {
     },
   },
   missile: {
-    product: 'Raytheon Coyote Block 2', name: 'Missile', short: 'MSL', cost: 1000000, shotCost: 200000, color: 0xff4081, role: 'effector', kind: 'missile', published: 10000, muzzleY: 2.2, fire: 'guided',
+    product: 'Raytheon Coyote Block 2', size: 'M', name: 'Missile', short: 'MSL', cost: 1000000, shotCost: 200000, color: 0xff4081, role: 'effector', kind: 'missile', published: 10000, muzzleY: 2.2, fire: 'guided',
     health: 30, signature: 0.2, emits: [],
     engagePolicy: 'fixed-wing', // the fusion node keeps this for fixed-wing tracks (or anything that gets close), to save the expensive rounds
-    damage: 70, splash: 40, fuze: 30, cooldown: 4, missileSpeed: 150,
+    damage: 70, splash: 40, fuze: 30, cooldown: 4, missileSpeed: 150, magazine: 4, storage: 8, reloadTime: 60,
     desc: 'High-end guided missile that can hit the fixed-wing drones. Each round is expensive, so the fusion node saves it for fixed-wing tracks.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Missile', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Guided counter-UAS interceptor missile',
       analogues: ['Raytheon Coyote Block 2'],
       published: 'Range 10–15 km reported; speed figures conflict (about 100–160 m/s).',
-      basis: 'Game range 10 km is the low end of the reported band; speed is 150 m/s. Splash radius and fuze are assumptions.',
+      basis: 'Game range 10 km is the low end of the reported band; speed is 150 m/s. Splash radius and fuze are assumptions. The magazine of 4 follows the four-round FS-LIDS launcher; storage and reload time are ASSUMPTIONS.',
       confidence: 'Secondary reporting; no manufacturer numbers',
       sources: [
         { label: 'Norsk Luftvern: Coyote Block 2', url: 'https://norskluftvern.com/2025/03/31/coyote-block-2-counter-drone-system-us/' },
         { label: 'TWZ: rocket-powered Coyote', url: 'https://www.twz.com/land/new-coyote-anti-drone-interceptor-swaps-jet-engine-for-rocket-power' },
+        { label: 'Wikipedia: Raytheon Coyote launchers', url: 'https://en.wikipedia.org/wiki/Raytheon_Coyote' },
       ],
       cost: {
         capex: 'Per shot $200,000 (your figure). Reported Coyote prices are $100,000–$125,000 (an Army contract works out to about $125,000; Bloomberg cited about $120,000). Launcher price: no public figure; game price $1,000,000 is a placeholder.',
@@ -138,20 +139,21 @@ export const EFFECTORS = {
     },
   },
   laser: {
-    product: 'UK DragonFire', name: 'Laser', short: 'LSR', cost: 2000000, shotCost: 13, color: 0xffffff, role: 'effector', kind: 'laser', published: 1000, muzzleY: 2.6, fire: 'beam',
+    product: 'UK DragonFire', size: 'M', name: 'Laser', short: 'LSR', cost: 2000000, shotCost: 13, color: 0xffffff, role: 'effector', kind: 'laser', published: 1000, muzzleY: 2.6, fire: 'beam',
     health: 30, signature: 0.3, emits: [],
-    dps: 28,
+    dps: 28, magazine: 300, reloadTime: 300, // seconds of stored beam, and the time to recharge all of it. Recharges only while not firing.
     desc: 'High-energy laser. Very cheap to fire, but it needs dwell time, so evasive targets take longer to burn.',
     sapient: { nodeType: 'NODE_TYPE_LDEW', subType: ['Laser'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'High-energy laser directed-energy weapon',
       analogues: ['UK DragonFire'],
       published: 'Range is classified. The MoD gives a precision claim of hitting a £1 coin from 1 km, operating cost under £10 per shot, and downing drones at up to ~400 mph in trials.',
-      basis: 'Game range of 1 km follows the precision claim; it is not a stated max range. Beam damage rate is an assumption.',
+      basis: 'Game range of 1 km follows the precision claim; it is not a stated max range. Beam damage rate is an assumption. The 300 s beam store converts the 200+ stored engagements EOS claims for its Apollo laser at about 1.5 s a kill, which is an assumption, as is the recharge time.',
       confidence: 'ASSUMPTION for range and power; per-shot cost from the MoD',
       sources: [
         { label: 'GOV.UK: DragonFire', url: 'https://www.gov.uk/government/news/advanced-future-military-laser-achieves-uk-first' },
         { label: "Tom's Hardware: DragonFire trials", url: 'https://www.tomshardware.com/tech-industry/uk-dragonfire-laser-downs-high-speed-drones' },
+        { label: 'Laser Wars: the infinite magazine myth', url: 'https://www.laserwars.net/p/laser-weapon-infinite-magazine-myth' },
       ],
       cost: {
         capex: 'Game price $2,000,000 (your figure). No unit price is published; the UK development contract with MBDA is £316 million (about $414 million), which includes R&D. Per shot: about £10 ($13).',
@@ -160,6 +162,137 @@ export const EFFECTORS = {
           { label: 'gCaptain: DragonFire contract', url: 'https://gcaptain.com/uk-fast-tracks-naval-laser-weapon-after-successful-high-speed-drone-trials' },
           { label: 'The Register: £10 per shot', url: 'https://www.theregister.com/2025/11/24/royal_navy_dragonfire_laser/' },
         ],
+      },
+    },
+  },
+  interceptor_s: {
+    product: 'Fortem DroneHunter F700', size: 'S', name: 'Small interceptor', short: 'INS', model: 'interceptor', modelScale: 0.7, cost: 100000, shotCost: 1000, color: 0x84ffff, role: 'effector', kind: 'interceptor', published: 3000, muzzleY: 1.6, fire: 'guided',
+    health: 30, signature: 0.2, emits: [],
+    engages: ['fpv', 'fo'],
+    damage: 60, splash: 5, fuze: 10, cooldown: 4, missileSpeed: 25, magazine: 2, storage: 6, reloadTime: 180,
+    desc: 'Radar-guided drone that fires nets to capture its target. Slow, so fast drones can outrun it, and it takes minutes to reload.',
+    sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Net capture'], scan: 'SCAN_TYPE_STEERABLE' },
+    ref: {
+      class: 'Reusable net-capture interceptor drone',
+      analogues: ['Fortem DroneHunter F700'],
+      published: 'Reported at 25 m/s in attack and pursue modes. Range figures conflict: 5 km in one source, 2–3 km to a kill in another. The maker says it reloads in under 3 minutes, and publishes no speed or range itself.',
+      basis: 'Game range 3 km is the top of the 2–3 km figure, speed is the reported 25 m/s and reload the 3 minutes. Shots per sortie, storage and net damage are ASSUMPTIONS.',
+      confidence: 'Maker and trade figures; the range sources conflict',
+      sources: [
+        { label: 'Fortem: DroneHunter F700', url: 'https://fortemtech.com/products/dronehunter-f700/' },
+        { label: 'Army Technology: DroneHunter', url: 'https://www.army-technology.com/projects/dronehunter-counter-unmanned-aerial-system-c-uas/' },
+      ],
+      cost: {
+        capex: 'One European dealer lists it at €99,999; Fortem publishes no price. Game price $100,000. The $1,000 per shot, for a net, is a placeholder.',
+        confidence: 'A dealer listing; per-shot is an ASSUMPTION',
+        sources: [{ label: 'Aviations UK: DroneHunter F700', url: 'https://aviationsouk.com/products/fortem-dronehunter-f700/' }],
+      },
+    },
+  },
+  interceptor_l: {
+    product: 'Project Eagle Merops', size: 'L', name: 'Large interceptor', short: 'INL', model: 'interceptor', modelScale: 1.4, cost: 300000, shotCost: 15000, color: 0x00b8d4, role: 'effector', kind: 'interceptor', published: 15000, muzzleY: 1.6, fire: 'guided',
+    health: 30, signature: 0.2, emits: [],
+    damage: 70, splash: 15, fuze: 15, cooldown: 3, missileSpeed: 78, magazine: 8, storage: 16, reloadTime: 60,
+    desc: 'Long-range interceptor drone with a fragmentation warhead, built to hunt Shahed-type drones. It can catch the fixed-wing drones, at three times the price per launch of the standard one.',
+    sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
+    ref: {
+      class: 'Long-range interceptor drone',
+      analogues: ['Merops AS3 Surveyor'],
+      published: 'About $15,000 per interceptor, possibly under $10,000 at scale. Up to 280 km/h, with a 2 kg fragmentation warhead. Range is roughly 5–20 km in industry data.',
+      basis: 'Game range 15 km sits in the 5–20 km band, and speed is the listed 280 km/h. Magazine, storage, reload time and launch rate are ASSUMPTIONS.',
+      confidence: 'US press reports of official and industry figures',
+      sources: [{ label: 'Defense News: US Army and Merops', url: 'https://www.defensenews.com/unmanned/2026/04/20/us-army-turns-to-ukraine-tested-drones-to-counter-iranian-uav-threat' }],
+      cost: {
+        capex: 'Per shot $15,000, as reported. No public price for the launcher and control station: game price $300,000 is a placeholder.',
+        confidence: 'Press figure for the round; launcher is an ASSUMPTION',
+        sources: [{ label: 'Defense News: US Army and Merops', url: 'https://www.defensenews.com/unmanned/2026/04/20/us-army-turns-to-ukraine-tested-drones-to-counter-iranian-uav-threat' }],
+      },
+    },
+  },
+  missile_s: {
+    product: 'Frankenburg Mark I', size: 'S', name: 'Small missile', short: 'MSS', model: 'missile', modelScale: 0.7, cost: 100000, shotCost: 45000, color: 0xff80ab, role: 'effector', kind: 'missile', published: 2000, muzzleY: 2.2, fire: 'guided',
+    health: 30, signature: 0.2, emits: [],
+    damage: 50, splash: 15, fuze: 15, cooldown: 2, missileSpeed: 200, magazine: 4, storage: 12, reloadTime: 30,
+    desc: 'Very short-range guided micro-missile, made to be cheap enough to fire at small drones. It will take any drone it can reach.',
+    sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Missile', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
+    ref: {
+      class: 'Ultra-short-range guided micro-missile',
+      analogues: ['Frankenburg Mark I'],
+      published: 'Range around 2 km, length around 65 cm. Reported at about 40,000 euros or francs a missile; the source gives both.',
+      basis: 'Game range is the reported 2 km. Speed, damage, launch rate, magazine, storage and reload time are ASSUMPTIONS: no source read gave them.',
+      confidence: 'Press reports; no manufacturer datasheet read',
+      sources: [{ label: 'Blue News: a 65 cm missile', url: 'https://www.bluewin.ch/en/news/international/a-65-centimetre-missile-is-now-supposed-to-stop-putin-li.2959490' }],
+      cost: {
+        capex: 'Per shot about $45,000, converted from the reported 40,000. No public launcher price: game price $100,000 is a placeholder.',
+        confidence: 'Press figure for the round; launcher is an ASSUMPTION',
+        sources: [{ label: 'Blue News: a 65 cm missile', url: 'https://www.bluewin.ch/en/news/international/a-65-centimetre-missile-is-now-supposed-to-stop-putin-li.2959490' }],
+      },
+    },
+  },
+  missile_l: {
+    product: 'NASAMS with AIM-120 AMRAAM', size: 'L', name: 'Large missile', short: 'MLL', model: 'missile', modelScale: 1.4, cost: 5000000, shotCost: 1169000, color: 0xc51162, role: 'effector', kind: 'missile', published: 25000, muzzleY: 2.2, fire: 'guided',
+    health: 30, signature: 0.2, emits: [],
+    engagePolicy: 'fixed-wing',
+    damage: 100, splash: 40, fuze: 30, cooldown: 5, missileSpeed: 400, magazine: 6, storage: 12, reloadTime: 600,
+    desc: 'Medium-range air-defence missile that reaches across the whole map. Each round costs over a million dollars, so the fusion node saves it for fixed-wing tracks.',
+    sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Missile', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
+    ref: {
+      class: 'Medium-range surface-to-air missile launcher',
+      analogues: ['NASAMS', 'AIM-120 AMRAAM'],
+      published: 'Wikipedia gives a horizontal range of up to 25 km for the standard AMRAAM in its text, and 40 km for NASAMS 2 in its summary. A launcher holds six missiles.',
+      basis: 'Game range is the lower 25 km figure, and the magazine the six-round launcher. Speed is held at 400 m/s, below the real missile, so it cannot jump past a target in one simulation step. Storage, reload time and damage are ASSUMPTIONS.',
+      confidence: 'Secondary reporting; the sources conflict on range',
+      sources: [{ label: 'Wikipedia: NASAMS', url: 'https://en.wikipedia.org/wiki/NASAMS' }],
+      cost: {
+        capex: 'Per shot $1.169 million, the FY2026 figure from a US Air Force budget, as reported. Game price $5 million is a placeholder for one launcher alone, so that it fits the budget at all: a whole battery costs far more.',
+        confidence: 'Budget figure for the round, read second-hand; launcher is an ASSUMPTION',
+        sources: [{ label: 'ThePricer: AMRAAM cost', url: 'https://www.thepricer.org/how-much-does-an-amraam-missile-cost/' }],
+      },
+    },
+  },
+  laser_s: {
+    product: 'AeroVironment LOCUST', size: 'S', name: 'Small laser', short: 'LSS', model: 'laser', modelScale: 0.7, cost: 8000000, shotCost: 5, color: 0xe0e0e0, role: 'effector', kind: 'laser', published: 800, muzzleY: 2.6, fire: 'beam',
+    health: 30, signature: 0.3, emits: [],
+    dps: 14, magazine: 150, reloadTime: 150,
+    desc: 'Vehicle-sized 20 to 35 kW laser. Costs almost nothing to fire, but its beam is weaker, so each kill takes longer.',
+    sapient: { nodeType: 'NODE_TYPE_LDEW', subType: ['Laser'], scan: 'SCAN_TYPE_STEERABLE' },
+    ref: {
+      class: 'Vehicle-mounted high-energy laser',
+      analogues: ['AeroVironment LOCUST'],
+      published: '20–35+ kW. The maker claims under $5 to under $10 a shot. No official range was found.',
+      basis: 'Game range 800 m is an ASSUMPTION, set below the 1 km DragonFire figure so sizes stay in order. Beam damage is half the DragonFire figure, an assumption from its lower power. The beam store is an assumption.',
+      confidence: 'Maker’s per-shot claim; range and beam effect are assumptions',
+      sources: [
+        { label: 'Wikipedia: LOCUST', url: 'https://en.wikipedia.org/wiki/Locust_Laser_Weapon_System' },
+        { label: 'Breaking Defense: LOCUST X3', url: 'https://breakingdefense.com/2026/03/av-unveils-locust-x3-latest-entrant-into-laser-counter-drone-race/' },
+      ],
+      cost: {
+        capex: 'No official price. About $8 million a system, from a CBS 60 Minutes transcript as reported. That is more than your $2,000,000 figure for the DragonFire entry, which public prices suggest may be too low.',
+        confidence: 'Unconfirmed press estimate',
+        sources: [{ label: 'ThePricer: LOCUST cost', url: 'https://www.thepricer.org/how-much-does-the-locust-laser-weapon-cost/' }],
+      },
+    },
+  },
+  laser_l: {
+    product: 'Rafael Iron Beam', size: 'L', name: 'Large laser', short: 'LSL', model: 'laser', modelScale: 1.4, cost: 14000000, shotCost: 3.5, color: 0xfff59d, role: 'effector', kind: 'laser', published: 7000, muzzleY: 2.6, fire: 'beam',
+    health: 30, signature: 0.5, emits: [],
+    dps: 56, magazine: 600, reloadTime: 300,
+    desc: 'Fixed 100 kW air-defence laser, with the longest reach and strongest beam. Buying it takes almost the whole budget.',
+    sapient: { nodeType: 'NODE_TYPE_LDEW', subType: ['Laser'], scan: 'SCAN_TYPE_STEERABLE' },
+    ref: {
+      class: 'High-power air-defence laser',
+      analogues: ['Rafael Iron Beam'],
+      published: 'A 100 kW laser. No official range: Wikipedia cites a 2020 report of up to 7 km, and press explainers often say 10 km. A former Israeli prime minister put a shot at $3.50; other estimates, from $2 to $2,000, are unverified.',
+      basis: 'Game range is the lower 7 km figure, and per second the $3.50 figure. Beam damage is twice the DragonFire figure, for twice its reported 50 kW power, an assumption. The beam store is an assumption.',
+      confidence: 'Press reports; no official range or price',
+      sources: [
+        { label: 'Task & Purpose: Iron Beam', url: 'https://taskandpurpose.com/military-life/israel-iron-beam-air-defense/' },
+        { label: 'Wikipedia: Iron Beam', url: 'https://en.wikipedia.org/wiki/Iron_Beam' },
+      ],
+      cost: {
+        capex: 'No unit price published: the Israeli contract is about NIS 2 billion for an undisclosed number. Game price $14,000,000 is a placeholder that only just fits the budget, and the real figure is likely much higher.',
+        confidence: 'ASSUMPTION: tune this yourself',
+        sources: [{ label: 'Globes: Iron Beam', url: 'https://en.globes.co.il/en/article-1001492671' }],
       },
     },
   },

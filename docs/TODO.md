@@ -31,14 +31,21 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 **Feature B: magazine depth**
 
-- [ ] B1: magazine rules in the simulation
-- [ ] B2: re-baseline the digests and balance rack size and missile capacity
-- [ ] B3: the magazine tab
+- [x] B1: magazine, storage and reload rules in the simulation. Shots are still paid for from the budget, at the user's request
+- [ ] B2: balance rack size, storage and reload time. The digests are re-baselined; the balance is not done
+- [x] Resupply between waves: buy back used rounds, emptiest launcher first. A bought round is paid for once
+- [x] B3: the Cost tab is now Magazine depth, with a row for each launcher and laser. Expanding rows and Refill buttons are not built
+
+**Systems added outside the plan**
+
+- [x] Small and large interceptors, missiles and lasers, and three acoustic sensors, all from public sources
+- [ ] Review the placeholder prices. The DragonFire's $2M looks low beside about $8M reported for the smaller LOCUST, and the Iron Beam and NASAMS launcher prices are set low only so that they fit the budget
+- [ ] Balance the new systems. Cheap long-range acoustic stations and the Large missile have not been tuned
 
 **Feature C: unit panel** (build this first)
 
 - [x] C1: click a sensor or effector on the map to see its details, read-only
-- [ ] C2: ammunition state, alongside B1
+- [x] C2: every system shows its magazine, rounds fired, storage, reload, cost per round and range. Sensors and jammers show their own figures instead of rounds
 
 **Feature D: wizard** (the guided steps, zone and debrief are built)
 

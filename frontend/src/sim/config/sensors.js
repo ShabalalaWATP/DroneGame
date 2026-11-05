@@ -1,4 +1,4 @@
-// The sensors you can buy. Radar, RF detector and camera each come in three sizes, with the medium one first, and `variantOf`
+// The sensors you can buy. Radar, RF detector, camera and acoustic sensor each come in three sizes, with the medium one first, and `variantOf`
 // marks a further real system of a size. `product` is the name the toolbar lists it by.
 // Costs are in US dollars, and each system's `ref` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
 // `mount` is how high a sensor sits on its mast (m), an assumption: below the 12-20 m tree tops, trees hide most low flyers.
@@ -55,7 +55,7 @@ export const SENSORS = {
     },
   },
   radar_a800: {
-    product: 'Blighter A800', variantOf: 'radar', size: 'M', name: 'Blighter A800', short: 'A80', model: 'radar_s', modelScale: 1.2, cost: 600000, shotCost: 0, color: 0x448aff, role: 'sensor', kind: 'radar', published: 3000, mount: 25, falseAlarm: 0.1,
+    product: 'Blighter A800', variantOf: 'radar', size: 'M', name: 'Blighter A800', short: 'A80', model: 'radar_s', cost: 600000, shotCost: 0, color: 0x448aff, role: 'sensor', kind: 'radar', published: 3000, mount: 25, falseAlarm: 0.1,
     health: 30, signature: 1.0, emits: [{ label: 'Ku-band radar 15.7\u201317.2 GHz', f: [[15.7, 17.2]] }],
     lowAlt: 40, lowRange: 500,
     desc: '3D multi-mode AESA drone radar. It reaches further than the IRIS for less, but the real one only looks through a 90\u00B0 cone, which stage A4 will model.',
@@ -75,7 +75,7 @@ export const SENSORS = {
     },
   },
   radar_l: {
-    product: 'Hensoldt Spexer 2000 3D MkIII', size: 'L', name: 'Large radar', short: 'RDL', model: 'radar_s', modelScale: 1.5, cost: 2500000, shotCost: 0, color: 0x0d47a1, role: 'sensor', kind: 'radar', published: 4300, mount: 30, falseAlarm: 0.1,
+    product: 'Hensoldt Spexer 2000 3D MkIII', size: 'L', name: 'Large radar', short: 'RDL', model: 'radar_s', modelScale: 1.4, cost: 2500000, shotCost: 0, color: 0x0d47a1, role: 'sensor', kind: 'radar', published: 4300, mount: 30, falseAlarm: 0.1,
     health: 30, signature: 1.5, emits: [{ label: 'X-band radar 9.2\u201310 GHz', f: [[9.2, 10]] }],
     lowAlt: 30, lowRange: 800,
     desc: 'Long-range multi-beam radar. It sees furthest and is the most accurate, but it is the most expensive and the easiest for the enemy to find.',
@@ -243,6 +243,58 @@ export const SENSORS = {
       confidence: 'Lens from the vendor; range is calculated',
       sources: [{ label: 'Ophir: MWIR f/5.5 zoom lenses', url: 'https://www.ophiropt.com/g/long-range-mwir-vga-imaging-lenses' }],
       cost: { capex: 'No public price found. Game price $500,000 is a placeholder.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },
+    },
+  },
+  acoustic_s: {
+    product: 'ZVOOK NW0', size: 'S', name: 'Small acoustic sensor', short: 'ACS', model: 'acoustic', modelScale: 0.7, cost: 1000, shotCost: 0, color: 0xffcc80, role: 'sensor', kind: 'acoustic', senses: 'acoustic', published: 300, mount: 3, falseAlarm: 0.1,
+    health: 30, signature: 0.02, emits: [], // completely passive
+    desc: 'Tactical microphone node. Very cheap and short range. Hears drones that make no radio signal and does not need a line of sight, but noise and hills cut its reach.',
+    sapient: { nodeType: 'NODE_TYPE_ACOUSTIC', subType: ['Microphone', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1, noise: { az: 10 } },
+    ref: {
+      class: 'Tactical acoustic drone detector',
+      analogues: ['ZVOOK NW0'],
+      published: 'Declared range 150–450 m against FPV drones, with 360° coverage. The maker recommends a sensor every 400–600 m.',
+      basis: 'Game range 300 m is the middle of the declared band, and fits the recommended spacing. Bearing accuracy and false alarms are ASSUMPTIONS: the source gives neither.',
+      confidence: 'Maker’s declared figures, reported by the trade press',
+      sources: [{ label: 'Militarnyi: ZVOOK NW0', url: 'https://militarnyi.com/en/news/ukraine-develops-acoustic-detector-for-fpv-drones/' }],
+      cost: {
+        capex: 'No price published for the NW0. Sensors in Ukraine’s Sky Fortress network are reported at $400–$1,000. Game price $1,000 is the top of that band.',
+        confidence: 'ASSUMPTION from a comparable system',
+        sources: [{ label: 'United24: Sky Fortress', url: 'https://united24media.com/war-in-ukraine/sky-fortress-ukraines-acoustic-detection-system-that-tracks-drones-cheap-and-fast-9451' }],
+      },
+    },
+  },
+  acoustic: {
+    product: 'Squarehead Discovair G2+', size: 'M', name: 'Medium acoustic sensor', short: 'ACM', model: 'acoustic', cost: 50000, shotCost: 0, color: 0xffa726, role: 'sensor', kind: 'acoustic', senses: 'acoustic', published: 500, mount: 3, falseAlarm: 0.05,
+    health: 30, signature: 0.02, emits: [],
+    desc: 'Microphone array that filters out background noise. Gives bearing and elevation, with no range. Hears drones that make no radio signal and does not need a line of sight, but noise and hills cut its reach.',
+    sapient: { nodeType: 'NODE_TYPE_ACOUSTIC', subType: ['Microphone array', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1, noise: { az: 4, el: 6 } },
+    ref: {
+      class: 'Passive acoustic microphone array',
+      analogues: ['Squarehead Discovair G2+'],
+      published: 'No datasheet range found. A US Air Force notice asks for this array or an equal, with at least 500 m against Group 1 drones. Robin Radar gives 300–500 m for acoustic sensors in general, and says wind, temperature and noise reduce it.',
+      basis: 'Game range is the 500 m procurement minimum. Bearing accuracy and false alarms are ASSUMPTIONS.',
+      confidence: 'A buyer’s requirement and a competitor’s overview, not a measured figure',
+      sources: [
+        { label: 'US Air Force notice: Discovair G2+', url: 'https://app.govly.com/public/opportunities/16844233' },
+        { label: 'Robin Radar: acoustic sensors', url: 'https://www.robinradar.com/blog/acoustic-sensors-drone-detection' },
+      ],
+      cost: { capex: 'No public price found. Game price $50,000 is a placeholder.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },
+    },
+  },
+  acoustic_l: {
+    product: 'ZVOOK listening station', size: 'L', name: 'Large acoustic sensor', short: 'ACL', model: 'acoustic', modelScale: 1.4, cost: 500, shotCost: 0, color: 0xef6c00, role: 'sensor', kind: 'acoustic', senses: 'acoustic', published: 1000, mount: 6, falseAlarm: 0.15,
+    health: 30, signature: 0.02, emits: [],
+    desc: 'Long-range listening station for loud targets. Very cheap and reaches furthest, but its bearing is coarse and it raises more false alarms. Noise and hills cut its reach.',
+    sapient: { nodeType: 'NODE_TYPE_ACOUSTIC', subType: ['Listening station', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1, noise: { az: 10 } },
+    ref: {
+      class: 'Networked long-range acoustic station',
+      analogues: ['ZVOOK listening station', 'Sky Fortress'],
+      published: 'The Telegraph reports that its sensors detect drones three miles away and cruise missiles at four. The figure is not given for any particular drone.',
+      basis: 'Game range 1 km is against a small FPV, an ASSUMPTION. A FW Strike is set five times louder, so it is heard at about the reported three miles. False alarms and bearing accuracy are assumptions.',
+      confidence: 'A press report of the maker’s claims',
+      sources: [{ label: 'The Telegraph, reprinted: acoustic sensors', url: 'https://www.lucorg.com/?p=17063' }],
+      cost: { capex: 'Reported at about £400 to manufacture, so about $500. "Large" here means its reach, not its price or bulk.', confidence: 'Press report of a manufacturing cost', sources: [{ label: 'The Telegraph, reprinted: acoustic sensors', url: 'https://www.lucorg.com/?p=17063' }] },
     },
   },
 };

@@ -9,6 +9,8 @@ import { RB_UNITS, rbDatum, round, clamp } from './core.js';
 // How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
 // the radar's low-flyer range is multiplied by this.
 const COVER_CLUTTER = [1.5, 0.7, 0.5, 0.5, 1.5]; // the last is water: open, so low flyers over it are easy to see
+const BUILT_UP = 2;
+const ACOUSTIC = { hillLoss: 0.5, noiseLoss: 0.5 }; // share of its reach kept behind a hill and in a built-up area: assumptions
 
 // How far this sensor reaches for this type of drone, before terrain and clutter. 0 means it can never detect it.
 export function reachFor(def, droneDef) {
@@ -17,6 +19,7 @@ export function reachFor(def, droneDef) {
   if (kind === 'radar') return def.range * Math.pow((droneDef.rcs ?? SENSING.refRcs) / SENSING.refRcs, 0.25);
   if (kind === 'camera') return def.range * ((droneDef.size ?? SENSING.refSize) / SENSING.refSize);
   if (kind === 'rf') return def.range * Math.sqrt(droneDef.rfPower ?? 1);
+  if (kind === 'acoustic') return def.range * (droneDef.sound ?? 1);
   return def.range;
 }
 
@@ -47,6 +50,11 @@ export function createSensors(core, feed) {
     let p = 1;
     if (def.lowAlt && dym - T3.groundAt(dxm, dzm) < def.lowAlt && r.hr > def.lowRange * COVER_CLUTTER[T3.coverAt(dxm, dzm)]) p *= SENSING.clutterPenalty; // lost in clutter
     const sight = T3.los(s.pos.x * m, antennaM(s), s.pos.z * m, dxm, dym, dzm);
+    if (kind === 'acoustic') { // sound carries over hills and through trees, but hills weaken it and a noisy place drowns it
+      if (!sight.clear) reach *= ACOUSTIC.hillLoss;
+      if (T3.coverAt(s.pos.x * m, s.pos.z * m) === BUILT_UP) reach *= ACOUSTIC.noiseLoss;
+      return p / (1 + Math.pow(r.rng / (reach * SENSING.pdEdge), SENSING.pdSlope));
+    }
     if (!sight.clear) return 0;
     if (kind === 'rf') reach *= Math.exp(-sight.canopy / TERRAIN.rfCanopyLength);
     else if (sight.canopy > TERRAIN.opticalCanopyTol) return 0;
@@ -70,6 +78,7 @@ export function createSensors(core, feed) {
     if (id === 'camera') {
       return [{ type: 'Air Vehicle', confidence: 0.95, sub_class: [sub('UAV', 0.9, 1, sub(d.def.airframe, 0.85, 2))] }];
     }
+    if (id === 'acoustic') return [{ type: 'Air Vehicle', confidence: 0.7, sub_class: [sub('UAV', 0.6, 1)] }]; // it sounds like a drone, not which one
     if (id === 'rf') { // a radio emitter is recognised as a UAV link, but not as an airframe type
       return [{ type: 'Air Vehicle', confidence: 0.85, sub_class: [sub('UAV', 0.8, 1)] }];
     }
@@ -111,7 +120,8 @@ export function createSensors(core, feed) {
     const conf = !d ? 0.3 + rand() * 0.2
       : kind === 'radar' ? clamp(0.55 + 0.4 * (1 - r.rng / def.range), 0.3, 0.98)
       : kind === 'camera' ? 0.85 + rand() * 0.1
-      : kind === 'rf' ? 0.75 + rand() * 0.15 : 0.9;
+      : kind === 'rf' ? 0.75 + rand() * 0.15
+      : kind === 'acoustic' ? 0.55 + rand() * 0.2 : 0.9;
 
     let objectId;
     if (d) { if (!s.objIds.has(d)) s.objIds.set(d, S.ulid()); objectId = s.objIds.get(d); } else objectId = S.ulid();
@@ -155,6 +165,7 @@ export function createSensors(core, feed) {
       if (p > 0 && rand() < p) found.push(measure(s, d));
     }
     if (s.def.falseAlarm && rand() < s.def.falseAlarm) found.push(measure(s, null));
+    s.detections = (s.detections || 0) + found.length; // false alarms included: the sensor cannot tell them apart
     for (const f of found) deliver(f.sent, () => feed(s, f)); // the tracker only hears it when it arrives
   }
 

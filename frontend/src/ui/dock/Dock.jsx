@@ -14,7 +14,7 @@ import { RunsTab } from './RunsTab.jsx';
 
 const TABS = [
   ['messages', 'Messages', MessagesTab], ['nodes', 'Nodes', NodesTab], ['plan', 'Plan', PlanTab], ['network', 'Network', NetworkTab],
-  ['spectrum', 'Spectrum', SpectrumTab], ['learn', 'Learn', LearnTab], ['cost', 'Cost', CostTab, 'cost'], ['systems', 'Sources', SourcesTab, 'systems'],
+  ['spectrum', 'Spectrum', SpectrumTab], ['learn', 'Learn', LearnTab], ['cost', 'Magazine depth', CostTab, 'cost'], ['systems', 'Sources', SourcesTab, 'systems'],
   ['saved', 'Saved', SavedTab], ['runs', 'Runs', RunsTab],
 ];
 

@@ -22,7 +22,7 @@ for (const [name, laydown] of Object.entries(LAYDOWNS)) {
   for (const seed of SEEDS) {
     setUp(sim, { seed, laydown });
     sim.state.warnedWire = true;
-    while (!sim.state.over && sim.state.wave < MAX_WAVES) playWave(sim);
+    while (!sim.state.over && sim.state.wave < MAX_WAVES) { playWave(sim); sim.commands.resupply(); } // as a player would
     waves.push(sim.state.over ? sim.state.wave : `${MAX_WAVES}+`);
     left.push(`$${(sim.state.budget / 1e6).toFixed(1)}M`);
   }

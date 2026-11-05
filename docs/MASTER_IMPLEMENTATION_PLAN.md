@@ -487,7 +487,16 @@ Radar 2D or 3D, panels, band, arcs and blanking, clutter filter and micro-Dopple
 
 ### Feature B: Magazine depth
 
-The Cost tab becomes **Magazine depth** and keeps all its cost information. Launchers have unlimited rounds today, so this adds a new game rule as well as a new name.
+The Cost tab becomes **Magazine depth** and keeps all its cost information.
+
+**What was built differs from the rules below, on the user's decisions.** Read this first; where it conflicts with the rest of this section, this wins.
+
+- **Both limits apply.** The budget still pays for every shot, and launcher prices do not include rounds. A launcher also has a magazine and storage, so it can run out of either. `munitions` and the `munitions_bought` column are therefore not needed.
+- **Ready and reserve stocks are separate, with a reload between them**, which this plan had left out. An emptied magazine reloads from storage: 12 and 24 rounds with 30 s for interceptors, 4 and 8 rounds with 60 s for missiles. The laser stores 300 s of beam, recharges while not firing, and locks out for 300 s if drained. Only the four-round missile magazine and the laser store have a source behind them; the rest are assumptions, editable in the Sources tab.
+- **The fusion node reads the magazine directly**, not through a SAPIENT `Empty` mode. A launcher that cannot fire fails its task with the reason, and is offered nothing until it can.
+- **The sandbox** reloads without using up storage, and its resupply is free.
+- **Resupply** is allowed between waves and buys back every missing round, emptiest launcher first if the budget is short. Rounds a launcher came with are paid for when fired, and rounds bought are paid for now and marked `prepaid`, so no round is paid for twice. `ledger.consumables` therefore includes bought rounds not yet fired, while `ledger.shots` counts only what was fired.
+- **Not built:** loading fewer rounds, rounds on 3D labels, expanding rows in the tab. Balance (B2) is still open.
 
 #### Tab layout
 
@@ -722,7 +731,7 @@ Check in a real browser at the end of Phase 5 and again at the end of Phase 8.
 - [x] Toggles: ranges, truth overlay, labels, highlight tracks
 - [x] Engagement authority: all three modes, approval cards, auto-pause and expiry
 - [x] Sandbox: wave levels, custom attacks, clear, exit keeps the laydown
-- [x] Reset run and New laydown, including the two-click confirmation
+- [x] Reset run and Clear map (once New laydown), including the two-click confirmation
 - [x] Replay: timeline, stepping, play, event markers, keyboard shortcuts
 - [x] Messages tab: filters, freeze, clear, export, inject fault, explain
 - [x] Nodes tab, and Plan tab with coverage maps

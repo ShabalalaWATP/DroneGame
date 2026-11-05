@@ -35,8 +35,11 @@ describe('the catalogue', () => {
       const [s, m, l] = sizeButtons(g).map((id) => STRUCTURES[id]);
       expect(s.range).toBeLessThan(m.range);
       expect(m.range).toBeLessThan(l.range);
-      expect(s.cost).toBeLessThan(m.cost);
-      expect(m.cost).toBeLessThan(l.cost);
+      // Real prices do not always rise with size: a large acoustic station is reported cheaper than a medium array, and a small laser dearer than the DragonFire figure.
+      if (['radar', 'rf', 'camera', 'jammer'].includes(g.kind)) {
+        expect(s.cost).toBeLessThan(m.cost);
+        expect(m.cost).toBeLessThan(l.cost);
+      }
     }
   });
 
@@ -61,7 +64,7 @@ describe('the toolbar', () => {
   it('has one row per kind, and picks a size with its button', () => {
     show();
     expect(document.querySelectorAll('.tool-row').length).toBe(TOOLBAR.length);
-    expect(document.querySelectorAll('.tool-sizes button').length).toBe(12);
+    expect(document.querySelectorAll('.tool-sizes button').length).toBe(TOOLBAR.length * 3);
     fireEvent.click($('[data-tool="radar_l"]'));
     expect(game.getTool()).toBe('radar_l');
     expect($('.tool.active').textContent).toContain('$2.5M');
@@ -79,11 +82,11 @@ describe('the toolbar', () => {
     expect(game.getTool()).toBeNull();
   });
 
-  it('remembers a size the wizard picks, and marks a single-size system for its spotlight', () => {
+  it('remembers a size the wizard picks, and marks each standard system for its spotlight', () => {
     show();
     act(() => game.setTool('jammer_l'));
     expect(game.toolChoice(group('jammer'))).toBe('jammer_l');
-    expect($('[data-tool="interceptor"]').className).toContain('tool');
+    expect($('[data-tool="interceptor"]')).not.toBeNull();
   });
 });
 
@@ -116,11 +119,22 @@ describe('the hotkeys', () => {
     expect(game.getTool()).toBe('rf_elysion');
   });
 
-  it('switches a single-size system off on the second press', () => {
+  it('reaches the new sizes and the acoustic row from their keys', () => {
     show();
     press('7');
     expect(game.getTool()).toBe('laser');
     press('7');
+    expect(game.getTool()).toBe('laser_l');
+    press('8');
+    expect(game.getTool()).toBe('acoustic');
+  });
+
+  it('switches a system with one size off on the second press', () => {
+    show();
+    const single = { kind: 'solo', classes: ['laser'] };
+    act(() => game.cycleTool(single));
+    expect(game.getTool()).toBe('laser');
+    act(() => game.cycleTool(single));
     expect(game.getTool()).toBeNull();
   });
 });

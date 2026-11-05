@@ -16,6 +16,7 @@ import { affordable, createLedger, resetLedger } from './economy.js';
 import * as laydown from './laydown.js';
 import { spawnDrone, removeDrone, updateDrones, spotterBonus } from './drones.js';
 import { opticalLos, updateStructures, updateMissiles } from './effectors.js';
+import { canFire, resupply } from './magazine.js';
 import { startWave, updateWaves } from './waves.js';
 import { enterSandbox, launchSandboxWave, launchSandboxAttack, clearSandboxDrones } from './sandbox.js';
 
@@ -53,7 +54,8 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
       if (s.pos.distanceTo(d.pos) > u(s.def.range)) return { ok: false, reasons: ['target outside effector range'] };
       if (!opticalLos(s, d)) return { ok: false, reasons: ['no line of sight to target'] };
       if (s.def.engages && !s.def.engages.includes(d.type)) return { ok: false, permanent: true, reasons: ['target outside engagement envelope (too fast or too high for this interceptor)'] };
-      if (!affordable(w, s.def)) return { ok: false, reasons: ['insufficient budget for this shot'] };
+      if (!affordable(w, s)) return { ok: false, reasons: ['insufficient budget for this shot'] };
+      if (!canFire(s)) return { ok: false, reasons: [s.reload > 0 ? 'reloading' : 'out of rounds'] };
       return { ok: true };
     },
   });
@@ -163,6 +165,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     leave,
     place: (id, x, z, settings) => laydown.place(w, id, x, z, settings),
     sell: (x, z) => laydown.sell(w, x, z),
+    resupply: () => resupply(w),
     startWave: () => startWave(w, beginRun),
     reset: (mode) => resetRun(mode),
     setAutoStart: (on) => { state.autoStart = on; },

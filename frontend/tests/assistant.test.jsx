@@ -135,7 +135,7 @@ describe('placing systems', () => {
   });
   it('is done with sensors once every kind is in', () => {
     opened();
-    act(() => { armed(); });
+    act(() => { setUp(game.sim, { seed: '1', laydown: [...MIXED, ['acoustic', 0, 700]] }); refresh(); });
     goToStep(2);
     expect($('.wz-tag.now')).toBeNull();
     click('Next');

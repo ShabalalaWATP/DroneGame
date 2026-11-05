@@ -99,7 +99,7 @@ describe('progress', () => {
     expect(stepStatus(sim, null).sensors).toBe(false);
     sim.addStructure('radar', -30, 0);
     expect(stepStatus(sim, null).sensors).toBe(true);
-    expect(sensorChecklist(sim).map((r) => [r.def.kind, r.done])).toEqual([['radar', true], ['rf', true], ['camera', false]]);
+    expect(sensorChecklist(sim).map((r) => [r.def.kind, r.done])).toEqual([['radar', true], ['rf', true], ['camera', false], ['acoustic', false]]);
   });
   it('needs everything wired, including the fusion node', () => {
     expect(stepStatus(sim, null).network).toBe(false);

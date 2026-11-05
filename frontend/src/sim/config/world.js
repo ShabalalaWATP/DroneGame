@@ -6,7 +6,7 @@
 // independent test results. Edit freely, or use the in-game Tuning panel.
 
 // Stored with saved laydowns and runs. Raise it when a change means old saves no longer replay the same.
-export const GAME_VERSION = '0.2.0';
+export const GAME_VERSION = '0.3.0';
 
 export const WORLD = {
   metresPerUnit: 20,     // 3D scene scale: 1 scene unit = this many metres
@@ -112,4 +112,4 @@ export const FUSION_DEF = {
 export const ADAPT = { evadePerWave: 0.07, evadeFloor: 0.25, jamResistPerWave: 0.05, jamResistCap: 0.95 };
 
 // Structures are drawn this much larger than true size. Muzzle heights scale with it, so it is part of the rules.
-export const STRUCT_SCALE = 3;
+export const STRUCT_SCALE = 1.8;

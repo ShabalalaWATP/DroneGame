@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { COMMS, DRONES, SENSING, SPECTRUM, WORLD } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
+import { magazineWord } from '../sim/magazine.js';
 import { reachFor } from '../sim/network/sensors.js';
 import { fmtTime, hex, useGame, useTick } from './hooks.js';
 import { stateWord } from './dock/NetworkSide.jsx';
@@ -24,6 +25,9 @@ function statusText(s, sim, moment) {
   const mode = moment ? moment.mode : s.mode;
   const live = !moment && (s.task || s.cue);
   const target = moment ? moment.trackShort : live && sim.net.tracks.get(live.trackId)?.short;
+  const word = def.magazine && magazineWord(moment || s, def);
+  if (word === 'Reloading') return `Reloading, ${Math.ceil((moment || s).reload)} s left`;
+  if (word === 'EMPTY') return 'Out of rounds';
   if (mode === 'Jam') return 'Jamming';
   if (mode === 'Standby') return 'Standing by';
   if (def.role === 'effector') return target ? `Engaging ${target}` : 'Ready';
@@ -32,18 +36,58 @@ function statusText(s, sim, moment) {
   return `Detecting, scanning every ${def.sapient.interval} s`;
 }
 
-// frame is the moment being reviewed, if any. It records the budget but not the reload.
-function Ammunition({ s, state, frame }) {
-  const def = s.def;
-  if (def.fire === 'jam') return 'None needed: no cost per use';
-  if (state.sandbox) return 'Free in the sandbox';
+// What one round or second of beam costs, and how many the budget still covers: a second limit, on top of the magazine.
+function PerShot({ def, state, frame }) {
+  if (state.sandbox) return <>{money(def.shotCost)}<span className="muted">Free in the sandbox</span></>;
   const covers = Math.floor((frame ? frame.budget : state.budget) / def.shotCost);
-  if (!covers) return <span className="warn">OUT OF BUDGET: cannot fire</span>;
-  if (def.fire === 'beam') return `Paid per second of beam: ${money(def.shotCost)}. Budget covers ${covers.toLocaleString('en-US')} s`;
+  if (!covers) return <>{money(def.shotCost)} <span className="warn">OUT OF BUDGET: cannot fire</span></>;
+  return <>{money(def.shotCost)}<span className="muted">Budget covers {def.fire === 'beam' ? `${covers.toLocaleString('en-US')} s` : plural(covers, 'shot')}</span></>;
+}
+
+// Every system has these rows, in this order, with figures of its own kind. now is the live system or the moment being reviewed,
+// which records the magazine but not the scans, the jamming or the time to the next shot.
+function Stores({ s, now, state, frame }) {
+  const def = s.def;
+  if (def.role === 'sensor') {
+    return (
+      <>
+        <Row label="Magazine">No rounds: a sensor fires nothing</Row>
+        {!frame && <Row label="Scans">{(s.scanId || 0).toLocaleString('en-US')} made, {plural(s.detections || 0, 'detection')}</Row>}
+        <Row label="Scan period">{def.sapient.interval} s</Row>
+        <Row label="Per use">No cost</Row>
+      </>
+    );
+  }
+  if (!def.magazine) {
+    return (
+      <>
+        <Row label="Magazine">No rounds: unlimited while powered</Row>
+        {!frame && <Row label="Jamming">{Math.round(s.jamTime || 0).toLocaleString('en-US')} s so far</Row>}
+        <Row label="Reload">None needed</Row>
+        <Row label="Per use">No cost</Row>
+      </>
+    );
+  }
+  const word = magazineWord(now, def);
+  const shown = word === 'Ready' ? <span className="muted">{!frame && s.cd > 0 ? `Next shot in ${s.cd.toFixed(1)} s` : 'Ready'}</span> : <span className="warn"> {word}</span>;
+  if (def.fire === 'beam') {
+    return (
+      <>
+        <Row label="Stored beam">{Math.ceil(now.rounds)} / {def.magazine} s{shown}</Row>
+        <Row label="Fired">{now.fired.toLocaleString('en-US')} s of beam</Row>
+        <Row label="In storage">None: it recharges</Row>
+        <Row label="Recharge">{def.reloadTime} s from empty, only while not firing</Row>
+        <Row label="Per second"><PerShot def={def} state={state} frame={frame} /></Row>
+      </>
+    );
+  }
   return (
     <>
-      Paid per shot: {money(def.shotCost)}. Budget covers {plural(covers, 'shot')}
-      <span className="muted">{frame ? '' : s.cd > 0 ? `Reloading ${s.cd.toFixed(1)} s, ` : 'Ready, '}{def.cooldown} s between shots</span>
+      <Row label="Magazine">{now.rounds} / {def.magazine} rounds{shown}</Row>
+      <Row label="Fired">{plural(now.fired, 'round')}</Row>
+      <Row label="In storage">{plural(now.storage, 'round')}{state.sandbox ? ', not used up in the sandbox' : ''}</Row>
+      <Row label="Reload">{def.reloadTime} s to fill the magazine, {def.cooldown} s between shots</Row>
+      <Row label="Per round"><PerShot def={def} state={state} frame={frame} /></Row>
     </>
   );
 }
@@ -169,14 +213,14 @@ function UnitCard({ s, game }) {
       <p className="up-desc">{s.custom?.name ? `${def.name}. ` : ''}{def.desc}</p>
       <Row label="Status">{status}</Row>
       <Row label="Health">{Math.max(Math.ceil(health), 0)} / {def.health}</Row>
-      {isEffector && <Row label="Ammunition"><Ammunition s={s} state={state} frame={frame} /></Row>}
+      <Stores s={s} now={moment || s} state={state} frame={frame} />
       <RangeRow s={s} net={net} live={!frame} />
       {limits && <Row label="Limits">{limits}</Row>}
       {def.role === 'sensor' && <Row label="Measures">{measuresOf(def)}</Row>}
       {isEffector && <Row label={s.jamBands ? 'Jamming' : 'Engages'}><Engages s={s} /></Row>}
       {!frame && <NetworkRow s={s} comms={net.comms} />}
       <Row label="Position">{positionOf(s)}</Row>
-      <Row label="Cost">{money(def.cost)}{def.shotCost ? ` · ${money(def.shotCost)} ${def.fire === 'beam' ? 'a second' : 'a shot'}` : ''}</Row>
+      <Row label="Price">{money(def.cost)}</Row>
       {isEffector && !frame && <Totals def={def} ledger={ledger} />}
       <Row label="Modelled on">{def.ref.analogues.join(', ')}<span className="muted">{def.ref.confidence}</span></Row>
       </>}

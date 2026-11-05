@@ -43,7 +43,7 @@ export function Toolbar() {
           </div>
         );
       })}
-      <button className={`tool${tool === 'sell' ? ' active' : ''}`} title="Click a structure to sell it for a refund" onClick={() => game.setTool('sell')}>
+      <button id="tool-sell" className={`tool${tool === 'sell' ? ' active' : ''}`} title="Click a structure to sell it for a refund" onClick={() => game.setTool('sell')}>
         <div className="n">Sell</div><div className="c">{Math.round(BUILD.sellRefund * 100)}%</div><div className="k">[X]</div>
       </button>
     </div>

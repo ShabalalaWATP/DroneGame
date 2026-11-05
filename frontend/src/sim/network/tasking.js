@@ -2,6 +2,7 @@
 
 import * as S from '../sapient.js';
 import { FUSION, DRONES } from '../config/index.js';
+import { canFire } from '../magazine.js';
 
 // Would this effector ever take this airframe? Unknown tracks are offered, and the effector can reject them.
 const takesAirframe = (def, airframe) => !def.engages || !airframe || airframe === 'Unknown' || def.engages.some((t) => DRONES[t].airframe === airframe);
@@ -112,6 +113,12 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
             deliver(res, () => { s.mode = want; s.modePending = null; sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED'); sendStatus(s, true); });
           }
         }
+        continue;
+      }
+      // Out of rounds or reloading: give the target up so another launcher can take it, and offer this one nothing for now.
+      // shortcut: the fusion node reads the magazine directly. Report it in SAPIENT status if a lost launcher should be able to look armed.
+      if (!canFire(s)) {
+        completeTask(s, 'TASK_STATUS_FAILED', [s.reload > 0 ? 'reloading' : 'out of rounds']);
         continue;
       }
       // finish a task that has run its course

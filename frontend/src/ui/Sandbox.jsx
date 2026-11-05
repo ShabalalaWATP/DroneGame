@@ -16,6 +16,7 @@ export function Sandbox() {
   const { state, drones } = sim;
   const { style, handle } = useMovable();
   const [form, setForm] = useState({ type: Object.keys(DRONES)[0], count: '3', dir: '0', gap: '4' });
+  const [small, setSmall] = useState(false); // shrunk to its title and live figures, to watch an attack
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const launch = () => commands.launchSandboxAttack({
     type: form.type, bearingDeg: form.dir,
@@ -24,7 +25,9 @@ export function Sandbox() {
   return (
     <>
       <div id="sandbox" className={`panel${state.sandbox ? '' : ' hidden'}`} data-movable style={style}>
+        <button id="sb-minimise" aria-expanded={!small} aria-label={small ? 'Expand the sandbox panel' : 'Minimise the sandbox panel'} title={small ? 'Expand' : 'Minimise'} onClick={() => setSmall(!small)}>{small ? '▢' : '–'}</button>
         <h3 title="Drag to move. Double-click to put it back." {...handle}>SANDBOX</h3>
+        {!small && <>
         <div className="note">Attack your laydown without consequences: the site and your systems cannot be damaged and shots are free. Leaving resets the run and keeps your laydown, so you can still place and wire systems here.</div>
         <label>Enemy has adapted to wave{' '}
           <select id="sb-level" value={state.sbLevel} onChange={(e) => commands.setSandboxLevel(Number(e.target.value))}>
@@ -42,6 +45,7 @@ export function Sandbox() {
           <button id="sb-clear" onClick={() => commands.clearSandboxDrones()}>Clear drones</button>
           <button id="sb-exit" onClick={() => commands.exitSandbox()}>Exit sandbox</button>
         </div>
+        </>}
         <div id="sb-info" className="note">{state.sbQueue.length} drone(s) queued · {drones.length} in the air · shots fired (free here) {money(state.sbSpent)} · leaks {state.leaks}</div>
       </div>
       <div id="sandbox-banner" className={state.sandbox ? '' : 'hidden'}>SANDBOX: the site cannot be damaged. Exit sandbox to reset.</div>
