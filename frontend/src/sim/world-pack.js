@@ -4,7 +4,7 @@
 import { WORLD } from './config/index.js';
 import { makeWorld, pickMasts } from './world.js';
 import { hashSeed, mulberry32 } from './rng.js';
-import { gridRef } from './bng.js';
+import { gridRef } from './grids.js';
 
 const ID = /^pack:([0-9a-f]{32}):(\d{6}):(\d{7}):real$/;
 const CELL = 20, MAX_N = 3001, WATER = 4;
@@ -48,6 +48,7 @@ export function siteProblem(pack, e0, n0) {
 }
 
 export const snap = (v) => Math.round(v / CELL) * CELL;
+export const BUILT_HALF = 15000; // how far a pack built from the start screen reaches from its middle: the builder's default of 30 km across
 
 // Longitude and latitude of a point in metres east and north of the site, from the pack's fit.
 export function latLonOf(geo, eastM, northM) {

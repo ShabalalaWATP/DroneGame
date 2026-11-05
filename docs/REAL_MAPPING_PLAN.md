@@ -539,6 +539,30 @@ The earlier draft made three small asks of the refactor.
 | Pass `deploy` one world value | **Done:** `deploy(seed, world)` takes one string. World choice still needs its own component, which M4 adds. |
 | Validate coordinates against the world's `R` | **Withdrawn.** The backend holds no packs, so it cannot read `R`. Every world cut from a pack has the same 7 km `R`, so the fixed `WORLD_LIMIT` in `schemas.py` is correct. Revisit only if worlds change size. |
 
+## Estonia
+
+Estonia was added as a second grid, starting with Tapa. Alex asked for it after trying the world map.
+
+**The design.** Great Britain's northings stop at 1,300 km and Estonian ones start at 6,365 km, so a position says for itself which grid it is on (`frontend/src/sim/grids.js`). World identities, saved laydowns and pack headers needed no new field, and the rules never see a grid at all, only metres around the site. The grid is L-EST97 (EPSG:3301), checked against pyproj to under 0.05 m.
+
+**The sources**, all from the Land and Spatial Development Board under its [open data licence](https://geoportaal.maaruum.ee/opendata-licence), which allows commercial use and redistribution, and asks for the owner, title and age of the data:
+
+| What | Source | Size | Reveals the area? |
+|---|---|---|---|
+| Ground heights | `DTM_10m_eesti.tif`, 10 m, from lidar | 2.2 GB | No, whole country |
+| Tree and building heights | `ndsm_5m_2020-2023_kogu_Eesti.zip`, 5 m, one file per square km | 3.8 GB | No, whole country |
+| Buildings, woods, water, roads, power lines | Five `ETAK_Eesti_SHP_*.zip` themes | 1.3 GB | No, whole country |
+| Map picture | `epk_v` tiles at 3.9 m per pixel, 930 for a 30 km pack | About 16 MB, in about 10 minutes | Yes, to the agency |
+| Satellite | Sentinel-2, as in Great Britain | Fetched | Yes, to AWS |
+
+**Choices worth knowing.** Whole-country files were preferred over per-sheet requests, because getting them says nothing about the site, and later builds need no heights or features from the internet. The agency's terms prefer its tiles to its live map service for base maps, and ask for reasonable load, so the builder fetches one tile at a time with a pause. It got HTTP 429 from the download site during research when asking for many small ranges, so it fetches each file once and waits when refused. Lidar covers the whole pack rather than the middle 14 km, because it is already on the machine by then.
+
+**Measured at Tapa.** The national files take 6.8 GB, and downloaded at 8 to 13 MB/s. The whole first build took 19 minutes, of which about 7 minutes was downloading, and about 10 minutes the map tiles. Heights and features alone rebuild in under a minute. The finished pack is 17.8 MB, with 16,436 buildings, 2,342 woods, 13,636 roads and 19 power lines, heights from 69.5 to 143.3 m, and a position fit good to 0.15 m. Three waves of the mixed laydown played through the real rules, with every drone above the ground, the same result each time, and positions reported to within 3 mm of the grid's own answer.
+
+**Things the data taught.** The lidar zip uses Deflate64, which Python's `zipfile` cannot read, so it is read through GDAL, and only a spread of its sheets can be checked after download. A `where` filter on a shapefile needs its field among the columns read, or it silently matches nothing.
+
+**Known limits.** Estonian data stops at the national border. At Narva, about half of a 14 km world around the city has no heights or detail, and the builder treats ground with no data as water, as it does for sea. The start card says so, and a site well west of the city avoids most of it. Copernicus 30 m heights could fill the Russian side, but that is untested. Place names are not in ETAK, so names come only from the map picture, and `EGM2008` stands in for the local height system when reporting altitude, as PROJ has no grid for EH2000.
+
 ## Assumptions to confirm
 
 Set as defaults. Each is cheap to change now.
@@ -546,11 +570,11 @@ Set as defaults. Each is cheap to change now.
 | Assumption | Default | If wrong |
 |---|---|---|
 | "GRIDS" means a grid overlay and grid references | BNG 6, 8 and 10 figure | MGRS needs one more small module, and display only |
-| Coverage | Great Britain | Elsewhere needs UTM and global data (for example Copernicus), so pack building changes but the app design holds |
+| Coverage | Great Britain and Estonia | Each new country needs its own open data and grid. See "Estonia" below for what that took |
 | "Offline" | A laptop with no internet, using packs built beforehand | A truly air-gapped build needs the national files and builder carried across, and that is already possible |
 | Licensing | Open data only | Paid OS products (Terrain 5, Premium zooms) would need their own terms checked, especially on storage |
 | How the app is used | Possibly commercial, so only sources with no non-commercial limit | Non-commercial: EOxCloudless could replace building a composite, if its offline rights are confirmed. Public sector: Aerial Photography GB may be open to you. |
 
 ## Left out on purpose
 
-MGRS and non-GB maps, national aerial imagery (it needs a public sector or paid licence), Google imagery, named critical-site presets, full 3D building shapes, weather, Premium OS zooms, worlds spanning several packs, a tile streaming engine, and laydown file export (no such feature exists today, and it would cut against keeping laydowns local).
+MGRS, maps beyond Great Britain and Estonia, national aerial imagery (it needs a public sector or paid licence), Google imagery, named critical-site presets, full 3D building shapes, weather, Premium OS zooms, worlds spanning several packs, a tile streaming engine, and laydown file export (no such feature exists today, and it would cut against keeping laydowns local).

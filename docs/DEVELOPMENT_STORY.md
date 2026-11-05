@@ -123,6 +123,22 @@ Alex confirmed the project is non-commercial, which allowed EOxCloudless for sat
 
 Alex then found that a sensor could not stand in a gap between houses. Placement read the 20 m grid, where any cell with enough building in it counts as solid, so about 57% of marked spots on both real maps were not on a building at all. Placement on real maps now reads the true outlines. Line of sight still reads the grid, as changing it would change how every real-map run plays.
 
+## Choosing a site
+
+Alex found choosing a site clunky, and could not tell how to do it. The start buttons were below the fold, the map opened zoomed into one pack with no sign of the others, the ways to choose were scattered around the card, and **Guide me through it** stayed disabled until a site was already chosen, so the guide could not help with the choice.
+
+The start card now lays out three numbered ways beside a bigger map, with the buttons always in reach, and all of it works without the guide. **Guide me through it** now starts on the card, and says what to do next from what has been chosen. The map highlights map packs, the lidar inside them, and the 100 km squares of OS data already downloaded. Choosing somewhere with no map lists what a build would use and what it would download. That comparison happens in the browser against a list of squares from the backend, so looking at a spot sends nothing anywhere. The map only zooms for a choice the player made.
+
+Alex then asked how to switch map tiles, because hiding Leaflet's layer list behind its icon had made it hard to find, and suggested a world map with obvious overlays for loaded data. So the map now opens on the world, with a dot of a fixed size for each pack, which can be clicked from any zoom. Buttons above the map choose the style, and tick boxes below it control the loaded data and double as its legend.
+
+Alex also asked to select anywhere in the world. The map can move there, but real maps are not global: packs need OS open data, and real-world coordinates are on the national grid. So a spot outside Great Britain is refused plainly, and global maps are recorded as a project of their own.
+
+## Estonia
+
+Alex asked whether Estonia had topographic maps, around Narva or Tapa. It does, and they are free to use, so Estonia became the first real maps outside Great Britain, starting with Tapa, because Estonian data stops at the Russian border and leaves half of Narva empty.
+
+The saving grace was that northings on the two grids never overlap, so a position says which grid it is on, and nothing that carries an easting and northing needed to change. The builder gained a second set of sources. Whole-country files were chosen over asking for one area at a time, because downloading them gives nothing away about the site, even though it costs about 7 GB once.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

@@ -1,25 +1,8 @@
-// British National Grid: grid references, typed positions, and turning a GPS position into easting and northing.
+// British National Grid: grid references, and turning a GPS position into easting and northing and back.
 
 const LETTERS = 'ABCDEFGHJKLMNOPQRSTUVWXYZ'; // the grid has no I
-const EAST_NORTH = /^\s*E?\s*(\d{4,7}(?:\.\d+)?)\s*E?\s*[,\s]\s*N?\s*(\d{4,7}(?:\.\d+)?)\s*N?\s*$/i;
-const LAT_LON = /^\s*(-?\d{1,2}(?:\.\d+)?)\s*°?\s*([NS]?)\s*[,\s]\s*(-?\d{1,3}(?:\.\d+)?)\s*°?\s*([EW]?)\s*$/i;
 
 export const onGrid = (e, n) => e >= 0 && e < 700000 && n >= 0 && n < 1300000;
-
-// A grid reference, eastings then northings in metres, or latitude then longitude in decimal degrees.
-// Gives { e, n }, which may be off the grid (check with onGrid), or null if it cannot be read.
-export function parsePosition(text) {
-  const grid = parseGridRef(text);
-  if (grid) return grid;
-  const metres = EAST_NORTH.exec(text || '');
-  if (metres) return { e: Number(metres[1]), n: Number(metres[2]) };
-  const degrees = LAT_LON.exec(text || '');
-  if (!degrees) return null;
-  const [, lat, ns, lon, ew] = degrees;
-  if ((lat.startsWith('-') && ns) || (lon.startsWith('-') && ew)) return null; // "-1.7 W" could mean either side of Greenwich
-  const latitude = (/s/i.test(ns) ? -1 : 1) * Number(lat), longitude = (/w/i.test(ew) ? -1 : 1) * Number(lon);
-  return Math.abs(latitude) > 90 || Math.abs(longitude) > 180 ? null : wgs84ToBng(latitude, longitude);
-}
 
 export function parseGridRef(text) {
   const match = /^\s*([A-HJ-Za-hj-z]{2})\s*(\d*)\s*(\d*)\s*$/.exec(text || '');
@@ -66,4 +49,27 @@ export function wgs84ToBng(latDeg, lonDeg) {
   const northing = M - 100000 + (nu / 2) * sinP * cosP * dl ** 2 + (nu / 24) * sinP * cosP ** 3 * (5 - t2 + 9 * eta2) * dl ** 4 + (nu / 720) * sinP * cosP ** 5 * (61 - 58 * t2 + t2 * t2) * dl ** 6;
   const easting = 400000 + nu * cosP * dl + (nu / 6) * cosP ** 3 * (nu / rho - t2) * dl ** 3 + (nu / 120) * cosP ** 5 * (5 - 18 * t2 + t2 * t2 + 14 * eta2 - 58 * t2 * eta2) * dl ** 5;
   return { e: easting, n: northing };
+}
+
+// The grid back to GPS, by stepping towards the answer through wgs84ToBng, so the two always agree. Only used to draw on a map.
+export function bngToWgs84(e, n) {
+  const STEP = 0.001;
+  let lat = 49 + n / 111000, lon = -2 + (e - 400000) / 70000;
+  for (let i = 0; i < 5; i++) {
+    const here = wgs84ToBng(lat, lon), east = wgs84ToBng(lat, lon + STEP), north = wgs84ToBng(lat + STEP, lon);
+    const a = (east.e - here.e) / STEP, b = (north.e - here.e) / STEP, c = (east.n - here.n) / STEP, d = (north.n - here.n) / STEP;
+    const det = a * d - b * c, de = e - here.e, dn = n - here.n;
+    lon += (d * de - b * dn) / det;
+    lat += (a * dn - c * de) / det;
+  }
+  return { lat, lon };
+}
+
+// The 100 km squares that ground this far around a point touches, worked out as the map builder does.
+export function squaresAround(e, n, half) {
+  const SQUARE = 100000, found = new Set(), down = (v) => Math.floor(v / SQUARE) * SQUARE;
+  for (let x = down(e - half); x < e + half; x += SQUARE) {
+    for (let y = down(n - half); y < n + half; y += SQUARE) if (onGrid(x, y)) found.add(gridRef(x, y).slice(0, 2));
+  }
+  return [...found].sort();
 }

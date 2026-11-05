@@ -1,7 +1,9 @@
 // Real worlds in the rules: the grid arithmetic, checking and cutting a pack, and a full game on one.
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { gridRef, onGrid, parseGridRef, parsePosition, wgs84ToBng } from '../src/sim/bng.js';
+import { bngToWgs84, parseGridRef, squaresAround, wgs84ToBng } from '../src/sim/bng.js';
+import { fromLatLon, gridFor, gridRef, onGrid, parsePosition, toLatLon } from '../src/sim/grids.js';
+import { lest97ToWgs84, wgs84ToLest97 } from '../src/sim/lest97.js';
 import { cutWorld, latLonOf, parsePack, parseWorldId, siteProblem, snap, worldId, worldLabel } from '../src/sim/world-pack.js';
 import { createSimulation } from '../src/sim/simulation.js';
 import { terrainState } from '../src/sim/terrain.js';
@@ -62,6 +64,61 @@ describe('grid references', () => {
   ])('reads %s as off the grid', (text) => {
     const { e, n } = parsePosition(text);
     expect(onGrid(e, n)).toBe(false);
+  });
+  it.each([[56.79685, -5.0036], [52.6576, 1.7179], [50.07, -5.71], [58.64, -3.07], [60.8, -0.8], [49.9, -6.3]])('turns the grid back into GPS position %f, %f', (lat, lon) => {
+    const { e, n } = wgs84ToBng(lat, lon), back = bngToWgs84(e, n);
+    expect(Math.abs(back.lat - lat)).toBeLessThan(1e-6);
+    expect(Math.abs(back.lon - lon)).toBeLessThan(1e-6);
+  });
+  it('finds the 100 km squares a map would touch, as the builder does', () => {
+    expect(squaresAround(422000, 166000, 15000)).toEqual(['SU']);
+    expect(squaresAround(400000, 200000, 15000)).toEqual(['SO', 'SP', 'ST', 'SU']);
+    expect(squaresAround(5000, 5000, 15000)).toEqual(['SV']); // the other three are off the grid
+  });
+  // the expected values come from pyproj, EPSG:3301
+  it.each([
+    ['Tapa', 59.2606, 25.9587, 611707.6, 6570775.9], ['Narva', 59.3772, 28.1903, 738046.72, 6589571.88], ['Tallinn', 59.437, 24.7536, 542763.37, 6589036.28],
+    ['Saaremaa', 58.25, 22.5, 411930.71, 6457563.99], ['Valga', 57.78, 26.03, 620762.83, 6406059.12],
+  ])('puts %s on the Estonian grid, and back again', (_, lat, lon, e, n) => {
+    const got = wgs84ToLest97(lat, lon), back = lest97ToWgs84(e, n);
+    expect(Math.hypot(got.e - e, got.n - n)).toBeLessThan(0.05);
+    expect(Math.abs(back.lat - lat)).toBeLessThan(1e-6);
+    expect(Math.abs(back.lon - lon)).toBeLessThan(1e-6);
+  });
+  it('tells which grid a position is on from the position alone', () => {
+    expect(onGrid(611700, 6570700)).toBe(true);
+    expect(onGrid(800000, 6570700)).toBe(false); // past Estonia
+    expect(onGrid(611700, 2000000)).toBe(false); // between the two grids
+    expect(gridRef(611789, 6570789)).toBe('E 611700 N 6570700');
+    expect(gridRef(611789, 6570789, 10)).toBe('E 611789 N 6570789');
+    expect(gridRef(800000, 6570700)).toBe('off the grid');
+    expect(gridRef(422000, 166000)).toBe('SU 220 660');
+    expect(toLatLon(611708, 6570776).lon).toBeCloseTo(25.9587, 4);
+    expect(toLatLon(422000, 166000).lon).toBeCloseTo(-1.71, 1);
+    expect(gridFor(6570700)).toBe(wgs84ToLest97);
+    expect(gridFor(166000)).toBe(wgs84ToBng);
+  });
+  it('puts a GPS position on the grid that covers it, and refuses the rest', () => {
+    expect(fromLatLon(59.2606, 25.9587)).toEqual(wgs84ToLest97(59.2606, 25.9587));
+    expect(fromLatLon(51.39, -1.68)).toEqual(wgs84ToBng(51.39, -1.68));
+    for (const [lat, lon] of [[60.17, 24.94], [56.95, 24.1], [55.75, 37.62], [48.85, 2.35], [-33.9, 18.4]]) { // Helsinki, Riga, Moscow, Paris, Cape Town
+      const { e, n } = fromLatLon(lat, lon);
+      expect(onGrid(e, n)).toBe(false);
+    }
+  });
+  it.each([
+    ['59.2606, 25.9587', 611708, 6570776], ['59.2606N 25.9587E', 611708, 6570776], ['611708 6570776', 611708, 6570776],
+    ['6570776 611708', 611708, 6570776], ['E 611700 N 6570700', 611700, 6570700], ['611700E 6570700N', 611700, 6570700],
+  ])('reads the Estonian position %s', (text, e, n) => {
+    const got = parsePosition(text);
+    expect(Math.hypot(got.e - e, got.n - n)).toBeLessThan(1);
+    expect(onGrid(got.e, got.n)).toBe(true);
+  });
+  it('writes a world on the Estonian grid into the same identity, and reads it back', () => {
+    const id = worldId(HASH, 611700, 6570700);
+    expect(parseWorldId(id)).toEqual({ hash: 'a'.repeat(32), e0: 611700, n0: 6570700 });
+    expect(id.length).toBeLessThanOrEqual(64);
+    expect(worldLabel(id)).toBe('Real map, E 611700 N 6570700');
   });
   it('counts a point as on the grid only inside its limits', () => {
     expect(onGrid(0, 0)).toBe(true);

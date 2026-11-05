@@ -37,6 +37,6 @@ const resource = (path) => ({
 export const createApi = () => ({
   laydowns: { ...resource('/laydowns'), replace: (id, body) => request('PUT', `/laydowns/${id}`, body) },
   figureSets: resource('/figure-sets'),
-  packs: { list: () => request('GET', '/packs'), buildStatus: () => request('GET', '/packs/build'), build: (body) => request('POST', '/packs/build', body) },
+  packs: { list: () => request('GET', '/packs'), downloads: () => request('GET', '/packs/downloads'), buildStatus: () => request('GET', '/packs/build'), build: (body) => request('POST', '/packs/build', body) },
   runs: { ...resource('/runs'), page: (limit, offset) => request('GET', `/runs?limit=${limit}&offset=${offset}`) },
 });

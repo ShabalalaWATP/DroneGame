@@ -3,16 +3,17 @@
 
 import { Blob as NodeBlob } from 'node:buffer';
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import L from 'leaflet';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGame } from '../src/game.js';
 import { createPackStore, decodePack } from '../src/api/pack-store.js';
 import { resetAllFigures } from '../src/sim/config/index.js';
-import { parseWorldId } from '../src/sim/world-pack.js';
+import { parseWorldId, worldId } from '../src/sim/world-pack.js';
 import { view } from '../src/render/view.js';
 import { tilesOver } from '../src/render/map-texture.js';
 import { GameContext } from '../src/ui/hooks.js';
 import { Overlay } from '../src/ui/Overlay.jsx';
-import { MapControls, nextBaseMap } from '../src/ui/MapControls.jsx';
+import { MapControls, mapName, nextBaseMap } from '../src/ui/MapControls.jsx';
 import { ControlPanel } from '../src/ui/ControlPanel.jsx';
 import { SavedTab } from '../src/ui/dock/SavedTab.jsx';
 import { ringZone } from '../src/zone.js';
@@ -151,7 +152,7 @@ describe('choosing a world', () => {
     const { pack } = await decodePack(buffer);
     entry = { file: 'a.sgmap', hash: pack.header.gridsSha256, name: 'Fixture', east: CENTRE.east, north: CENTRE.north, half: 8000, tier: 'lidar', lidarHalf: 7000 };
     const api = createFakeApi();
-    api.packs = { list: vi.fn(async () => [entry]), build: vi.fn(async () => ({ running: true, message: 'Starting' })), buildStatus: vi.fn(async () => ({ running: false, ok: true, message: 'Finished' })) };
+    api.packs = { list: vi.fn(async () => [entry]), downloads: vi.fn(async () => ({ terrain50: true, squares: ['TF'] })), build: vi.fn(async () => ({ running: true, message: 'Starting' })), buildStatus: vi.fn(async () => ({ running: false, ok: true, message: 'Finished' })) };
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, blob: async () => new NodeBlob([buffer]) })));
     vi.stubGlobal('indexedDB', undefined);
     game = createGame({ seed: '1', terrainSeed: '1', api, storage: createFakeStorage() });
@@ -246,6 +247,136 @@ describe('choosing a world', () => {
     fireEvent.click($('#site-ref-go'));
     await until(() => $('#pack-build'));
     expect($('#btn-deploy').disabled).toBe(true);
+  }, 30000);
+  it('guides the choice of a site before deploying, then carries on into the wizard', async () => {
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    await until(() => $('#pack-list').options.length === 2);
+    expect($('#site-guide')).toBeNull(); // nobody has to have the guide
+    fireEvent.click($('#btn-guide'));
+    expect(game.sim.state.started).toBe(false);
+    expect($('#site-guide').textContent).toContain('Where do you want to defend?');
+    expect($('#btn-guide').disabled).toBe(true);
+    expect($('#btn-guide').textContent).toBe('Needs a ready map first');
+    type('#site-ref', '56.8, -5');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#site-guide').textContent.includes('No map at NN'));
+    expect($('#btn-guide').disabled).toBe(true);
+    type('#site-ref', 'SU 225 665');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#site-guide').textContent.includes('Ready at SU 225 665'));
+    expect($('#site-guide').textContent).toContain('Fixture');
+    expect($('#btn-guide').textContent).toBe('Defend here and carry on');
+    fireEvent.click($('#btn-guide'));
+    expect(game.sim.state.started).toBe(true);
+    expect(view.wizard).toBe('open');
+    expect(location.search).not.toContain('terrain'); // the site stays out of the address
+  }, 30000);
+  it('lets the guide be closed, and leaves generated ground to go straight to the wizard', async () => {
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    fireEvent.click($('#btn-guide'));
+    fireEvent.click($('#site-guide button'));
+    expect($('#site-guide')).toBeNull();
+    expect($('#btn-guide').textContent).toBe('Guide me through it');
+    fireEvent.click($('#btn-guide'));
+    fireEvent.click($('#world-generated'));
+    expect($('#btn-guide').disabled).toBe(false);
+    fireEvent.click($('#btn-guide'));
+    expect(game.sim.state.started).toBe(true);
+    expect(view.wizard).toBe('open');
+  }, 30000);
+  it('says what a build would download, from what this computer already has', async () => {
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    await until(() => $('#pack-list').options.length === 2);
+    const rows = () => [...$('#pack-needs').children].map((row) => row.textContent);
+    type('#site-ref', '52.9, 0.5'); // in TF, which this computer has
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#pack-needs'));
+    expect(rows()[0]).toContain('On this computer');
+    expect(rows()[1]).toMatch(/OS maps of TF.*On this computer/);
+    expect(rows()[2]).toMatch(/Lidar.*Download, up to about 0\.50 GB/);
+    expect($('#pack-build').textContent).toContain('Up to about 0.50 GB to download');
+    type('#site-ref', '56.8, -5'); // in NN, which it does not
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#pack-build').textContent.includes('NN'));
+    expect(rows()[1]).toMatch(/OS maps of NN.*Download, up to about 0\.55 GB/);
+    expect($('#pack-build').textContent).toContain('Up to about 1.1 GB to download');
+    fireEvent.click($('#pack-lidar'));
+    expect(rows().join()).not.toContain('Lidar');
+    expect($('#pack-build').textContent).toContain('Up to about 0.55 GB to download');
+  }, 30000);
+  it('offers an Estonian map with its own downloads, and sends the build on the Estonian grid', async () => {
+    game.api.packs.downloads = vi.fn(async () => ({ terrain50: true, squares: ['SU'], estonia: { heights: true, features: false, surface: false } }));
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    await until(() => $('#pack-list').options.length === 2);
+    type('#site-ref', '59.2606, 25.9587');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#pack-needs'));
+    expect($('#pack-build').textContent).toContain('E 611700 N 6570700');
+    const rows = () => [...$('#pack-needs').children].map((row) => row.textContent);
+    expect(rows()[0]).toMatch(/ground heights.*On this computer/);
+    expect(rows()[1]).toMatch(/buildings, roads.*Download, up to about 1\.3 GB/);
+    expect(rows()[2]).toMatch(/Lidar.*Download, up to about 3\.8 GB/);
+    expect(rows().join()).toContain('Basic map tiles');
+    expect($('#pack-build').textContent).toContain('Up to about 5.1 GB to download');
+    expect($('#pack-build').textContent).toContain('Estonian data stops at the national border');
+    fireEvent.click($('#pack-build-go'));
+    await until(() => game.api.packs.build.mock.calls.length);
+    expect(game.api.packs.build.mock.calls[0][0]).toEqual({ east: 611708, north: 6570776, lidar: true });
+    expect(location.search + location.hash).toBe(''); // the site stays out of the address
+  }, 30000);
+  it('calls the map by the right name in each country', () => {
+    expect(mapName('os', worldId('a'.repeat(32), 422000, 166000))).toBe('OS map');
+    expect(mapName('os', worldId('a'.repeat(32), 611700, 6570700))).toBe('Basic map');
+    expect(mapName('satellite', worldId('a'.repeat(32), 611700, 6570700))).toBe('Satellite');
+  });
+  it('still offers a build when the save server cannot say what it has', async () => {
+    game.api.packs.downloads = vi.fn(async () => { throw new Error('down'); });
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    await until(() => $('#pack-list').options.length === 2);
+    type('#site-ref', '56.8, -5');
+    fireEvent.click($('#site-ref-go'));
+    await until(() => $('#pack-build'));
+    expect($('#pack-needs')).toBeNull();
+    expect($('#pack-build').textContent).toContain('This can download');
+  }, 30000);
+  it('switches map style and loaded data from controls that can be seen', async () => {
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    await until(() => $('.site-map-styles button.on'));
+    const style = (name) => [...document.querySelectorAll('.site-map-styles button')].find((b) => b.textContent === name);
+    const tick = (name) => [...document.querySelectorAll('.site-legend label')].find((l) => l.textContent === name).querySelector('input');
+    expect([...document.querySelectorAll('.site-map-styles button')].map((b) => b.textContent)).toEqual(['Street', 'Light', 'Dark', 'Satellite', 'Hybrid', 'No live map']);
+    expect(style('Street').getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(style('Dark'));
+    expect(style('Dark').getAttribute('aria-pressed')).toBe('true');
+    expect(style('Street').getAttribute('aria-pressed')).toBe('false');
+    expect(tick('Lidar heights').checked).toBe(true);
+    fireEvent.click(tick('Lidar heights'));
+    expect(tick('Lidar heights').checked).toBe(false);
+    expect(tick('Map pictures').checked).toBe(false);
+    fireEvent.click(tick('Map pictures'));
+    expect(tick('Map pictures').checked).toBe(true);
+    fireEvent.click(style('Street')); // the next test starts from the usual style
+    expect($('#site-map-mine').textContent).toContain('My maps');
+    fireEvent.click($('#site-map-world'));
+  }, 30000);
+  it('refuses a click outside Great Britain, without offering to build there', async () => {
+    const made = vi.spyOn(L, 'map');
+    show(<Overlay />);
+    fireEvent.click($('#world-real'));
+    await until(() => $('#pack-list').options.length === 2);
+    act(() => { made.mock.results[0].value.fire('click', { latlng: L.latLng(35.7, 139.7) }); });
+    await until(() => $('#world-note')?.textContent.includes('outside Great Britain'));
+    expect($('#pack-build')).toBeNull();
+    expect($('#btn-deploy').disabled).toBe(true);
+    act(() => { made.mock.results[0].value.fire('click', { latlng: L.latLng(51.3954, -1.6808) }); }); // and back again
+    await until(() => $('#site-info')?.textContent.includes('Ready to play'));
+    made.mockRestore();
   }, 30000);
   it('takes typed latitude and longitude or eastings and northings, refuses off the grid, and keeps them out of the URL', async () => {
     show(<Overlay />);
@@ -384,6 +515,7 @@ describe('choosing a world', () => {
     it('keeps the wizard closed when a real deploy is refused', async () => {
       show(<Overlay />);
       fireEvent.click($('#world-real'));
+      fireEvent.click($('#btn-guide'));
       expect($('#btn-guide').disabled).toBe(true);
       await until(() => $('#pack-list').options.length === 2);
       type('#pack-list', entry.hash.slice(0, 32));

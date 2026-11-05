@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { wgs84ToBng } from '../sim/bng.js';
+import { gridFor } from '../sim/grids.js';
 import { latLonOf } from '../sim/world-pack.js';
 import { contourLines, topoPixels } from './topo.js';
 
@@ -26,7 +27,7 @@ function restyle({ g, size }, steps) {
 }
 
 // The OSM tiles over a world, and where three of each tile's corners land on the national grid.
-export function tilesOver({ north, south, east, west }, zoom = OSM_ZOOM) {
+export function tilesOver({ north, south, east, west }, zoom = OSM_ZOOM, toGrid = wgs84ToBng) {
   const scale = 2 ** zoom, col = (lon) => Math.floor(((lon + 180) / 360) * scale);
   const row = (lat) => { const r = (lat * Math.PI) / 180; return Math.floor(((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * scale); };
   const tiles = [];
@@ -34,7 +35,7 @@ export function tilesOver({ north, south, east, west }, zoom = OSM_ZOOM) {
     for (let x = col(west); x <= col(east); x++) {
       tiles.push({
         x, y, zoom,
-        origin: wgs84ToBng(tileLat(y, zoom), tileLon(x, zoom)), right: wgs84ToBng(tileLat(y, zoom), tileLon(x + 1, zoom)), down: wgs84ToBng(tileLat(y + 1, zoom), tileLon(x, zoom)),
+        origin: toGrid(tileLat(y, zoom), tileLon(x, zoom)), right: toGrid(tileLat(y, zoom), tileLon(x + 1, zoom)), down: toGrid(tileLat(y + 1, zoom), tileLon(x, zoom)),
       });
     }
   }
@@ -73,7 +74,7 @@ async function paintPictures(f, pictures, layer, still) {
 async function paintLive({ g, west, top, px }, data, still, onTile) {
   const corner = (x, z) => latLonOf(data.geo, x, -z);
   const a = corner(-data.R, -data.R), b = corner(data.R, data.R), c = corner(data.R, -data.R), d = corner(-data.R, data.R);
-  const tiles = tilesOver({ north: Math.max(a.lat, c.lat), south: Math.min(b.lat, d.lat), east: Math.max(b.lon, c.lon), west: Math.min(a.lon, d.lon) });
+  const tiles = tilesOver({ north: Math.max(a.lat, c.lat), south: Math.min(b.lat, d.lat), east: Math.max(b.lon, c.lon), west: Math.min(a.lon, d.lon) }, OSM_ZOOM, gridFor(data.geo.n0));
   let failed = 0;
   await Promise.all(tiles.map(async (tile) => {
     const image = await tileImage(tile);

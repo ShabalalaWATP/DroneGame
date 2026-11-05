@@ -1,10 +1,67 @@
 /* The Leaflet map on the start screen. isolation keeps its layers inside the card. */
-#site-map { height: 340px; width: 100%; border: 1px solid #2f4468; border-radius: 6px; margin-top: 6px; background: #16233a; isolation: isolate; cursor: crosshair; }
+#site-map { height: clamp(240px, calc(92vh - 470px), 480px); width: 100%; border: 1px solid #2f4468; border-radius: 6px; background: #16233a; isolation: isolate; cursor: crosshair; }
 #site-map .leaflet-container, #site-map.leaflet-grab { cursor: crosshair; }
-#site-map .leaflet-control-layers { font-size: 11px; line-height: 15px; }
-#site-map .leaflet-control-layers label { color: #222; margin: 0; }
+.map-near .pack-dot { display: none; } /* close in, the square itself can be seen and clicked */
 .tile-dark { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); }
 .tile-light { filter: grayscale(1) brightness(1.08) contrast(0.85); }
+.leaflet-tooltip.map-tag { padding: 0 5px; font-size: 11px; line-height: 16px; color: #fff; background: rgba(12, 20, 34, 0.85); border: 0; border-radius: 3px; box-shadow: none; }
+.leaflet-tooltip.map-tag::before { display: none; }
+.leaflet-tooltip.map-tag-faint { color: #ffd8a8; background: rgba(12, 20, 34, 0.55); }
+.leaflet-tooltip.map-tag-name { display: none; }
+.map-near .leaflet-tooltip.map-tag-name { display: block; }
+.map-far .leaflet-tooltip.map-tag-faint { display: none; }
+
+/* Choosing where to defend: the ways to choose beside the map, and the start buttons always in reach. */
+.card.welcome.picking { max-width: none; width: min(1120px, 96vw); box-sizing: border-box; }
+.card.welcome.picking .lead { margin: 0 0 6px; font-size: 14px; line-height: 20px; }
+.card.welcome.picking > .muted { margin: 0 0 6px; font-size: 12px; }
+.card.welcome .start-actions { position: sticky; bottom: 0; z-index: 1; padding: 10px 0 2px; background: #0f1a2e; }
+.site-choose { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.site-steps { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.site-steps h2 { margin: 0; font-size: 16px; color: #fff; }
+#site-ways { margin: 0; padding: 0 0 0 22px; display: flex; flex-direction: column; gap: 10px; }
+#site-ways li::marker { color: #9fb2cf; font-weight: 700; }
+#site-ways li > * { display: block; }
+#site-ways .muted { margin-top: 3px; font-size: 12px; line-height: 16px; }
+.site-steps.guiding #site-ways li:not(:last-child) .muted { display: none; } /* the guide says this already */
+#pack-build-go { scroll-margin-bottom: 96px; } /* clear of the start buttons */
+#world-picker #site-ways .row { display: flex; margin: 0; flex-wrap: nowrap; }
+.card #site-ways button { margin-top: 0; min-height: 36px; padding: 4px 14px; }
+#site-ref { flex: 1; min-width: 0; width: auto; height: 36px; box-sizing: border-box; padding: 0 8px; }
+#site-info, #pack-build { padding: 10px 12px; border: 1px solid #2f4468; border-radius: 6px; font-size: 13px; line-height: 18px; color: #b9c7dc; }
+#site-info b, #pack-build b { color: #fff; }
+#site-info .site-ok { display: block; color: #51cf66; }
+#pack-needs { margin: 6px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; font-size: 12px; line-height: 16px; }
+#pack-needs li { display: flex; justify-content: space-between; gap: 12px; }
+#pack-needs .need-have span:last-child { color: #51cf66; }
+#pack-needs .need-get span:last-child { color: #ffb86b; text-align: right; }
+#pack-build .opt { display: block; margin: 6px 0; font-size: 12px; line-height: 16px; }
+#site-guide { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 18px; color: #b9c7dc; background: #101a2c; border: 1.5px solid #c6ff00; border-radius: 8px; }
+#site-guide .wz-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; letter-spacing: 0.1em; cursor: default; }
+#site-guide h3 { margin: 0; font-size: 15px; line-height: 20px; color: #fff; }
+#site-guide p { margin: 0; }
+.card #site-guide button { margin: 0; padding: 0 8px; min-height: 28px; }
+.site-view .row { margin-bottom: 0; }
+.site-map-bar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.site-map-styles, .site-map-jumps { display: flex; flex-wrap: wrap; gap: 2px; }
+.card .site-map-bar button { margin: 0; padding: 3px 9px; min-height: 28px; font-size: 12px; }
+.card .site-map-styles button.on { color: #fff; background: #1f4fa8; border-color: #5c8ae0; }
+.site-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 11px; line-height: 15px; color: #9fb2cf; }
+.site-legend label { display: inline-flex; align-items: center; gap: 4px; margin: 0; cursor: pointer; }
+.site-legend input { margin: 0; }
+.key { display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -2px; box-sizing: border-box; border: 2px solid; }
+.key-packs { border-color: #1f6fd6; background: rgba(31, 111, 214, 0.2); }
+.key-lidar { border: 1px solid #12b886; background: rgba(18, 184, 134, 0.5); }
+.key-downloads { border: 1px dashed #f08c00; }
+.key-osmap, .key-satellite { border: 1px solid #9fb2cf; }
+.key-osmap { background: #e8e4da; }
+.key-satellite { background: #4a6b4a; }
+.key-world { border-color: #e53935; }
+.key-plan { border: 1px dashed #e53935; }
+@media (max-width: 900px) {
+  .site-choose { grid-template-columns: minmax(0, 1fr); }
+  .card.welcome .start-actions { position: static; }
+}
 
 /* The map rail beside the minimap, and the switcher that opens from it. */
 #map-rail { position: fixed; left: 254px; bottom: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }

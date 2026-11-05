@@ -1,70 +1,24 @@
 // Choosing the world on the start screen. Map packs load as the page opens, so a real map with a start point is ready straight away.
-// The start point can be clicked,
-// typed as a grid reference, latitude and longitude, or eastings and northings, or taken from this laptop's location.
-// With no map pack there, one can be built.
+// There are three ways to choose a start point, all here so nobody needs the guide: this laptop's location, clicking the map, or
+// typing a grid reference, latitude and longitude, or eastings and northings. With no map pack there, one can be built.
 
 import { useEffect, useRef, useState } from 'react';
 import { WORLD } from '../sim/config/index.js';
-import { gridRef, onGrid, parsePosition } from '../sim/bng.js';
+import { gridRef, onGrid, parsePosition } from '../sim/grids.js';
 import { siteProblem, snap, worldId } from '../sim/world-pack.js';
+import { SiteGuide } from './assistant/SiteGuide.jsx';
 import { useGame } from './hooks.js';
-import { createSiteMap } from './site-map.js';
+import { SiteMap } from './SiteMap.jsx';
+import { SiteStatus } from './SiteStatus.jsx';
 import { view } from '../render/view.js';
-import { accuracyText, inBritain, locateMe } from './locate.js';
+import { accuracyText, locateMe } from './locate.js';
 
+const OUTSIDE = 'outside Great Britain and Estonia, which these maps cover so far.';
 const covers = (entry, e, n) => Math.abs(e - entry.east) <= entry.half - WORLD.radius && Math.abs(n - entry.north) <= entry.half - WORLD.radius;
 const inside = (entry, e, n) => Math.abs(e - entry.east) <= entry.half && Math.abs(n - entry.north) <= entry.half;
 const clamp = (v, middle, room) => Math.min(Math.max(v, middle - room), middle + room);
-// The Leaflet map on the start screen. Its drawing stays in site-map.js, as the minimap's stays in minimap.js.
-function SiteMap({ packs, site, wanted, decoded, onPick }) {
-  const box = useRef(null);
-  const leaflet = useRef(null);
-  const pick = useRef(onPick);
-  pick.current = onPick;
-  useEffect(() => {
-    leaflet.current = createSiteMap(box.current, { onPick: (point) => pick.current(point) });
-    return () => { leaflet.current.remove(); leaflet.current = null; };
-  }, []);
-  useEffect(() => { packs.forEach((pack) => leaflet.current.addPack(pack)); }, [packs]);
-  useEffect(() => { leaflet.current.show(site || wanted, site ? decoded : null); }, [site, wanted, decoded]);
-  return <div id="site-map" ref={box} />;
-}
 
-function Builder({ point, onBuilt }) {
-  const { api } = useGame();
-  const [lidar, setLidar] = useState(true);
-  const [status, setStatus] = useState(null);
-  const [problem, setProblem] = useState('');
-
-  useEffect(() => {
-    if (!status?.running) return undefined;
-    const timer = setInterval(async () => {
-      try {
-        const now = await api.packs.buildStatus();
-        setStatus(now);
-        if (!now.running) { clearInterval(timer); if (now.ok) onBuilt(); else setProblem(now.message || 'The map could not be built.'); }
-      } catch (e) { setProblem(e.message); clearInterval(timer); }
-    }, 2000);
-    return () => clearInterval(timer);
-  }, [status?.running]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const start = async () => {
-    setProblem('');
-    try { setStatus(await api.packs.build({ east: Math.round(point.e), north: Math.round(point.n), lidar })); } catch (e) { setProblem(e.message); }
-  };
-  return (
-    <div id="pack-build" className="sys note">
-      <b>No map here yet.</b> Build one around {gridRef(point.e, point.n)}. The first time in an area, this downloads up to about 0.6 GB of OS open data, and requests reveal this region to the Environment Agency and AWS.
-      <label className="opt"><input type="checkbox" id="pack-lidar" checked={lidar} onChange={(e) => setLidar(e.target.checked)} /> Include lidar heights: about 10 minutes, England only. Without it, about 2 minutes, with assumed tree and building heights.</label>
-      {status?.running
-        ? <div id="pack-progress" className="muted">Building... {status.message}</div>
-        : <button id="pack-build-go" className="primary" onClick={start}>Build this map</button>}
-      {problem && <div id="pack-build-error" className="saved-error">{problem}</div>}
-    </div>
-  );
-}
-
-export function WorldPicker({ wantReal, onWantReal, onWorld }) {
+export function WorldPicker({ wantReal, onWantReal, onWorld, guiding, onStopGuiding }) {
   const game = useGame();
   const [listing, setListing] = useState(null);
   const [entry, setEntry] = useState(null);
@@ -73,12 +27,19 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
   const [typed, setTyped] = useState('');
   const [note, setNote] = useState('');
   const [wanted, setWanted] = useState(null); // a point with no pack yet
+  const [elsewhere, setElsewhere] = useState(null); // a point off the grid, shown but not usable
+  const [downloads, setDownloads] = useState(null); // which OS data this computer has
   const [ready, setReady] = useState([]); // every pack loaded so far, shown on the map
   const file = useRef(null);
   const latest = useRef(0); // only the newest choice may finish, as a pack can take a moment to load
   const touched = useRef(false); // the player has made a choice of their own
 
-  const refresh = async () => { const found = await game.packs.list(); setListing(found); return found; };
+  const refresh = async () => {
+    game.packs.downloads().then(setDownloads);
+    const found = await game.packs.list();
+    setListing(found);
+    return found;
+  };
   useEffect(() => { if (wantReal && !listing) refresh(); }, [wantReal]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let live = true;
@@ -124,7 +85,7 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
   const goTo = async (point, prefix = '') => {
     touched.current = true;
     const ticket = ++latest.current;
-    setWanted(null);
+    setWanted(null); setElsewhere(null);
     if (decoded && covers(decoded.pack.header, point.e, point.n)) { setStart(decoded, point); if (prefix) setNote(prefix); return; }
     const all = (listing || await refresh()).packs;
     const match = all.find((p) => covers(p, point.e, point.n));
@@ -134,8 +95,13 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
     setWanted(point);
     setNote(prefix);
   };
+  const showElsewhere = (point, message) => {
+    touched.current = true;
+    setWanted(null); setElsewhere(point); setNote(message);
+  };
   // A click just inside a pack's edge means that pack, moved in far enough to fit the whole world.
   const pickOnMap = (point) => {
+    if (!onGrid(point.e, point.n)) { showElsewhere(point, `That spot is ${OUTSIDE} Move the map back and click there.`); return; }
     const home = listing?.packs.find((p) => inside(p, point.e, point.n));
     if (home) goTo({ e: clamp(point.e, home.east, home.half - WORLD.radius), n: clamp(point.n, home.north, home.half - WORLD.radius) });
     else goTo(point);
@@ -144,7 +110,7 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
     setNote('Finding your location...');
     try {
       const fix = await locateMe();
-      if (!inBritain(fix)) { setNote('You appear to be outside Great Britain, which these maps cover.'); return; }
+      if (!onGrid(fix.e, fix.n)) { showElsewhere(fix, `You appear to be ${OUTSIDE}`); return; }
       await goTo(fix, `Your location, ${accuracyText(fix.accuracy)}.`);
     } catch (e) { setNote(e.message); }
   };
@@ -152,7 +118,7 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
     e.preventDefault();
     const point = parsePosition(typed);
     if (!point) setNote('That is not a position. Use a grid reference (SU 220 660), latitude and longitude (51.39, -1.68), or eastings and northings (422000, 166000).');
-    else if (!onGrid(point.e, point.n)) setNote('That is outside Great Britain, which these maps cover.');
+    else if (!onGrid(point.e, point.n)) setNote(`That is ${OUTSIDE}`);
     else goTo(point);
   };
   // Saves the chosen map as a file, for someone else to bring in with Import.
@@ -178,9 +144,6 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
     } catch (problem) { setNote(problem.message); }
   };
 
-  const tier = decoded && site && (decoded.pack.header.lidarHalf >= WORLD.radius + Math.max(Math.abs(site.e - decoded.pack.header.east), Math.abs(site.n - decoded.pack.header.north))
-    ? 'Lidar heights across this world.' : 'Part or all of this world uses Terrain 50, with assumed tree and building heights.');
-
   return (
     <div id="world-picker">
       <div className="row world-choice">
@@ -188,30 +151,43 @@ export function WorldPicker({ wantReal, onWantReal, onWorld }) {
         <label><input type="radio" name="world" id="world-generated" checked={!wantReal} onClick={() => { touched.current = true; }} onChange={() => onWantReal(false)} /> Generated ground</label>
       </div>
       {wantReal && (
-        <div id="world-real-panel">
-          {listing?.serverDown && <div className="saved-error">The save server is not running, so only maps imported into this browser are listed.</div>}
-          <SiteMap packs={ready} site={site} wanted={wanted} decoded={decoded} onPick={pickOnMap} />
-          <div id="site-info" className="muted map-note">
-            {site ? <>Start point <b>{gridRef(site.e, site.n, 8)}</b>. Click the map to move it. The red square is your 14 km world. {tier}</> : 'Click the map to choose where to defend.'}
+        <div id="world-real-panel" className="site-choose">
+          <div className={guiding ? 'site-steps guiding' : 'site-steps'}>
+            {listing?.serverDown && <div className="saved-error">The save server is not running, so only maps imported into this browser are listed.</div>}
+            {guiding && <SiteGuide site={site} wanted={wanted} packName={entry?.name} onClose={onStopGuiding} />}
+            <h2>Choose where to defend</h2>
+            <ol id="site-ways">
+              <li>
+                <button id="use-my-location" onClick={useMyLocation}>Use my location</button>
+                <span className="muted">Asks this laptop, only when you press it. It stays in this browser unless you deploy there.</span>
+              </li>
+              <li>
+                <b>Move the map, then click the spot</b>
+                <span className="muted">Drag to move and scroll to zoom. Blue marks a map ready to play: click its dot to go there.</span>
+              </li>
+              <li>
+                <form className="row" onSubmit={goTyped}>
+                  <input id="site-ref" type="text" spellCheck="false" autoComplete="off" maxLength={60} aria-label="Type a position" placeholder="Grid ref, lat/long or E/N" title="For example SU 220 660, or 51.39, -1.68, or 422000 166000" value={typed} onChange={(e) => setTyped(e.target.value)} />
+                  <button type="submit" id="site-ref-go">Go</button>
+                </form>
+                <span className="muted">SU 220 660, or 51.39, -1.68, or 422000 166000</span>
+              </li>
+            </ol>
+            {note && <div id="world-note" className="map-note">{note}</div>}
+            <SiteStatus site={site} decoded={decoded} wanted={wanted} downloads={downloads} onBuilt={async () => { const point = wanted; setWanted(null); await refresh(); await goTo(point); }} />
           </div>
-          <div className="row">
-            <select id="pack-list" value={entry?.hash || ''} onChange={(e) => { const c = listing.packs.find((p) => p.hash === e.target.value); setWanted(null); if (c) choosePack(c); }}>
-              <option value="">{listing ? (listing.packs.length ? 'Jump to a map' : 'No maps yet') : 'Looking for maps...'}</option>
-              {listing?.packs.map((p) => <option key={p.hash} value={p.hash}>{p.name} ({gridRef(p.east, p.north, 4)})</option>)}
-            </select>
-            <button id="pack-export" disabled={!entry} title="Save this map as a file to give to someone else. They bring it in with Import, and need no downloads." onClick={exportPack}>Export</button>
-            <button id="pack-import" onClick={() => file.current.click()}>Import</button>
-            <input type="file" id="pack-file" ref={file} accept=".sgmap" hidden onChange={importPack} />
+          <div className="site-view">
+            <SiteMap packs={ready} downloads={downloads} point={site || wanted} planned={!site && !!wanted} elsewhere={elsewhere} moving={touched} onPick={pickOnMap} />
+            <div className="row">
+              <select id="pack-list" aria-label="Maps on this computer" value={entry?.hash || ''} onChange={(e) => { const c = listing.packs.find((p) => p.hash === e.target.value); setWanted(null); if (c) choosePack(c); }}>
+                <option value="">{listing ? (listing.packs.length ? 'Jump to a map' : 'No maps yet') : 'Looking for maps...'}</option>
+                {listing?.packs.map((p) => <option key={p.hash} value={p.hash}>{p.name} ({gridRef(p.east, p.north, 4)})</option>)}
+              </select>
+              <button id="pack-export" disabled={!entry} title="Save this map as a file to give to someone else. They bring it in with Import, and need no downloads." onClick={exportPack}>Export</button>
+              <button id="pack-import" onClick={() => file.current.click()}>Import</button>
+              <input type="file" id="pack-file" ref={file} accept=".sgmap" hidden onChange={importPack} />
+            </div>
           </div>
-          <div className="row">
-            <button id="use-my-location" title="Asks this laptop where it is. It stays in this browser unless you deploy there." onClick={useMyLocation}>Use my location</button>
-            <form className="row" onSubmit={goTyped}>
-              <input id="site-ref" type="text" spellCheck="false" autoComplete="off" maxLength={60} placeholder="Grid ref, lat/long or E/N" title="For example SU 220 660, or 51.39, -1.68, or 422000 166000" value={typed} onChange={(e) => setTyped(e.target.value)} />
-              <button type="submit" id="site-ref-go">Go</button>
-            </form>
-          </div>
-          {note && <div id="world-note" className="map-note">{note}</div>}
-          {wanted && <Builder point={wanted} onBuilt={async () => { const point = wanted; setWanted(null); await refresh(); await goTo(point); }} />}
         </div>
       )}
     </div>
