@@ -1,3 +1,11 @@
+/* The Leaflet map on the start screen. isolation keeps its layers inside the card. */
+#site-map { height: 340px; width: 100%; border: 1px solid #2f4468; border-radius: 6px; margin-top: 6px; background: #16233a; isolation: isolate; cursor: crosshair; }
+#site-map .leaflet-container, #site-map.leaflet-grab { cursor: crosshair; }
+#site-map .leaflet-control-layers { font-size: 11px; line-height: 15px; }
+#site-map .leaflet-control-layers label { color: #222; margin: 0; }
+.tile-dark { filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9); }
+.tile-light { filter: grayscale(1) brightness(1.08) contrast(0.85); }
+
 /* The map rail beside the minimap, and the switcher that opens from it. */
 #map-rail { position: fixed; left: 254px; bottom: 12px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
 #map-rail button { width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; background: rgba(12, 20, 34, 0.92); color: #dbe4f0; border: 1px solid #2f4468; border-radius: 8px; position: relative; overflow: hidden; }

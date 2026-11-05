@@ -38,10 +38,8 @@ function StartCard({ openDock }) {
     <div className="card welcome">
       <div className="wz-debrief-head">SITE GUARD</div>
       <h1>Defend a site</h1>
-      {!wantReal && <>
-        <p className="lead">You place and network sensors and weapons on a fixed {money(ECONOMY.budget)} budget, then watch your system try to find and stop inbound drones. The heart of it is the gap between where drones really are and where your system believes they are.</p>
-        <div className="stages">{STAGES.map(([head, text]) => <div key={head}><b>{head}</b>{text}</div>)}</div>
-      </>}
+      <p className="lead">You place and network sensors and weapons on a fixed {money(ECONOMY.budget)} budget, then watch your system try to find and stop inbound drones. The heart of it is the gap between where drones really are and where your system believes they are.</p>
+      {!wantReal && <div className="stages">{STAGES.map(([head, text]) => <div key={head}><b>{head}</b>{text}</div>)}</div>}
       <p className="muted">A game and a teaching tool. Most figures are vendor claims or labelled assumptions, so do not base real decisions on it.</p>
       <details className="seeds">
         <summary>Advanced: scenario and terrain seeds</summary>
@@ -59,7 +57,7 @@ function StartCard({ openDock }) {
       <WorldPicker wantReal={wantReal} onWantReal={setWantReal} onWorld={setRealWorld} />
       <div className="start-actions">
         <button id="btn-guide" className="wz-go" disabled={notChosen} onClick={() => { if (deploy()) game.setViewOption('wizard', 'open'); }}>Guide me through it</button>
-        <button id="btn-deploy" disabled={notChosen} onClick={deploy}>{notChosen ? 'Choose a map and start point' : 'I know the game, just deploy'}</button>
+        <button id="btn-deploy" disabled={notChosen} onClick={deploy}>{notChosen ? 'Choose where to defend' : 'I know the game, just deploy'}</button>
         {openDock && <button id="btn-load-saved" className="quiet" disabled={notChosen} onClick={() => { if (deploy()) openDock('saved'); }}>Load a saved laydown</button>}
       </div>
     </div>

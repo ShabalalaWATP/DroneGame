@@ -1,7 +1,7 @@
 // The whole page: the 3D canvas, with panels around it. Class names and ids match style.css.
 
 import { useEffect, useRef, useState } from 'react';
-import { GameContext, useGame } from './hooks.js';
+import { GameContext, useGame, useTick } from './hooks.js';
 import { useHotkeys } from './useHotkeys.js';
 import { Hud } from './Hud.jsx';
 import { Toolbar } from './Toolbar.jsx';
@@ -30,6 +30,12 @@ function GameCanvas() {
   );
 }
 
+// The map buttons belong to a game in progress, not the start screen.
+function GameMapControls() {
+  useTick();
+  return useGame().sim.state.started ? <MapControls /> : null;
+}
+
 function Screen() {
   const [dockOpen, setDockOpen] = useState(false);
   const [dockTab, setDockTab] = useState('messages');
@@ -44,7 +50,7 @@ function Screen() {
         <Toolbar />
       </div>
       <Minimap />
-      <MapControls />
+      <GameMapControls />
       <ControlPanel onToggleDock={() => setDockOpen((o) => !o)} onToggleTuning={() => setTuningOpen((o) => !o)} onSandbox={() => setTuningOpen(false)} />
       <Tuning open={tuningOpen} />
       <WizardButton />

@@ -159,6 +159,26 @@ describe('choosing a world', () => {
     expect(game.sim.state.started).toBe(true);
     expect(location.search).toContain('terrain=1');
   });
+  it('opens with a real map ready to deploy, unless the address says generated ground', async () => {
+    show(<Overlay />);
+    await until(() => !$('#btn-deploy').disabled && $('#site-info')?.textContent.includes('SU 2200 6600'));
+    expect($('#world-real').checked).toBe(true);
+    fireEvent.click($('#btn-deploy'));
+    expect(parseWorldId(game.sim.state.terrainSeed)).toMatchObject({ e0: CENTRE.east, n0: CENTRE.north });
+    cleanup();
+    history.replaceState(null, '', '/?seed=1&terrain=1');
+    game = createGame({ seed: '1', terrainSeed: '1', api: game.api, storage: createFakeStorage() });
+    show(<Overlay />);
+    await settle();
+    expect($('#world-generated').checked).toBe(true);
+  }, 30000);
+  it('does not let the opening map overwrite what the player chose while it loaded', async () => {
+    show(<Overlay />);
+    fireEvent.click($('#world-generated'));
+    await settle();
+    expect($('#world-generated').checked).toBe(true);
+    expect($('#world-real-panel')).toBeNull();
+  }, 30000);
   it('asks for a map and start point before a real deploy, then keeps the site out of the address', async () => {
     show(<Overlay />);
     fireEvent.click($('#world-real'));
