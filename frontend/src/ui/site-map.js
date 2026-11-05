@@ -8,6 +8,12 @@ import { wgs84ToBng } from '../sim/bng.js';
 import { latLonOf } from '../sim/world-pack.js';
 
 const TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+// EOxCloudless is free for non-commercial use only (CC BY-NC-SA 4.0), so it must go if this app ever makes money.
+const EOX = 'https://tiles.maps.eox.at/wmts/1.0.0';
+const EOX_OPTIONS = { maxNativeZoom: 14, maxZoom: 19, attribution: '<a href="https://cloudless.eox.at" target="_blank" rel="noopener noreferrer">EOxCloudless</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)' };
+const OSM_CREDIT = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors';
+const satelliteTiles = () => L.tileLayer(`${EOX}/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg`, EOX_OPTIONS);
+const labelTiles = () => L.tileLayer(`${EOX}/overlay_bright_3857/default/g/{z}/{y}/{x}.png`, { maxZoom: 19, attribution: `Labels: ${OSM_CREDIT}, rendering © EOX` });
 const BRITAIN = [[49.9, -7.6], [58.7, 1.8]];
 const CHOICE_KEY = 'site-guard-start-map';
 const PICTURE = 1024; // pixels across a pack's offline picture
@@ -45,9 +51,11 @@ export function createSiteMap(container, { onPick, storage = globalThis.localSto
   const map = L.map(container, { minZoom: 5, maxZoom: 18 }).fitBounds(BRITAIN);
   const tiles = (className) => L.tileLayer(TILES, {
     className, maxZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin', // OSM's tile policy asks for a referrer, and the page's own policy sends none
-    attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
+    attribution: OSM_CREDIT,
   });
-  const bases = { Street: tiles(''), Light: tiles('tile-light'), Dark: tiles('tile-dark'), [NO_LIVE_MAP]: L.layerGroup() };
+  const satellite = satelliteTiles(), hybridPhoto = satelliteTiles(), hybridLabels = labelTiles();
+  const street = tiles(''), light = tiles('tile-light'), dark = tiles('tile-dark');
+  const bases = { Street: street, Light: light, Dark: dark, Satellite: satellite, Hybrid: L.layerGroup([hybridPhoto, hybridLabels]), [NO_LIVE_MAP]: L.layerGroup() };
   const packs = [];
   const offlineLayers = {
     'OS map (offline)': { group: L.layerGroup(), layer: 'osmap' },
@@ -73,10 +81,10 @@ export function createSiteMap(container, { onPick, storage = globalThis.localSto
   const chosen = bases[remembered(storage)] ? remembered(storage) : 'Street';
   bases[chosen].addTo(map);
   if (chosen === NO_LIVE_MAP) showOffline();
-  for (const layer of Object.values(bases)) if (layer.on) layer.once('tileerror', showOffline); // no internet: the packs still show
+  for (const layer of [street, light, dark, satellite, hybridPhoto, hybridLabels]) layer.once('tileerror', showOffline); // no internet: the packs still show
   L.control.layers(bases, Object.fromEntries(Object.entries(offlineLayers).map(([name, set]) => [name, set.group])), { collapsed: false }).addTo(map);
   map.on('baselayerchange', ({ name }) => { remember(storage, name); if (name === NO_LIVE_MAP) showOffline(); });
-  map.on('click', ({ latlng }) => onPick(wgs84ToBng(latlng.lat, latlng.lng)));
+  map.on('click', ({ latlng }) => onPick({ ...wgs84ToBng(latlng.lat, latlng.lng), lat: latlng.lat, lon: latlng.lng })); // show() needs lat and lon to mark a spot with no map pack
 
   let world = null, marker = null;
   return {

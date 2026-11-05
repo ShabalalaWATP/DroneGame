@@ -17,6 +17,20 @@ describe('the start map', () => {
     expect(Math.abs(point.n - 166800)).toBeLessThan(500);
     remove();
   });
+  it('offers satellite and hybrid from EOX, with its credit, only once chosen', () => {
+    const storage = createFakeStorage();
+    const liveUrls = (map) => { const urls = []; map.eachLayer((layer) => { if (layer instanceof L.TileLayer) urls.push(layer._url); }); return urls; };
+    const street = createSiteMap(box(), { onPick: vi.fn(), storage });
+    expect(liveUrls(street.map).some((url) => url.includes('eox.at'))).toBe(false);
+    street.remove();
+    storage.setItem('site-guard-start-map', 'Hybrid');
+    const hybrid = createSiteMap(box(), { onPick: vi.fn(), storage });
+    const urls = liveUrls(hybrid.map);
+    expect(urls).toHaveLength(2);
+    expect(urls.every((url) => url.startsWith('https://tiles.maps.eox.at/'))).toBe(true);
+    expect(hybrid.map.attributionControl.getContainer().textContent).toContain('EOxCloudless');
+    hybrid.remove();
+  });
   it('remembers the choice of no live map, and then asks OpenStreetMap for nothing', () => {
     const storage = createFakeStorage();
     const first = createSiteMap(box(), { onPick: vi.fn(), storage });

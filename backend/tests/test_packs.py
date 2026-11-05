@@ -54,7 +54,7 @@ def test_serves_a_pack_with_security_headers(client, root):
     reply = client.get(f"{API}/good.sgmap")
     assert reply.status_code == 200 and reply.content == pack_bytes()
     assert reply.headers["content-type"] == "application/octet-stream"
-    assert "img-src 'self' data: https://tile.openstreetmap.org" in reply.headers["content-security-policy"]
+    assert "img-src 'self' data: https://tile.openstreetmap.org https://tiles.maps.eox.at" in reply.headers["content-security-policy"]
     assert "connect-src 'self'" in reply.headers["content-security-policy"]
 
 
