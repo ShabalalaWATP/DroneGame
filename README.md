@@ -53,15 +53,17 @@ Press **Deploy**, pick a system from the left (or press 1 to 7), and click the g
 
 | Key | System | Small | Medium | Large | Per shot | Notes |
 |---|---|---|---|---|---|---|
-| 1 | Radar | $45k, 1 km | $900k, 2 km | $2.5M, 4.3 km | | Range, bearing and velocity. Low flyers hide in ground clutter until close |
-| 2 | RF detector | $10k, 1 km | $40k, 3.5 km | $400k, 8 km | | Passive direction finding with no range. Cannot see RF-silent drones |
-| 3 | EO/IR camera | $25k, 260 m | $100k, 1 km | $500k, 1.6 km | | Narrow view cued by other sensors, with strong classification |
-| 4 | RF jammer | $40k, 500 m | $60k, 1 km | $350k, 1.6 km | | On only while tracks are in range. Fibre-optic drones ignore it |
-| 5 | Interceptor drones | | $100k, 5 km | | $5,000 | Good against FPV and fibre-optic strikes. Cannot catch fixed-wing drones |
-| 6 | Missile | | $1M, 10 km | | $200,000 | Can hit fixed-wing drones |
-| 7 | Laser | | $2M, 1 km | | $13 | Needs dwell time, so evasive targets take longer |
+| 1 | Radar | $45k, 1 km | $900k, 3.1 km | $2.5M, 4.3 km | | Range, bearing and velocity. Low flyers hide in ground clutter until close |
+| 2 | RF detector | $10k, 2 km | $40k, 3.5 km | $400k, 14 km | | Passive direction finding with no range, on a 9 m mast. Cannot see RF-silent drones |
+| 3 | EO/IR camera | $25k, 260 m | $100k, 650 m | $500k, 1.6 km | | Narrow view cued by other sensors, with strong classification |
+| 4 | RF jammer | $40k, 500 m | $60k, 1 km | $350k, 3 km | | On only while tracks are in range, on a 9 m mast. Fibre-optic drones ignore it |
+| 5 | Interceptor drones | $100k, 3 km | $100k, 25 km | $300k, 15 km | $1,000 to $15,000 | Good against FPV and fibre-optic strikes. Only the large one catches fixed-wing drones |
+| 6 | Missile | $100k, 2 km | $1M, 10 km | $5M, 25 km | $45,000 to $1.2M | Can hit fixed-wing drones |
+| 7 | Laser | $8M, 2 km | $2M, 3 km | $14M, 10 km | $3.50 to $13 | Needs dwell time, so evasive targets take longer |
 
-Sensor ranges are against a small quadcopter. Pick a row to see the real systems of that kind, such as the Robin Radar IRIS or Blighter A800, and the settings for the next one you place. Press a key again for the next one.
+These ranges are for an open field, on the standard mast, and sensors are against a small quadcopter. Where you place a system changes what it really gets: the ring on the map follows the predicted range, and the Range side of its panel shows each bearing and the ground in the way ([ADR 0003](docs/adr/0003-range-from-a-terrain-path-model.md)). UK systems such as Rapid Ranger, Stormer HVM, Sky Sabre, Terrahawk Paladin, RapidDestroyer, AUDS and the Blighter A400 are listed with the rest. Pick a row to see the real systems of that kind, such as the Robin Radar IRIS or Blighter A800, and the settings for the next one you place. Press a key again for the next one.
+
+Rounds can miss. The Unit panel gives each weapon's chance against each drone, close in and at its limit, or for a laser the time to burn through. Sensor error grows as the signal weakens, and a poor track lowers a shot's chance. Most hit chances are labelled assumptions, because few are published.
 
 The attack is made of FPV strike drones ($400), fibre-optic strike drones that fly low and emit no radio ($1,000), fixed-wing strike drones ($35,000) and fixed-wing spotters that make strikes hit harder ($100,000). They get harder to hit and jam each wave.
 

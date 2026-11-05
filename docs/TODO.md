@@ -57,7 +57,19 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 **Later: named real systems**
 
 - [x] Real systems listed by name when you pick a kind in the toolbar, with settings for the next one placed
-- [ ] More real systems beyond those the Sources tab first named, and replacing the two generic entries
+- [x] UK systems added: Blighter A400, Saab Giraffe 1X, AUDS jammer, Rapid Ranger, Stormer HVM, Terrahawk Paladin, Sky Sabre, RapidDestroyer
+- [x] Ranges checked against datasheets and sources, with each assessment stated, and open-field range separated from predicted range at a spot
+- [x] One terrain path model for radar, RF and jamming, with rings, a polar plot and a path profile ([ADR 0003](adr/0003-range-from-a-terrain-path-model.md))
+- [ ] More real systems, such as Giraffe AMB and Aveillant Gamekeeper, and replacing the two generic entries. A row for guns and one for RF weapons, which sit under Missile and Laser for now
+- [x] Hit chance for guided rounds, by weapon, evasion, target speed, range and track quality. Launchers shoot, look and shoot while there is time, salvo when there is not, and move to the next target while rounds fly
+- [x] A beam's damage falls with distance, and sensor error grows as the signal weakens
+- [ ] Better figures for hit chance: 8 of 11 are assumptions, because no rate is published. Only the Sting, P1-SUN and DroneHunter have reported figures
+- [ ] Jamming strength that falls with distance: inside its reach a jammer works fully, then stops. Real jamming depends on how far the drone is from its own controller too
+- [ ] Use the bands a detector listens on: `listens` is only drawn on the Spectrum tab, so it does not limit what is heard. Each jammed link should use its own band
+- [ ] A radar that classifies by micro-Doppler, as the IRIS and A400 do. Only cameras identify an airframe now
+- [ ] The Sting is built to hit Shahed-type drones, but a game rule says interceptors cannot catch fixed-wing drones
+- [ ] Check the path model offline against NTIA ITM, and against any real measurements
+- [ ] Rain and haze for lasers and cameras, and ground reflection lobes for radar
 
 **Real-world mapping** (see `docs/REAL_MAPPING_PLAN.md`)
 
