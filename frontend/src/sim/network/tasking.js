@@ -141,14 +141,14 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
       let best = null, bd = Infinity;
       for (const tr of live) {
         if (distToTrack(s, tr) > s.def.range) continue;
-        if (!eligible(s, tr)) continue;
+        if (!eligible(s, tr) || ctx.roundsCover(s, tr.drone)) continue;
         const dd = siteDist(tr);
         if (dd < bd) { bd = dd; best = tr; }
       }
       if (!best || (s.task && s.task.trackId === best.id)) continue;
       if (s.task) {
         const cur = tracker.tracks.get(s.task.trackId);
-        if (cur && siteDist(cur) - bd < FUSION.retaskAdvantage) continue;
+        if (cur && !ctx.roundsCover(s, cur.drone) && siteDist(cur) - bd < FUSION.retaskAdvantage) continue;
         sendTask(s, { control: 'CONTROL_STOP' }, `Stop ${cur ? cur.short : 'task'}`, 'Re-tasked to a closer threat');
         completeTask(s, 'TASK_STATUS_COMPLETED', ['re-tasked']);
       }

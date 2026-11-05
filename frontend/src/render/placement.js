@@ -1,12 +1,15 @@
 // Turning the mouse into a point on the ground, and the green or red preview of the system being placed.
 
 import * as THREE from 'three';
-import { STRUCTURES, STRUCT_SCALE } from '../sim/config/index.js';
+import { DRONES, STRUCTURES, STRUCT_SCALE, WORLD } from '../sim/config/index.js';
+import { BEARINGS, predictRange, usesPath } from '../sim/site-range.js';
+import { terrainState } from '../sim/terrain.js';
 import { u, hereU } from '../sim/units.js';
 import { drapedRing } from './terrain-view.js';
 import { LABEL_LIFT, ringThickness } from './structure-view.js';
 
 const PICK_PX = 16;
+const PREDICT_EVERY_MS = 120; // re-predicting costs milliseconds, so the preview does not do it on every mouse move
 export const PLACING_PICK_PX = 8; // tighter while placing, so a click near a system can still place beside it
 const _base = new THREE.Vector3(), _top = new THREE.Vector3();
 const _ray = new THREE.Raycaster(), _ndc = new THREE.Vector2(), _level = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), _hit = new THREE.Vector3();
@@ -46,7 +49,7 @@ export function selectionFrom(tool, tagged, pick) {
 
 // getTool() is a structure id, 'sell', 'zone' or null. A left click first calls onSelect(screenX, screenY), which returns true if
 // it dealt with the click. Otherwise it calls onGroundClick(x, z).
-export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getTool, onGroundClick, onSelect }) {
+export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getTool, defFor = (tool) => STRUCTURES[tool], onGroundClick, onSelect }) {
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -78,7 +81,7 @@ export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getT
   ghost.visible = false;
   scene.add(ghost);
   let ghostRing = null;
-  let ghostAt = { x: NaN, z: NaN };
+  let ghostAt = { x: NaN, z: NaN }, ghostRadii = null, predictedAt = 0;
   const ghostMat = new THREE.MeshBasicMaterial({ color: 0x66ff66, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false });
   const ghostMarker = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 1.5, 16), ghostMat);
   ghostMarker.scale.setScalar(STRUCT_SCALE);
@@ -89,7 +92,8 @@ export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getT
     const def = STRUCTURES[getTool()];
     if (def) {
       const r = u(def.range);
-      ghostRing = drapedRing(r, ringThickness(r) * 1.5, 0xffffff, 0.5);
+      ghostRadii = usesPath(def) ? new Array(BEARINGS).fill(r) : null;
+      ghostRing = drapedRing(r, ringThickness(r) * 1.5, 0xffffff, 0.5, 160, 0.5, ghostRadii);
       ghostRing.mesh.material.dispose();
       ghostRing.mesh.material = ghostMat; // shares the green/red placement colour
       ghost.add(ghostRing.mesh);
@@ -103,6 +107,12 @@ export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getT
       ghost.visible = mouseOnGround && !!tool && sim.state.started;
       ghost.position.set(mouseGround.x, mouseGround.y + 0.1, mouseGround.z);
       if (ghostRing && mouseOnGround && (ghostAt.x !== mouseGround.x || ghostAt.z !== mouseGround.z)) {
+        const now = performance.now();
+        if (ghostRadii && now - predictedAt > PREDICT_EVERY_MS) { // the preview shows the range this spot really gets
+          predictedAt = now;
+          const m = WORLD.metresPerUnit;
+          predictRange(defFor(tool), DRONES.fpv, terrainState.data, mouseGround.x * m, mouseGround.z * m).first.forEach((metres, i) => { ghostRadii[i] = u(metres); });
+        }
         ghostRing.update(mouseGround.x, mouseGround.z); // re-drape the ring over the ground under the cursor
         ghostAt = { x: mouseGround.x, z: mouseGround.z };
       }

@@ -15,7 +15,7 @@ import { u } from './units.js';
 import { affordable, createLedger, resetLedger } from './economy.js';
 import * as laydown from './laydown.js';
 import { spawnDrone, removeDrone, updateDrones, spotterBonus } from './drones.js';
-import { opticalLos, updateStructures, updateMissiles } from './effectors.js';
+import { opticalLos, updateStructures, updateMissiles, enoughInAir } from './effectors.js';
 import { canFire, resupply } from './magazine.js';
 import { startWave, updateWaves } from './waves.js';
 import { enterSandbox, launchSandboxWave, launchSandboxAttack, clearSandboxDrones } from './sandbox.js';
@@ -48,6 +48,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     onApprovalRequest() { emit('approvalRequest'); emit('toast', 'Engagement request: your decision is needed'); },
     onApprovalDecided() { emit('approvalDecided'); },
     onKillConfirmed(tr) { w.rec.event('confirmed', `Kill confirmed on ${tr.short}`); },
+    roundsCover: (s, d) => !!d && !d.dead && enoughInAir(w, s, d), // enough on the way that this launcher can look for another target
     // An effector decides whether it can take a task from the fusion node.
     acceptTask(s, d) {
       if (!d || d.dead) return { ok: false, reasons: ['nothing found at the cued position'] };

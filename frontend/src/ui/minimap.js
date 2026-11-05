@@ -1,12 +1,25 @@
 // A top-down map centred on the station: shaded relief, the build zone, every system with its range, the fused tracks,
 // the real drones (when the truth overlay is on) and the camera's field of view. Click or drag to move the camera there.
 
-import { WORLD, BUILD, SITE } from '../sim/config/index.js';
+import { DRONES, WORLD, BUILD, SITE } from '../sim/config/index.js';
+import { BEARINGS, predictRange, usesPath } from '../sim/site-range.js';
 import { terrainState } from '../sim/terrain.js';
 import { hereU, clamp } from '../sim/units.js';
 import { hexCss } from '../render/labels.js';
 import { trackColour } from '../render/belief-view.js';
 import { view } from '../render/view.js';
+
+// The outline of what a system really reaches from where it stands. Weapons that fly over the ground get a plain circle.
+function traceRange(g, s, x, y, px) {
+  g.beginPath();
+  if (!usesPath(s.def)) { g.arc(x, y, px(s.def.range), 0, Math.PI * 2); return; }
+  const m = WORLD.metresPerUnit;
+  predictRange(s.def, DRONES.fpv, terrainState.data, s.pos.x * m, s.pos.z * m).first.forEach((r, i) => {
+    const b = (i / BEARINGS) * Math.PI * 2;
+    g.lineTo(x + Math.sin(b) * px(r), y - Math.cos(b) * px(r));
+  });
+  g.closePath();
+}
 
 export function createMinimap(sim, canvas, camera, controls) {
   const mm = { span: 6500, drag: false };
@@ -41,7 +54,7 @@ export function createMinimap(sim, canvas, camera, controls) {
     for (const s of sim.structures) {
       const [x, y] = mmXY(s.pos.x * mpu, s.pos.z * mpu);
       const selected = s === view.selected;
-      if (view.rings || selected) { g.beginPath(); g.arc(x, y, px(s.def.range), 0, Math.PI * 2); g.strokeStyle = hexCss(s.def.color) + (selected ? 'ff' : '66'); g.lineWidth = selected ? 2 : 1; g.stroke(); }
+      if (view.rings || selected) { traceRange(g, s, x, y, px); g.strokeStyle = hexCss(s.def.color) + (selected ? 'ff' : '66'); g.lineWidth = selected ? 2 : 1; g.stroke(); }
       g.fillStyle = hexCss(s.def.color); g.fillRect(x - 3, y - 3, 6, 6);
     }
     g.fillStyle = '#ffffff'; g.fillRect(ox - 2, oy - 2, 4, 4);

@@ -5,9 +5,12 @@ import { useState } from 'react';
 import { COMMS, DRONES, SENSING, SPECTRUM, WORLD } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
 import { magazineWord } from '../sim/magazine.js';
-import { reachFor } from '../sim/network/sensors.js';
+import { burnTime, hitChance } from '../sim/hit-chance.js';
+import { ERROR_AT_LIMIT, predictRange, reachFor, usesPath } from '../sim/site-range.js';
+import { terrainState } from '../sim/terrain.js';
 import { fmtTime, hex, useGame, useTick } from './hooks.js';
 import { stateWord } from './dock/NetworkSide.jsx';
+import { SiteRange } from './SiteRange.jsx';
 import { UnitEditor } from './UnitEditor.jsx';
 
 const km = (metres) => `${(metres / 1000).toFixed(1)} km`;
@@ -120,18 +123,44 @@ function Engages({ s }) {
 function RangeRow({ s, net, live }) {
   const def = s.def;
   const tr = live && s.task && net.tracks.get(s.task.trackId);
+  const here = (d) => predictRange(def, d, terrainState.data, s.pos.x * WORLD.metresPerUnit, s.pos.z * WORLD.metresPerUnit);
   if (def.role !== 'sensor') {
-    return <Row label="Range">{km(def.range)} limit{tr && tr.est ? `, target at ${km(net.distToTrack(s, tr))}` : ''}</Row>;
+    return (
+      <Row label="Range">
+        {km(def.range)} in an open field{usesPath(def) ? `, ${km(here(DRONES.fpv).mean)} here on average` : ', the same anywhere'}
+        {tr && tr.est ? `, target at ${km(net.distToTrack(s, tr))}` : ''}
+      </Row>
+    );
   }
   return (
     <Row label="Range">
-      <span className="up-reach">
+      <span className="up-reach3">
+        <span className="muted">Against</span><span className="muted">Open field</span><span className="muted">Here</span>
         {Object.values(DRONES).map((d) => {
           const reach = reachFor(def, d);
-          return [<span key={d.id}>{d.name}</span>, <span key={`${d.id}-reach`}>{reach ? km(reach) : 'cannot hear'}</span>];
+          return [<span key={d.id}>{d.name}</span>, <span key={`${d.id}-open`}>{reach ? km(reach) : 'cannot hear'}</span>, <span key={`${d.id}-here`}>{reach ? km(here(d).mean) : ''}</span>];
         })}
       </span>
-      <span className="muted">About {PD_AT_REACH}% chance a scan at that range, with a clear line of sight{def.fov ? ', once cued' : ''}</span>
+      <span className="muted">About {PD_AT_REACH}% chance a scan at that range{def.fov ? ', once cued' : ''}. Here is the average around this spot at the drone's usual height. See the Range side.</span>
+    </Row>
+  );
+}
+
+// The odds against each drone it would take, close in and at its limit, from the code the simulation runs.
+function Odds({ def }) {
+  const drones = Object.values(DRONES).filter((d) => !def.engages || def.engages.includes(d.id));
+  const beam = def.fire === 'beam';
+  const cell = (d, range) => (beam ? `${burnTime(def, d, range).toFixed(1)} s` : `${Math.round(hitChance(def, d, range) * 100)}%`);
+  return (
+    <Row label={beam ? 'Time to burn' : 'Chance a shot hits'}>
+      <span className="up-reach3">
+        <span className="muted">Against</span><span className="muted">Close</span><span className="muted">At limit</span>
+        {drones.map((d) => {
+          const hits = beam ? 1 : Math.ceil(d.hp / def.damage);
+          return [<span key={d.id}>{d.name}{hits > 1 ? `, ${hits} hits` : ''}</span>, <span key={`${d.id}-near`}>{cell(d, 0)}</span>, <span key={`${d.id}-far`}>{cell(d, def.range)}</span>];
+        })}
+      </span>
+      <span className="muted">{beam ? 'Drones that evade take longer, and they get better at it each wave. Rain and haze are not modelled.' : 'On a good track. A poor track lowers it, and drones get harder to hit each wave.'}</span>
     </Row>
   );
 }
@@ -170,7 +199,7 @@ function NetworkRow({ s, comms }) {
 function positionOf(s) {
   const m = WORLD.metresPerUnit;
   const bearing = (((Math.atan2(s.pos.x, -s.pos.z) * 180) / Math.PI) + 360) % 360;
-  const mast = s.def.role === 'sensor' ? `, mast ${s.def.mount} m` : '';
+  const mast = s.def.mount != null ? `, mast ${s.def.mount} m` : '';
   return `${Math.round(Math.hypot(s.pos.x, s.pos.z) * m)} m from the site, bearing ${String(Math.round(bearing) % 360).padStart(3, '0')}°${mast}`;
 }
 
@@ -180,7 +209,8 @@ function Totals({ def, ledger }) {
   const n = fired ? fired.n : 0;
   const used = def.fire === 'jam' ? '' : `${def.fire === 'beam' ? `${n} s of beam` : plural(n, 'shot')} · `;
   const perKill = fired && kills ? ` · ${money(fired.cost / kills)} a kill` : '';
-  return <Row label={`All ${def.short}`}>{used}{plural(kills, 'kill')}{perKill}</Row>;
+  const rate = def.fire === 'guided' && n ? ` · ${Math.min(100, Math.round((kills / n) * 100))}% of shots killed` : '';
+  return <Row label={`All ${def.short}`}>{used}{plural(kills, 'kill')}{perKill}{rate}</Row>;
 }
 
 function UnitCard({ s, game }) {
@@ -196,6 +226,7 @@ function UnitCard({ s, game }) {
   const status = statusText(s, sim, moment);
   const [side, setSide] = useState('details');
   const editing = side === 'configure' && !frame;
+  const ranging = side === 'range' && !frame;
   return (
     <div id="unit-panel" className="panel" role="region" aria-label={`Selected system: ${s.short}`}>
       <div className="up-head" style={{ borderLeftColor: hex(def.color) }}>
@@ -205,19 +236,23 @@ function UnitCard({ s, game }) {
       {frame && <div className="up-review">Reviewing {fmtTime(frame.t)}. Network and totals are hidden, because they are not recorded.</div>}
       {!frame && (
         <div className="up-sides" role="group" aria-label="Panel view">
-          <button id="unit-details" aria-pressed={!editing} onClick={() => setSide('details')}>Details</button>
+          <button id="unit-details" aria-pressed={!editing && !ranging} onClick={() => setSide('details')}>Details</button>
+          <button id="unit-range" aria-pressed={ranging} onClick={() => setSide('range')}>Range</button>
           <button id="unit-configure" aria-pressed={editing} onClick={() => setSide('configure')}>Configure</button>
         </div>
       )}
-      {editing ? <UnitEditor s={s} game={game} /> : <>
+      {ranging && <SiteRange s={s} />}
+      {editing && <UnitEditor s={s} game={game} />}
+      {!editing && !ranging && <>
       <p className="up-desc">{s.custom?.name ? `${def.name}. ` : ''}{def.desc}</p>
       <Row label="Status">{status}</Row>
       <Row label="Health">{Math.max(Math.ceil(health), 0)} / {def.health}</Row>
       <Stores s={s} now={moment || s} state={state} frame={frame} />
       <RangeRow s={s} net={net} live={!frame} />
       {limits && <Row label="Limits">{limits}</Row>}
-      {def.role === 'sensor' && <Row label="Measures">{measuresOf(def)}</Row>}
+      {def.role === 'sensor' && <Row label="Measures">{measuresOf(def)}<span className="muted">At best, close in. About {ERROR_AT_LIMIT.toFixed(1)} times that at the limit of its reach, and worse through hills and trees</span></Row>}
       {isEffector && <Row label={s.jamBands ? 'Jamming' : 'Engages'}><Engages s={s} /></Row>}
+      {isEffector && !s.jamBands && <Odds def={def} />}
       {!frame && <NetworkRow s={s} comms={net.comms} />}
       <Row label="Position">{positionOf(s)}</Row>
       <Row label="Price">{money(def.cost)}</Row>

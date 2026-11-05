@@ -24,6 +24,7 @@ const lay = (laydown = MIXED) => { setUp(game.sim, { seed: '1', laydown }); };
 const unit = (id) => game.sim.structures.find((s) => s.def.id === id);
 const show = (ui = <UnitPanel />) => render(<GameContext.Provider value={game}>{ui}</GameContext.Provider>);
 const pick = (s) => act(() => game.select(s));
+const openRange = () => fireEvent.click($('#unit-range'));
 
 beforeEach(() => {
   game = createGame({ seed: '1', terrainSeed: '1', api: createFakeApi(), storage: createFakeStorage() });
@@ -177,7 +178,7 @@ describe('the panel', () => {
       expect(text).toContain(`${(reachFor(def, DRONES.fpv) / 1000).toFixed(1)} km`);
       expect(text).toContain('No rounds');
     } else {
-      expect(text).toContain(`${(def.range / 1000).toFixed(1)} km limit`);
+      expect(text).toContain(`${(def.range / 1000).toFixed(1)} km in an open field`);
       expect(text).toMatch(/Magazine|Stored beam/);
     }
   });
@@ -187,8 +188,8 @@ describe('the panel', () => {
     show();
     pick(unit('radar'));
     const text = panel().textContent;
-    expect(text).toContain('FW Strike4.2 km');
-    expect(text).toContain('FPV Strike2.0 km');
+    expect(text).toContain('FW Strike6.6 km');
+    expect(text).toContain('FPV Strike3.1 km');
     expect(text).toContain('About 86% chance');
     expect(text).toContain('Below 40 m');
     expect(text).toContain('Range ±8 m, bearing ±0.6°, elevation ±1.2°, velocity');
@@ -438,5 +439,67 @@ describe('selecting without the map', () => {
     expect(panel()).not.toBe(null);
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(panel()).toBe(null);
+  });
+});
+
+describe('the Range side', () => {
+  it('gives every system its open-field and predicted range, or says the spot does not matter', () => {
+    for (const id of Object.keys(STRUCTURES)) {
+      lay([[id, 600, 0]]);
+      show();
+      pick(unit(id));
+      openRange();
+      const def = STRUCTURES[id];
+      if (def.fire === 'guided') expect($('#sr-guided').textContent).toContain(`${(def.range / 1000).toFixed(1)} km`);
+      else {
+        expect(panel().textContent).toContain('in an open field. Here:');
+        expect($('#sr-polar')).not.toBeNull();
+        expect($('#sr-profile')).not.toBeNull();
+      }
+      cleanup();
+    }
+  });
+
+  it('lets you pick the threat and the bearing, and explains that path', () => {
+    lay([['radar', 600, 0]]);
+    show();
+    pick(unit('radar'));
+    openRange();
+    expect(panel().textContent).toContain('the worst');
+    fireEvent.change($('#sr-bearing'), { target: { value: '45' } });
+    expect(panel().textContent).toContain('Bearing 045°');
+    expect(panel().textContent).not.toContain('the worst');
+    expect(panel().textContent).toContain('Free-space loss');
+    fireEvent.change($('#sr-threat'), { target: { value: 'fw' } });
+    expect(panel().textContent).toContain('6.6 km in an open field');
+  });
+
+  it('offers an RF detector only the drones it can hear', () => {
+    lay([['rf', 600, 0]]);
+    show();
+    pick(unit('rf'));
+    openRange();
+    const offered = [...$('#sr-threat').options].map((o) => o.value);
+    expect(offered).toContain('fpv');
+    expect(offered).not.toContain('fw');
+    expect(offered).not.toContain('fo');
+  });
+
+  it('follows the mast height', () => {
+    lay([['radar', 600, 0]]);
+    show();
+    pick(unit('radar'));
+    openRange();
+    expect(panel().textContent).toContain('25 m, 60 m');
+    act(() => { game.commands.configureUnit(unit('radar'), 'mount', 35); });
+    expect(panel().textContent).toContain('35 m, 60 m');
+  });
+
+  it('shows open field and here side by side on the Details side', () => {
+    lay([['radar', 600, 0]]);
+    show();
+    pick(unit('radar'));
+    expect(panel().textContent).toContain('Open field');
+    expect(panel().textContent).toContain('Here');
   });
 });

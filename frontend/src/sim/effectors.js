@@ -2,13 +2,18 @@
 
 import { Vector3 } from 'three';
 import { WORLD, TERRAIN, STRUCT_SCALE } from './config/index.js';
+import { beamFactor, evasionFactor, hitChance } from './hit-chance.js';
+import { rand } from './rng.js';
+import { antennaHeight } from './site-range.js';
 import { terrainState } from './terrain.js';
-import { u, hereU } from './units.js';
+import { u, hereU, hdist, SITE_POS } from './units.js';
 import { affordable, spend } from './economy.js';
 import { damageDrone } from './drones.js';
 import { canFire, updateMagazine, useRound } from './magazine.js';
 
 const _v = new Vector3(), _m = new Vector3();
+const MISS_COLOUR = 0x90a4ae;
+const SALVO_ASSURANCE = 0.8; // a salvo stops once it is this likely that one of the rounds in the air will work: an assumption
 
 export const muzzle = (s, out = _m) => out.set(s.pos.x, s.pos.y + (s.def.muzzleY || 2) * STRUCT_SCALE * (s.def.modelScale || 1), s.pos.z);
 
@@ -16,15 +21,29 @@ export const muzzle = (s, out = _m) => out.set(s.pos.x, s.pos.y + (s.def.muzzleY
 export function opticalLos(s, d) {
   if (s.def.fire === 'guided') return true;
   const m = WORLD.metresPerUnit;
-  const r = terrainState.data.los(s.pos.x * m, s.pos.y * m + 4, s.pos.z * m, d.pos.x * m, d.pos.y * m, d.pos.z * m);
+  const r = terrainState.data.los(s.pos.x * m, s.pos.y * m + antennaHeight(s.def), s.pos.z * m, d.pos.x * m, d.pos.y * m, d.pos.z * m);
   return r.clear && r.canopy <= TERRAIN.opticalCanopyTol;
 }
 
 const aimAt = (s, t) => { s.aim = Math.atan2(t.pos.x - s.pos.x, t.pos.z - s.pos.z); };
 
 function launchMissile(w, s, t) {
-  const speed = u(s.def.missileSpeed);
-  w.missiles.push({ def: s.def, pos: muzzle(s).clone(), vel: new Vector3(0, speed * 0.6, 0), target: t, life: (s.def.range / s.def.missileSpeed) * 1.5 });
+  const speed = u(s.def.missileSpeed), track = s.task && w.net.tracks.get(s.task.trackId);
+  w.missiles.push({
+    def: s.def, pos: muzzle(s).clone(), vel: new Vector3(0, speed * 0.6, 0), target: t, life: (s.def.range / s.def.missileSpeed) * 1.5,
+    from: s.pos.distanceTo(t.pos) * WORLD.metresPerUnit, cueError: track?.estErr ?? 0, // what its chance depends on, as it was fired
+  });
+}
+
+// Is it worth holding fire on this target? Shoot, look, shoot while there is time to see the result and fire again. When there is not, keep
+// firing until the rounds in the air are likely enough to do it, as a crew would with a target about to arrive.
+export function enoughInAir(w, s, t) {
+  const flying = w.missiles.filter((m) => m.target === t);
+  if (flying.reduce((sum, m) => sum + m.def.damage, 0) < t.hp) return false; // not enough to kill it even if they all hit
+  const m = WORLD.metresPerUnit, flight = (s.pos.distanceTo(t.pos) * m) / s.def.missileSpeed;
+  if ((hdist(t.pos, SITE_POS) * m) / t.def.speed > 2 * flight + s.def.cooldown) return true;
+  const allMiss = flying.reduce((chance, r) => chance * (1 - hitChance(r.def, { speed: t.def.speed, evade: t.evade }, r.from, r.cueError)), 1);
+  return 1 - allMiss >= SALVO_ASSURANCE;
 }
 
 const FIRE = {
@@ -39,7 +58,8 @@ const FIRE = {
     aimAt(s, t);
     s.beamT = (s.beamT || 0) + dt; // a "shot" is a second of beam time
     while (s.beamT >= 1) { s.beamT -= 1; spend(w, s); useRound(w, s); }
-    damageDrone(w, t, def.dps * dt * (0.5 + 0.5 * t.evade), def.id); // evasion spoils beam dwell
+    const rate = def.dps * evasionFactor(t.evade) * beamFactor(def, s.pos.distanceTo(t.pos) * WORLD.metresPerUnit); // evasion and distance spoil its dwell
+    damageDrone(w, t, rate * dt, def.id);
   },
   guided(w, s, t) {
     if (t && s.cd <= 0 && !opticalLos(s, t)) t = null;
@@ -48,8 +68,7 @@ const FIRE = {
     const def = s.def;
     if (s.cd > 0 || !affordable(w, s) || !canFire(s)) return;
     s.cd = def.cooldown;
-    const pending = w.missiles.filter((m) => m.target === t).length * def.damage;
-    if (pending >= t.hp) { s.cd = 0.3; return; } // enough already in the air
+    if (enoughInAir(w, s, t)) { s.cd = 0.3; return; }
     spend(w, s);
     useRound(w, s);
     launchMissile(w, s, t);
@@ -85,13 +104,14 @@ export function updateMissiles(w, dt) {
       m.vel.lerp(_v, 1 - Math.exp(-4 * dt));
     }
     m.pos.addScaledVector(m.vel, dt);
-    const fuzed = m.target && m.pos.distanceTo(m.target.pos) < u(m.def.fuze) * m.target.evade; // evasive targets are harder to catch
+    const fuzed = m.target && m.pos.distanceTo(m.target.pos) < u(m.def.fuze);
     if (fuzed || m.life <= 0 || m.pos.y < hereU(m.pos.x, m.pos.z) + 0.2) {
-      if (fuzed) {
+      const hit = fuzed && rand() < hitChance(m.def, { speed: m.target.def.speed, evade: m.target.evade }, m.from, m.cueError);
+      if (hit) { // it reaches its target, and its blast anything else close by. A miss costs the round and does nothing.
         const r = u(m.def.splash);
-        for (const d of drones.slice()) if (d.pos.distanceTo(m.pos) < r) damageDrone(w, d, m.def.damage, m.def.id);
+        for (const d of drones.slice()) if (d === m.target || d.pos.distanceTo(m.pos) < r) damageDrone(w, d, m.def.damage, m.def.id);
       }
-      w.emit('explosion', { pos: m.pos, r: u(m.def.splash), color: 0xff8844 });
+      w.emit('explosion', { pos: m.pos, r: u(m.def.splash) * (hit ? 1 : 0.5), color: hit ? 0xff8844 : MISS_COLOUR });
       missiles.splice(i, 1);
     }
   }

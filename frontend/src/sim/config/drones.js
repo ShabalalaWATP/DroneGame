@@ -1,7 +1,7 @@
 export const DRONES = {
   // model: 'quad' | 'fw'. alt: spawn altitude range above ground (m). minAgl: lowest it will fly above ground until
   // it is close to the site (m). Strikes follow the terrain. jamResist: 0 = fully jammable, 1 = immune.
-  // evade: 1 = no manoeuvrability, lower = harder to hit. It scales missile fuze radius and laser dwell.
+  // evade: 1 = no manoeuvrability, lower = harder to hit. It lowers a shot's hit chance and slows a laser's burn.
   // adapt: how strongly this type gets better at evading/resisting each wave (see ADAPT).
   // sound: how much further it is heard than a small FPV, an assumption. A piston-engined fixed-wing drone is far louder than a quadcopter.
   // rfEmitter: has an active radio link an RF detector can hear. airframe is what a camera classifies it as.

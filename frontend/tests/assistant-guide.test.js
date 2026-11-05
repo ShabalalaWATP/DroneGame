@@ -74,10 +74,11 @@ describe('who answers which drone', () => {
     expect(answer(fw, missile)).toBe('Yes');
     expect(answer(fpv, missile)).toBe('Last');
   });
-  it('knows lasers are slow on evasive drones and cannot reach a distant spotter', () => {
+  it('knows lasers are slow on evasive drones, and a small one cannot reach a distant spotter', () => {
     expect(answer(fpv, laser)).toBe('Slow');
     expect(answer(fo, laser)).toBe('Yes');
-    expect(answer(spotter, laser)).toBe('Far');
+    expect(answer(spotter, laser)).toBe('Yes');
+    expect(answer(spotter, STRUCTURES.laser_s)).toBe('Far');
   });
   it('picks the cheapest clear answer', () => {
     expect(effectorFor(fpv).id).toBe('jammer');

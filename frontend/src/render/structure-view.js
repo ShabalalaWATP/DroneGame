@@ -2,8 +2,9 @@
 // removed to match the simulation's list each frame.
 
 import * as THREE from 'three';
-import { STRUCT_SCALE } from '../sim/config/index.js';
+import { DRONES, STRUCT_SCALE, WORLD } from '../sim/config/index.js';
 import { muzzle } from '../sim/effectors.js';
+import { predictRange, usesPath } from '../sim/site-range.js';
 import { terrainState } from '../sim/terrain.js';
 import { u } from '../sim/units.js';
 import { buildModel } from './models.js';
@@ -18,19 +19,24 @@ export const LABEL_LIFT = 9; // a name tag sits this far above its system, in sc
 const ringOpacity = () => (onRealMap() ? 0.8 : 0.35);
 const SELECTED_RING_OPACITY = 0.95;
 const ringColour = (def) => (onRealMap() ? new THREE.Color(def.color).multiplyScalar(0.7) : def.color);
+const OPEN_RING_OPACITY = 0.45;
+const ringKey = (s) => `${s.def.range}|${s.def.mount}`;
 const _m = new THREE.Vector3();
 
 export function createStructureViews(scene, sim, labels) {
   const views = new Map(); // structure -> view
 
   function makeRing(s, v) {
-    if (v.ringObj) { v.holder.remove(v.ringObj.mesh); v.ringObj.dispose(); }
-    const r = u(s.def.range);
-    v.ringObj = drapedRing(r, ringThickness(r), ringColour(s.def), ringOpacity());
-    v.ringObj.update(s.pos.x, s.pos.z);
+    for (const old of [v.ringObj, v.openRing]) if (old) { v.holder.remove(old.mesh); old.dispose(); }
+    const r = u(s.def.range), m = WORLD.metresPerUnit;
+    // The bright line is what this spot really gets against a small drone. The faint circle, shown when selected, is the open field.
+    const radii = usesPath(s.def) ? Array.from(predictRange(s.def, DRONES.fpv, terrainState.data, s.pos.x * m, s.pos.z * m).first, (metres) => u(metres)) : null;
+    v.ringObj = drapedRing(r, ringThickness(r), ringColour(s.def), ringOpacity(), 160, 0.5, radii);
+    v.openRing = drapedRing(r, ringThickness(r) * 0.5, 0xffffff, OPEN_RING_OPACITY);
+    for (const ring of [v.ringObj, v.openRing]) { ring.update(s.pos.x, s.pos.z); v.holder.add(ring.mesh); }
     v.ringObj.mesh.visible = view.rings;
-    v.ringRange = s.def.range;
-    v.holder.add(v.ringObj.mesh);
+    v.openRing.mesh.visible = false;
+    v.ringKey = ringKey(s);
   }
 
   function create(s) {
@@ -70,9 +76,10 @@ export function createStructureViews(scene, sim, labels) {
     for (const [s, v] of views) if (!live.has(s)) dispose(s, v);
     for (const s of sim.structures) {
       const v = views.get(s) || create(s);
-      if (v.ringRange !== s.def.range) makeRing(s, v); // this unit was reconfigured
+      if (v.ringKey !== ringKey(s)) makeRing(s, v); // this unit was reconfigured
       const selected = s === view.selected;
       v.ringObj.mesh.visible = view.rings || selected;
+      v.openRing.mesh.visible = selected;
       v.ringObj.mesh.material.opacity = selected ? SELECTED_RING_OPACITY : ringOpacity();
       v.label.classList.toggle('selected', selected);
       if (v.parts.spin) v.parts.spin.rotation.y += real * (s.def.id === 'radar' ? 2.2 : 0.6);
