@@ -9,7 +9,7 @@ import { u, hdist, clamp, groundM, hereU, SITE_POS } from './units.js';
 import { tally } from './economy.js';
 import { pickTarget, hitStructure } from './targeting.js';
 import { aimInZone } from './attack-area.js';
-import { blastInAir, blastOnSite } from './people.js';
+import { blastInAir, blastOnGround, blastOnSite } from './people.js';
 
 const _v = new Vector3();
 const SPOTTER_CLEARANCE = 30; // metres
@@ -77,14 +77,15 @@ export function damageDrone(w, d, amount, by) {
 // each spotter on station makes every strike hit harder
 export const spotterBonus = (w) => w.drones.reduce((sum, d) => sum + (d.mode === 'orbit' && !d.videoJammed ? d.def.spotBonus || 0 : 0), 0); // a spotter with jammed video can't help
 
-function impact(w, d) {
+// onPatrol: the patrol's spot, when that is what it reached. It lands among the people there, as a strike on a system lands on it.
+function impact(w, d, onPatrol) {
   const { state, ledger, net } = w;
-  w.rec.event('leak', `${d.def.name} hit the site`, d.uid);
-  blastOnSite(w, d);
+  w.rec.event('leak', `${d.def.name} hit the ${onPatrol ? 'patrol' : 'site'}`, d.uid);
+  if (onPatrol) blastOnGround(w, d, onPatrol.x, onPatrol.z); else blastOnSite(w, d);
   state.leaks++; tally(ledger.leaked, d.type);
   if (!state.sandbox) state.health = Math.max(state.health - d.def.damage * (1 + spotterBonus(w)), 0);
   w.emit('siteHit');
-  net.raiseAlert('critical', `Site impact by ${d.def.name}: integrity ${Math.round(state.health)}%`, d.pos, 'DISCRETE_PRIORITY_HIGH');
+  net.raiseAlert('critical', `${onPatrol ? 'Patrol' : 'Site'} impact by ${d.def.name}: integrity ${Math.round(state.health)}%`, d.pos, 'DISCRETE_PRIORITY_HIGH');
   w.emit('explosion', { pos: d.pos, r: u(150), color: 0xff5252 });
   removeDrone(w, d);
   if (state.health <= 0 && !state.sandbox) { state.over = true; w.emit('gameOver'); }
@@ -121,7 +122,7 @@ function moveStrike(w, d, spd) {
   if (hdist(d.pos, SITE_POS) > u(WORLD.radius)) { tally(w.ledger.escaped, d.type); w.rec.event('escaped', `${d.def.name} left the area`, d.uid); removeDrone(w, d); return false; } // GNSS drift can turn it away for good
   const tgt = pickTarget(w, d);
   const hrem = Math.hypot(tgt.x - d.pos.x, tgt.z - d.pos.z);
-  if (tgt.structure || d.aim ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(w, d, tgt.structure); else impact(w, d); return false; }
+  if (tgt.structure || d.aim || tgt.patrol ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(w, d, tgt.structure); else impact(w, d, tgt.patrol && tgt); return false; }
   // height above ground eases from the launch height down to the target height, never below the type's minimum until it
   // is within 400 m, and climbing early over rising ground
   let dirx = (tgt.x - d.pos.x) / hrem, dirz = (tgt.z - d.pos.z) / hrem;

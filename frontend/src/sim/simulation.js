@@ -15,6 +15,7 @@ import { SITE_POS, u } from './units.js';
 import { affordable, createLedger, resetLedger } from './economy.js';
 import * as laydown from './laydown.js';
 import * as people from './people.js';
+import { setPatrol, updatePatrol } from './patrol.js';
 import { spawnDrone, removeDrone, updateDrones, spotterBonus } from './drones.js';
 import { opticalLos, updateStructures, updateMissiles, enoughInAir } from './effectors.js';
 import { canFire, resupply } from './magazine.js';
@@ -40,7 +41,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     waveActive: false, queue: [], waveTime: 0, autoTimer: -1,
     sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, // sandbox: attacks without consequences, before the first wave
   };
-  const w = { state, drones: [], structures: [], missiles: [], people: [], peopleUid: 0, peopleRev: 0, ledger: createLedger(), emit, droneUid: 0, startLaydown: null, startFigures: null, runEnded: false };
+  const w = { state, drones: [], structures: [], missiles: [], people: [], peopleUid: 0, peopleRev: 0, patrol: null, ledger: createLedger(), emit, droneUid: 0, startLaydown: null, startFigures: null, runEnded: false };
   w.rec = createRecorder(() => state.time);
   w.net = createNetwork({
     drones: w.drones,
@@ -68,6 +69,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   function step(dt = SIM_STEP) {
     state.time += dt;
     updateWaves(w, dt, beginRun);
+    updatePatrol(w, dt);
     w.net.update(dt);
     updateStructures(w, dt);
     updateMissiles(w, dt);
@@ -85,6 +87,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     for (const d of w.drones.slice()) removeDrone(w, d);
     w.missiles.length = 0;
     people.clearPeople(w);
+    w.patrol = null; // its escort and people went with the rest
     Object.assign(state, {
       health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, time: 0, warnedWire: false, over: false,
       waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, zone: null, zoneCentre: SITE_POS,
@@ -168,6 +171,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     deploy,
     leave,
     setZone: (points) => laydown.setZone(w, points),
+    setPatrol: (points) => setPatrol(w, points),
     place: (id, x, z, settings) => laydown.place(w, id, x, z, settings),
     sell: (x, z) => laydown.sell(w, x, z),
     resupply: () => resupply(w),
@@ -214,11 +218,13 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     for (const e of bus.entries) feed(JSON.stringify(e.msg));
     feed(JSON.stringify([state.kills, state.health, state.budget, state.leaks, state.time, bus.seq, w.ledger]));
     if (w.people.length) feed(JSON.stringify(w.people.map((g) => g.hits))); // with no people, a run's digest stays as it was
+    if (w.patrol) feed(String(w.patrol.dist));
     return (h >>> 0).toString(16);
   }
 
   return {
     registerPack(pack) { packs.set(pack.hash, pack); },
+    patrol: () => w.patrol,
     state, drones: w.drones, structures: w.structures, missiles: w.missiles, people: w.people, peopleRev: () => w.peopleRev, ledger: w.ledger, net: w.net, rec: w.rec, bus,
     commands, log, on, off, step, digest, endRun, stepCount: () => stepCount,
     currentLaydown: () => w.startLaydown || laydown.captureLaydown(w),

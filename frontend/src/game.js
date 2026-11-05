@@ -84,7 +84,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   // ---------- filled in once the canvas exists ----------
   let gameView = null, placement = null, replay = null;
   const frameListeners = new Set();
-  let tool = null; // structure id | 'sell' | 'zone' | 'people' | null
+  let tool = null; // structure id | 'sell' | 'zone' | 'people' | 'patrol' | null
   let refusal = null; // why the last placement was refused
   let selectHinted = false; // the first placement says that systems can be clicked
 
@@ -125,6 +125,18 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     if (JSON.stringify(points) !== JSON.stringify(sim.state.zone)) commands.setZone(points);
   }
 
+  // A click while drawing a patrol route. A closed route goes to the simulation, which adds the escort. A refused one is wiped.
+  function patrolClick(x, z) {
+    if (sim.designLocked()) { toast('The patrol is locked once the first wave starts'); return; }
+    if (!view.route && sim.patrol()) commands.setPatrol(null); // a new route replaces the old one
+    view.route = addZonePoint(view.route, x, z);
+    if (!view.route?.closed) { bump(); return; }
+    const refused = commands.setPatrol(view.route.points);
+    view.route = null;
+    toast(refused || 'Patrol set. It starts walking with the first wave, with a radar ahead and a Rapid Ranger behind');
+    setTool('patrol');
+  }
+
   function groundClick(x, z) {
     if (!tool || state.over || !state.started) return;
     if (tool === 'sell') { commands.sell(x, z); return; }
@@ -133,6 +145,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
       if (refusal) toast(refusal);
       return;
     }
+    if (tool === 'patrol') { patrolClick(x, z); return; }
     if (tool === 'zone') {
       if (sim.designLocked()) toast(ZONE_LOCKED);
       else if (!zoneInReach(x, z)) toast('The area must stay within 5 km of the station, so the attack has room to fly in');
@@ -213,7 +226,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     if (gameView) gameView.clear();
     simAcc = 0; pausedForApproval = false;
     if (!begin) setSpeed(1);
-    if (!kept && !loading) view.zone = null;
+    if (!kept && !loading) view.zone = view.route = null;
     if (!begin && !loading) toast(kept ? 'Run reset: same laydown and seed' : 'Map cleared: the site is empty and the budget is full again');
     bump();
   });
@@ -294,7 +307,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     // Back to the start screen, to choose another world. A point makes it open on that place.
     leaveWorld(point = null) {
       if (tool) setTool(tool);
-      Object.assign(view, { startAt: point, zone: null, me: null, selected: null, mapPanel: false, planView: false });
+      Object.assign(view, { startAt: point, zone: null, route: null, me: null, selected: null, mapPanel: false, planView: false });
       if (gameView) gameView.viewFromAbove(false);
       commands.leave();
     },

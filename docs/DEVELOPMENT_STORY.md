@@ -196,6 +196,14 @@ A real browser found what the tests could not: the green placement marker was la
 
 The casualty figures are round-number assumptions and are labelled so in the Sources tab. They are not weapons-effects data, and they should not be read as any.
 
+## A patrol prototype
+
+Alex wanted to explore protecting a moving patrol rather than a fixed site. The design is in `docs/PATROL_MODE.md`, and a first slice is playable: a group of simulated people walks a looped route with a Blighter A800 ahead and a Rapid Ranger behind, strike drones home on them, and the patrol halts while the launcher engages. Speeds and spacing are labelled assumptions in the Sources tab. People now take the H key, as 8 belongs to the acoustic row.
+
+The fixed-site digests did not move, because a run with no patrol runs none of its code. The patrol draws no random numbers, so it walks the same way every run.
+
+A browser run found what the tests had missed: nine strikes on the patrol and no casualties. A strike counts once it is within 30 m, and the blast went off where the drone was, beyond an FPV's 25 m casualty radius. It now lands on the patrol, as a strike on a system lands on the system.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

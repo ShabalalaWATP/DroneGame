@@ -82,6 +82,8 @@ class LaydownSpec(Strict):
     fusionCell: CellBand
     people: list[PlacedPeople] | None = Field(default=None, max_length=MAX_PEOPLE_GROUPS, exclude_if=lambda people: people is None)
     zone: list[Annotated[list[Coordinate], Field(min_length=2, max_length=2)]] | None = Field(default=None, min_length=3, max_length=MAX_ZONE_POINTS, exclude_if=lambda zone: zone is None)
+    # a patrol's looped route (see docs/PATROL_MODE.md); the game checks it again on the ground when it is restored
+    patrol: list[Annotated[list[Coordinate], Field(min_length=2, max_length=2)]] | None = Field(default=None, min_length=2, max_length=MAX_ZONE_POINTS, exclude_if=lambda patrol: patrol is None)
 
 
 FigureGroup = Annotated[dict[FigureKey, Annotated[dict[FigureKey, Figure], Field(max_length=MAX_FIGURES_PER_ITEM)]], Field(max_length=MAX_FIGURES_PER_ITEM)]
@@ -94,6 +96,7 @@ class Figures(Strict):
     drones: FigureGroup = {}
     comms: FigureGroup = {}
     people: FigureGroup = Field(default={}, exclude_if=lambda people: not people)  # left out until someone edits one, as older records have none
+    patrol: FigureGroup = Field(default={}, exclude_if=lambda patrol: not patrol)
     world: Annotated[dict[FigureKey, Figure], Field(max_length=4)] = {}
     waves: Annotated[dict[FigureKey, Figure], Field(max_length=4)] = {}
     adapt: Annotated[dict[FigureKey, Figure], Field(max_length=4)] = {}

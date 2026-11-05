@@ -30,6 +30,9 @@ export function ZonePanel({ onClose }) {
   const draw = () => { if (!drawing) game.setTool('zone'); };
   const finish = () => { set(closeZone(zone)); game.setTool('zone'); };
   const redraw = () => { set(null); draw(); };
+  const patrol = game.sim.patrol(), walking = game.getTool() === 'patrol';
+  const drawRoute = () => { game.setViewOption('route', null); game.setTool('patrol'); };
+  const clearPatrol = () => { game.commands.setPatrol(null); game.bump(); };
 
   return (
     <div id="zone-panel" className="panel" role="dialog" aria-label="Area to defend">
@@ -47,6 +50,12 @@ export function ZonePanel({ onClose }) {
         {zone && <button id="zone-clear" onClick={() => set(null)}>Clear</button>}
       </div>}
       <p className="muted">{locked ? 'Locked until you reset the run.' : ATTACK_NOTE}</p>
+      <b>Or protect a patrol</b>
+      <p>{walking ? 'Click the map for each waypoint, then double-click to close the loop.' : patrol ? `${patrol.group.count} people walk the blue route, with a radar ahead and a Rapid Ranger behind.` : 'People walk a looped route with a mobile radar and launcher, and the drones hunt them.'}</p>
+      {!locked && <div className="wz-actions">
+        <button id="patrol-draw" onClick={drawRoute}>{walking ? 'Stop drawing' : patrol ? 'Redraw the route' : 'Draw a patrol route'}</button>
+        {patrol && <button id="patrol-clear" onClick={clearPatrol}>Clear the patrol</button>}
+      </div>}
     </div>
   );
 }

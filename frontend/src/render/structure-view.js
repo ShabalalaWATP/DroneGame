@@ -37,6 +37,7 @@ export function createStructureViews(scene, sim, labels) {
     v.ringObj.mesh.visible = view.rings;
     v.openRing.mesh.visible = false;
     v.ringKey = ringKey(s);
+    v.ringAt = { x: s.pos.x, z: s.pos.z };
   }
 
   function create(s) {
@@ -76,6 +77,10 @@ export function createStructureViews(scene, sim, labels) {
     for (const [s, v] of views) if (!live.has(s)) dispose(s, v);
     for (const s of sim.structures) {
       const v = views.get(s) || create(s);
+      if (s.escort) { // it moves with its patrol: the ring follows, and is re-predicted for the ground every 100 m
+        v.holder.position.copy(s.pos);
+        if (Math.hypot(s.pos.x - v.ringAt.x, s.pos.z - v.ringAt.z) > u(100)) makeRing(s, v);
+      }
       if (v.ringKey !== ringKey(s)) makeRing(s, v); // this unit was reconfigured
       const selected = s === view.selected;
       v.ringObj.mesh.visible = view.rings || selected;

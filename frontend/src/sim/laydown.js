@@ -9,6 +9,7 @@ import { cleanZone, zoneCentre } from './attack-area.js';
 import { buyTerminal, money } from './economy.js';
 import { fillMagazine } from './magazine.js';
 import { capturePeople, clearPeople, restorePeople } from './people.js';
+import { setPatrol } from './patrol.js';
 import { cleanCallsign, cleanName, cleanSettings, fieldsFor, setSetting, unitCost, unitDef } from './unit-config.js';
 
 // saved holds a unit's settings and custom names, and reserved the callsigns other saved units will need.
@@ -58,7 +59,7 @@ export function place(w, id, x, z, settings) {
 export function sell(w, x, z) {
   if (BUILD.lockAfterStart && w.state.wave > 0) { w.emit('toast', 'The laydown is locked once the first wave starts'); return; }
   let best = null, bd = u(150);
-  for (const s of w.structures) { const d = hdist(s.pos, { x, z }); if (d < bd) { bd = d; best = s; } }
+  for (const s of w.structures) { const d = hdist(s.pos, { x, z }); if (d < bd && !s.escort) { bd = d; best = s; } } // the escort goes with its patrol
   if (!best) return;
   const refund = Math.round(best.def.cost * BUILD.sellRefund);
   w.state.budget += refund; w.ledger.capex -= refund;
@@ -69,7 +70,7 @@ export function sell(w, x, z) {
 export function captureLaydown(w) {
   return {
     // sorted, so the order systems were placed in cannot change the run
-    structures: w.structures.map((s) => ({
+    structures: w.structures.filter((s) => !s.escort).map((s) => ({ // the patrol's escort is rebuilt from its route
       id: s.def.id, x: s.pos.x, z: s.pos.z, uplink: s.uplink || null, cellBand: s.cellBand, jam: s.jamBands ? [...s.jamBands] : null,
       ...(Object.keys(s.def.settings).length ? { settings: { ...s.def.settings } } : {}),
       ...(s.custom?.name ? { name: s.custom.name } : {}),
@@ -79,6 +80,7 @@ export function captureLaydown(w) {
     fusionUplinks: [...w.net.fusion.uplinks], fusionCell: w.net.fusion.cellBand,
     ...(w.state.zone ? { zone: w.state.zone } : {}),
     ...capturePeople(w),
+    ...(w.patrol ? { patrol: w.patrol.route } : {}),
   };
 }
 
@@ -105,6 +107,8 @@ export function restoreLaydown(w, spec) {
   applyZone(w, cleanZone(spec.zone));
   clearPeople(w);
   restorePeople(w, spec.people);
+  const refused = spec.patrol && setPatrol(w, spec.patrol); // a saved route comes from outside the game, so it is checked again
+  if (refused) w.emit('toast', `The saved patrol was left out: ${refused}`);
 }
 
 function applyZone(w, points) {

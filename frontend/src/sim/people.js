@@ -45,9 +45,12 @@ function layOut(x, z, count, protection) {
   return b ? inRoom(rng, count, b.w, b.d, b.angle || 0, b.x, b.z) : inRoom(rng, count, UNMAPPED_ROOM, UNMAPPED_ROOM, 0, xm, zm);
 }
 
-function addGroup(w, x, z, count, protection) {
-  w.people.push({ id: ++w.peopleUid, x, z, y: hereU(x, z), count, protection, spots: layOut(x, z, count, protection), down: new Uint8Array(count), hits: [] });
+// look: what the drawing seeds each person's clothes from, so a group that moves keeps its look.
+export function addGroup(w, x, z, count, protection) {
+  const g = { id: ++w.peopleUid, x, z, y: hereU(x, z), look: `${x},${z}`, count, protection, spots: layOut(x, z, count, protection), down: new Uint8Array(count), hits: [] };
+  w.people.push(g);
   w.peopleRev++;
+  return g;
 }
 
 // Why a group can't go here, or null if it can.
@@ -77,7 +80,7 @@ export function placePeople(w, x, z, count, protection) {
 
 export function removePeople(w, id) {
   if (BUILD.lockAfterStart && w.state.wave > 0) { w.emit('toast', LOCKED); return; }
-  const at = w.people.findIndex((g) => g.id === id);
+  const at = w.people.findIndex((g) => g.id === id && !g.patrol); // the patrol's own group goes with the patrol
   if (at < 0) return;
   w.people.splice(at, 1);
   w.peopleRev++;
@@ -86,8 +89,9 @@ export function removePeople(w, id) {
 export function clearPeople(w) { w.people.length = 0; w.peopleRev++; }
 
 // Sorted, so the order groups were placed in cannot change the run. Left out with no people, so saved laydowns stay as they were.
-export const capturePeople = (w) => (w.people.length
-  ? { people: w.people.map(({ x, z, count, protection }) => ({ x, z, count, protection })).sort((a, b) => a.x - b.x || a.z - b.z || a.protection.localeCompare(b.protection)) }
+// The patrol's group is rebuilt from its route, so it is left out too.
+export const capturePeople = (w) => (w.people.some((g) => !g.patrol)
+  ? { people: w.people.filter((g) => !g.patrol).map(({ x, z, count, protection }) => ({ x, z, count, protection })).sort((a, b) => a.x - b.x || a.z - b.z || a.protection.localeCompare(b.protection)) }
   : {});
 
 export function restorePeople(w, groups = []) {

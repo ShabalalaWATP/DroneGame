@@ -1,11 +1,12 @@
-// The wizard's marks on the ground: the area to defend, and a suggested spot. Both come from the view settings, not the simulation.
+// The wizard's marks on the ground: the area to defend and a suggested spot, from the view settings, and a patrol's route, from the
+// simulation once it is set or the view settings while it is drawn.
 
 import * as THREE from 'three';
 import { u, hereU } from '../sim/units.js';
 import { drapedRing } from './terrain-view.js';
 import { view } from './view.js';
 
-const COLOUR = 0xc6ff00, HALF_WIDTH = 1, LIFT = 1, SAMPLE = 4; // scene units: fine enough to follow the hills
+const COLOUR = 0xc6ff00, ROUTE_COLOUR = 0x40c4ff, HALF_WIDTH = 1, LIFT = 1, SAMPLE = 4; // scene units: fine enough to follow the hills
 
 function ribbon(points, closed) {
   const positions = [], index = [];
@@ -27,23 +28,27 @@ function ribbon(points, closed) {
   return geo;
 }
 
-export function createZoneView(scene) {
-  const mat = new THREE.MeshBasicMaterial({ color: COLOUR, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false });
+export function createZoneView(scene, sim) {
+  const paint = (color) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false });
+  const mat = paint(COLOUR), routeMat = paint(ROUTE_COLOUR);
   const peg = new THREE.CylinderGeometry(3, 3, 1.5, 16);
-  const marks = new THREE.Group();
+  const marks = new THREE.Group(), routeMarks = new THREE.Group();
   const spot = drapedRing(u(150), 1.5, COLOUR, 0.95);
   spot.mesh.visible = false;
-  scene.add(marks, spot.mesh);
-  let drawnZone = null, drawnSpot = null;
+  scene.add(marks, routeMarks, spot.mesh);
+  let drawnZone = null, drawnSpot = null, drawnRoute = null;
 
-  function drawZone() {
-    for (const m of marks.children) if (m.geometry !== peg) m.geometry.dispose();
-    marks.clear();
-    const zone = view.zone;
+  function outline(group, zone, material) {
+    for (const m of group.children) if (m.geometry !== peg) m.geometry.dispose();
+    group.clear();
     if (!zone) return;
-    if (zone.points.length > 1) { const line = new THREE.Mesh(ribbon(zone.points, zone.closed), mat); line.frustumCulled = false; marks.add(line); }
-    if (!zone.closed) for (const [x, z] of zone.points) { const m = new THREE.Mesh(peg, mat); m.position.set(x, hereU(x, z) + LIFT, z); marks.add(m); }
+    if (zone.points.length > 1) { const line = new THREE.Mesh(ribbon(zone.points, zone.closed), material); line.frustumCulled = false; group.add(line); }
+    if (!zone.closed) for (const [x, z] of zone.points) { const m = new THREE.Mesh(peg, material); m.position.set(x, hereU(x, z) + LIFT, z); group.add(m); }
   }
+  const drawZone = () => outline(marks, view.zone, mat);
+  const route = () => view.route || (sim.patrol() ? { points: sim.patrol().route, closed: true } : null);
+  const routeKey = () => JSON.stringify(route());
+  const drawRoute = () => outline(routeMarks, route(), routeMat);
 
   function drawSpot() {
     spot.mesh.visible = !!view.spot;
@@ -54,7 +59,9 @@ export function createZoneView(scene) {
     sync() {
       if (view.zone !== drawnZone) { drawnZone = view.zone; drawZone(); }
       if (view.spot !== drawnSpot) { drawnSpot = view.spot; drawSpot(); }
+      const key = routeKey();
+      if (key !== drawnRoute) { drawnRoute = key; drawRoute(); }
     },
-    redraw() { drawZone(); drawSpot(); }, // the ground has changed
+    redraw() { drawZone(); drawSpot(); drawRoute(); }, // the ground has changed
   };
 }

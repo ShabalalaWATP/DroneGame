@@ -3,7 +3,7 @@
 // resets it to the researched value. "Export" saves just your changes as JSON so an experiment can be repeated.
 
 import { useRef, useState } from 'react';
-import { COMMS, DRONES, FIGURE_FIELDS, PEOPLE, RESEARCHED, STRUCTURES, THREAT_GROUPS, WAVES, WORLD, exportFigures } from '../../sim/config/index.js';
+import { COMMS, DRONES, FIGURE_FIELDS, PATROL, PEOPLE, RESEARCHED, STRUCTURES, THREAT_GROUPS, WAVES, WORLD, exportFigures } from '../../sim/config/index.js';
 import { download, hex, useGame } from '../hooks.js';
 import { NumberInput } from '../NumberInput.jsx';
 import { SourceLinks } from './SourceLinks.jsx';
@@ -107,6 +107,14 @@ export function SourcesTab({ active }) {
         <div className="sys" key={id}>
           <div className="sys-h"><i style={{ background: hex(d.color) }} /><b>{d.name}</b> <span className="muted">{d.desc}</span></div>
           <Figures kind="people" id={id} def={d} onChange={changed} />
+        </div>
+      ))}
+      <h4 className="src-h">Patrol</h4>
+      <div className="sys note"><span className="conf assume">ASSUMPTION</span> The patrol's speed, size and spacing are round numbers chosen to show the idea, not any real unit's drills. The escort is assumed to sense and talk on the move, and to stop to fire.</div>
+      {Object.entries(PATROL).map(([id, d]) => (
+        <div className="sys" key={id}>
+          <div className="sys-h"><b>{d.name}</b> <span className="muted">{d.desc}</span></div>
+          <Figures kind="patrol" id={id} def={d} onChange={changed} />
         </div>
       ))}
       <h4 className="src-h">Enemy drones</h4>

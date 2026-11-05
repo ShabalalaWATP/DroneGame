@@ -76,6 +76,17 @@ class TestLaydowns:
     def test_a_laydown_with_no_zone_comes_back_as_it_was_sent(self, client):
         made = client.post(f"{API}/laydowns", json=laydown()).json()
         assert "zone" not in client.get(f"{API}/laydowns/{made['id']}").json()["spec"]
+        assert "patrol" not in client.get(f"{API}/laydowns/{made['id']}").json()["spec"]
+
+    def test_a_patrol_route_is_kept_with_the_laydown(self, client):
+        route = [[10, 10], [30, 10]]
+        made = client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "patrol": route}))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["patrol"] == route
+
+    @pytest.mark.parametrize("route", [[[0, 0]], [[i, i] for i in range(33)], [[0, 0], [351, 0]], [[0, 0], ["a", 0]], "here"])
+    def test_a_bad_patrol_route_is_refused(self, client, route):
+        assert client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "patrol": route})).status_code == 422
 
     @pytest.mark.parametrize(
         "zone",
