@@ -159,6 +159,24 @@ Abbreviations such as FO and FW went from the screen, including the tags over dr
 
 Real drones are data on top of the four types, not new rules: each one starts from its type and overrides what is public. So interceptors, the wizard and the debrief treat a Geran-2 as a fixed-wing strike drone, and the waves are untouched. Research found less than hoped in places. No named Chinese military fibre-optic drone has published figures, so the entry is a commercial one and says so, and no source gives a munition mass for most commercial drones, so those are labelled assumptions.
 
+## Real ranges, UK systems and range from where you stand
+
+Every sensor and effector was checked against datasheets where they could be read. The IRIS sheet gives real test figures by drone weight, so its 2 km became 3.1 km. The A400 sheet gives a range for each radar cross-section, and its table follows exactly the fourth-root law the game already used, which is a useful independent check. Eight UK systems were added, in their own file so that the catalogue stays under the line limit.
+
+The first pass at RF ranges was wrong. The AARTOS was cut to 5.6 km by taking the same fraction that Dedrone publishes between its ideal and normal figures. The user questioned it, and a link budget showed 14 km was believable: the "normal" figures already include real-world losses, and the game applies those itself from terrain and trees, so discounting them counted them twice. That led to the bigger change. A catalogue range now means an open field, and one path model (ITU-R P.526 Bullington, Weissberger for trees, the earth's curve) gives what a spot really gets. Detection, jamming, the rings and the path profile all call the same code, so the prediction cannot disagree with play. Sionna and other ray tracers were considered and left out: see ADR 0003.
+
+The old rule that hid RF behind a hill entirely, and only slightly weakened it in forest, was backwards. Measured foliage loss is far higher than the old figure, and signals do bend over hills. Reference runs moved by a few kills, and how long each laydown survives barely changed.
+
+An audit of the tracker, measured rather than read: one or two RF detectors alone never confirm a track, which is a deliberate rule because two bearings always cross somewhere. Three do, with about 160 m mean error at a 3 degree bearing error, and 2.9 km at 30 degrees. A fourth adds little.
+
+## Rounds that can miss, and error that grows with range
+
+Until now a guided round always arrived, and a laser did the same damage at any range. Each weapon now has a hit chance, lowered by evasion, by how fast the target is against the round, by range and by the quality of the track when it was fired. That last one is what ties sensor accuracy to results for the first time. Where there is evidence the figure is worked back from it: with the other effects, the Sting's claimed 80 to 90% comes to about 66% against an FPV, close to the 68% average President Zelenskyy gave, and the P1-SUN's $3,000 a kill at $1,000 a drone comes to about 1 in 3. Most others have no published rate, and say so.
+
+A beam stays at full strength to a quarter of its range and then falls with distance, so dwell doubles when range doubles, as ST Engineering publishes for its CDLE laser. Sensor error follows the monopulse relationship, where error goes with 1 / sqrt(SNR), so it stays near the quoted figure close in and is about 2.2 times larger at the limit of reach. Hills and trees shorten the reach and so worsen it too.
+
+Measuring the first version showed a problem the code did not show. The Mixed laydown fell from wave 11 to wave 7, and leaks were all fixed-wing drones. Its one missile launcher was firing, then sitting idle for a 40 s flight while others got through. It was a fire control flaw that perfect rounds had hidden. Launchers now shoot, look and shoot while there is time, salvo when there is not, and move to the next target while their rounds fly. Mixed then reached wave 9 or 10, spending far more of its budget.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

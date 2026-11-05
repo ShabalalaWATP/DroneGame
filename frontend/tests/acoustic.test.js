@@ -60,8 +60,11 @@ describe('what cuts its reach', () => {
     const hill = withGround(false, 0, () => sim.net.pd(s, at(400)));
     expect(hill).toBeGreaterThan(0);
     expect(hill).toBeLessThan(open);
-    const radar = sim.addStructure('radar', 60, 0);
-    expect(withGround(false, 0, () => sim.net.pd(radar, at(400)))).toBe(0);
+    // a radar reads the ground itself, so give it a real hill: high ground everywhere but under the radar and the drone
+    const radar = sim.addStructure('radar', 60, 0), target = at(400), was = terrainState.data, m = 20;
+    const clearOf = (p, x, z) => Math.hypot(x - p.x * m, z - p.z * m) < 100;
+    terrainState.data = Object.create(was, { groundAt: { value: (x, z) => (clearOf(radar.pos, x, z) || clearOf(target.pos, x, z) ? 0 : 400) } });
+    try { expect(sim.net.pd(radar, target)).toBeLessThan(0.01); } finally { terrainState.data = was; }
   });
 
   it('hears less in a noisy built-up area', () => {

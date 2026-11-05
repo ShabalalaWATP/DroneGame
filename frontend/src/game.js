@@ -1,8 +1,10 @@
 // Wires the simulation to the 3D view and runs the frame loop. React reads from here through useTick and never owns game state.
 
 import * as THREE from 'three';
-import { STRUCTURES, WORLD, firstClass } from './sim/config/index.js';
-import { fieldsFor, setSetting } from './sim/unit-config.js';
+import { DRONES, STRUCTURES, WORLD, firstClass } from './sim/config/index.js';
+import { fieldsFor, setSetting, unitDef } from './sim/unit-config.js';
+import { predictRange, usesPath } from './sim/site-range.js';
+import { terrainState } from './sim/terrain.js';
 import { createSimulation, SIM_STEP } from './sim/simulation.js';
 import { createGameView } from './render/game-view.js';
 import { hereU } from './sim/units.js';
@@ -107,6 +109,14 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     else setTool(group.classes.length > 1 ? group.classes[(at + 1) % group.classes.length] : tool);
   }
 
+  // What the system just placed really gets from where it stands, against the open field it is advertised for.
+  function placedSummary() {
+    const s = sim.structures[sim.structures.length - 1], km = (metres) => `${(metres / 1000).toFixed(1)} km`;
+    if (!usesPath(s.def)) return `Placed. ${km(s.def.range)} range, wherever it stands`;
+    const m = WORLD.metresPerUnit, p = predictRange(s.def, DRONES.fpv, terrainState.data, s.pos.x * m, s.pos.z * m);
+    return `Placed. ${km(p.mean)} predicted here on average, against ${km(p.open)} in an open field`;
+  }
+
   function groundClick(x, z) {
     if (!tool || state.over || !state.started) return;
     if (tool === 'sell') { commands.sell(x, z); return; }
@@ -117,7 +127,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     }
     refusal = Object.keys(loadoutFor(tool)).length ? commands.place(tool, x, z, { ...loadoutFor(tool) }) : commands.place(tool, x, z);
     if (refusal) toast(refusal);
-    else if (!selectHinted) { selectHinted = true; toast('Placed. Click a system for details, or press Esc to stop placing'); }
+    else { toast(`${placedSummary()}${selectHinted ? '' : '. Click a system for details, or press Esc to stop placing'}`); selectHinted = true; }
   }
 
   // The system the Unit panel shows. It is view state, not a command, so it is not logged and cannot change a run.
@@ -216,7 +226,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     gameView = createGameView(canvas, labelLayer, sim, mapSource);
     placement = createPlacement({
       scene: gameView.scene, camera: gameView.camera, canvas, getWorldMesh: gameView.getWorldMesh, sim,
-      getTool: () => tool, onGroundClick: groundClick, onSelect: mapClick,
+      getTool: () => tool, defFor: (id) => unitDef(id, loadoutFor(id)), onGroundClick: groundClick, onSelect: mapClick,
     });
     replay = createReplay({
       scene: gameView.scene, rec: sim.rec, droneTemplate, makeLabel: gameView.labels.make, placeLabel: gameView.labels.place, trackColour,

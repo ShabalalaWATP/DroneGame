@@ -61,9 +61,9 @@ describe('the list', () => {
     fireEvent.click($('.tool-row .tool'));
     const text = $('#tool-picker').textContent;
     for (const name of ['Echodyne EchoGuard', 'Robin Radar IRIS', 'Blighter A800', 'Hensoldt Spexer']) expect(text).toContain(name);
-    expect(document.querySelectorAll('[data-pick]').length).toBe(4);
+    expect(document.querySelectorAll('[data-pick]').length).toBe(6);
     expect($('[data-pick="radar"]').getAttribute('aria-pressed')).toBe('true');
-    expect(text).toContain('2.0 km');
+    expect(text).toContain('3.1 km small drone');
   });
 
   it('switches system without switching placing off', () => {
@@ -113,7 +113,7 @@ describe('the list', () => {
     act(() => game.setTool('radar'));
     expect($('#place-mount')).not.toBeNull();
     commit($('#place-power'), '50');
-    expect($('#tool-picker').textContent).toContain('1.7 km');
+    expect($('#tool-picker').textContent).toContain('2.6 km');
     commit($('#place-mount'), '500');
     expect($('#place-mount').value).toBe('35');
     expect($('#tool-picker').textContent).toContain('$1.03M');
@@ -169,5 +169,26 @@ describe('placing with chosen settings', () => {
     expect(a800.def.settings.power).toBe(50);
     expect(a800.short).toBe('A80-01');
     expect(sim.structures.find((s) => s.def.id === 'interceptor_p1').def.shotCost).toBe(1000);
+  });
+});
+
+describe('what a spot really gets', () => {
+  it('tells you at the cursor, and when you place', () => {
+    show();
+    act(() => game.setTool('radar'));
+    expect($('#picker-here')).toBeNull();
+    const cursor = game.cursor;
+    game.cursor = () => ({ x: 30, z: 0 });
+    act(() => game.bump());
+    expect($('#picker-here').textContent).toContain('At the cursor:');
+    game.cursor = cursor;
+  });
+
+  it('leaves out weapons that fly over the ground', () => {
+    show();
+    act(() => game.setTool('missile'));
+    game.cursor = () => ({ x: 30, z: 0 });
+    act(() => game.bump());
+    expect($('#picker-here')).toBeNull();
   });
 });

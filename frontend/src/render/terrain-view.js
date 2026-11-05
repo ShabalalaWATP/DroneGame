@@ -194,7 +194,9 @@ export function buildWorldView(scene, data, siteMat) {
 
 // A ring that follows the ground: a flat ribbon whose vertices are raised to the terrain height. `update(cx, cz)` re-fits
 // it around a new centre (scene units); the ring is built relative to its centre, so position its parent at the ground there.
-export function drapedRing(radiusU, thicknessU, color, opacity, segs = 160, lift = 0.5) {
+// With radii, the ring follows one radius per bearing, clockwise from north, instead of a circle. It reads them on each update, so they can change.
+export function drapedRing(radiusU, thicknessU, color, opacity, segs = 160, lift = 0.5, radii = null) {
+  if (radii) segs = radii.length;
   const positions = new Float32Array((segs + 1) * 2 * 3);
   const index = [];
   for (let i = 0; i < segs; i++) { const a = i * 2; index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
@@ -203,13 +205,13 @@ export function drapedRing(radiusU, thicknessU, color, opacity, segs = 160, lift
   geo.setIndex(index);
   const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false }));
   mesh.frustumCulled = false;
-  const inner = Math.max(radiusU - thicknessU, 0.01);
   function update(cx, cz) {
     const y0 = groundU(cx, cz);
     for (let i = 0; i <= segs; i++) {
-      const a = (i / segs) * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a);
+      const a = (i / segs) * Math.PI * 2 - (radii ? Math.PI / 2 : 0), cs = Math.cos(a), sn = Math.sin(a);
+      const outer = Math.max(radii ? radii[i % segs] : radiusU, 0.01);
       for (let s = 0; s < 2; s++) {
-        const r = s === 0 ? inner : radiusU;
+        const r = s === 0 ? Math.max(outer - thicknessU, 0.01) : outer;
         const o = (i * 2 + s) * 3;
         positions[o] = cs * r; positions[o + 1] = groundU(cx + cs * r, cz + sn * r) - y0 + lift; positions[o + 2] = sn * r;
       }

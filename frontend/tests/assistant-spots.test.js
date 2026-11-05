@@ -90,7 +90,7 @@ describe('a whole laydown', () => {
       const { structures: all } = sim;
       for (const a of all) {
         const nearest = Math.min(...all.filter((b) => b !== a).map((b) => Math.hypot(a.pos.x - b.pos.x, a.pos.z - b.pos.z)));
-        expect(nearest * WORLD.metresPerUnit).toBeGreaterThan(150);
+        expect(nearest * WORLD.metresPerUnit).toBeGreaterThanOrEqual(150); // one step of the search grid
       }
     }
   });

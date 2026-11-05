@@ -6,7 +6,7 @@ import { DRONES } from './drones.js';
 // ---------- tuneable research figures ----------
 // Every number that came from research (or is a labelled assumption) can be edited in the Sources tab. These helpers
 // remember the researched values so each one can be reset, and export/import a set of edits as JSON.
-const STRUCT_KEYS = ['published', 'cost', 'shotCost', 'missileSpeed', 'damage', 'splash', 'fuze', 'cooldown', 'magazine', 'storage', 'reloadTime', 'dps', 'falseAlarm', 'lowRange', 'fov', 'dwell', 'slow', 'killTime'];
+const STRUCT_KEYS = ['published', 'cost', 'shotCost', 'missileSpeed', 'pk', 'damage', 'splash', 'fuze', 'cooldown', 'magazine', 'storage', 'reloadTime', 'dps', 'falseAlarm', 'lowRange', 'fov', 'dwell', 'slow', 'killTime'];
 const DRONE_KEYS = ['cost', 'speed', 'hp', 'rcs', 'size', 'rfPower', 'sound', 'evade', 'jamResist'];
 
 export const FIGURE_FIELDS = {
@@ -14,6 +14,7 @@ export const FIGURE_FIELDS = {
   cost: { label: 'Price', unit: '$', step: 1000, basis: 'price' },
   shotCost: { label: 'Per shot', unit: '$', step: 100, basis: 'price' },
   missileSpeed: { label: 'Speed', unit: 'm/s', step: 10, basis: 'research' },
+  pk: { label: 'Hit chance', unit: '0–1', step: 0.05, basis: 'assumption' },
   damage: { label: 'Damage', unit: 'hp', step: 5, basis: 'rule' },
   splash: { label: 'Blast radius', unit: 'm', step: 5, basis: 'rule' },
   fuze: { label: 'Fuze radius', unit: 'm', step: 5, basis: 'rule' },

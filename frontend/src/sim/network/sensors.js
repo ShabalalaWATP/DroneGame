@@ -1,27 +1,13 @@
 // Probabilistic sensor models: what each sensor can detect, the reports it sends, and how cameras aim.
 
 import * as S from '../sapient.js';
-import { TERRAIN, SENSING } from '../config/index.js';
+import { SENSING } from '../config/index.js';
 import { rand, gauss } from '../rng.js';
 import { terrainState } from '../terrain.js';
+import { errorScale, inClutter, reachFor, reachOnPath } from '../site-range.js';
 import { RB_UNITS, rbDatum, round, clamp } from './core.js';
 
-// How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
-// the radar's low-flyer range is multiplied by this.
-const COVER_CLUTTER = [1.5, 0.7, 0.5, 0.5, 1.5]; // the last is water: open, so low flyers over it are easy to see
-const BUILT_UP = 2;
-const ACOUSTIC = { hillLoss: 0.5, noiseLoss: 0.5 }; // share of its reach kept behind a hill and in a built-up area: assumptions
-
-// How far this sensor reaches for this type of drone, before terrain and clutter. 0 means it can never detect it.
-export function reachFor(def, droneDef) {
-  const kind = def.kind || def.id;
-  if (def.senses === 'rf' && !droneDef.rfEmitter) return 0;
-  if (kind === 'radar') return def.range * Math.pow((droneDef.rcs ?? SENSING.refRcs) / SENSING.refRcs, 0.25);
-  if (kind === 'camera') return def.range * ((droneDef.size ?? SENSING.refSize) / SENSING.refSize);
-  if (kind === 'rf') return def.range * Math.sqrt(droneDef.rfPower ?? 1);
-  if (kind === 'acoustic') return def.range * (droneDef.sound ?? 1);
-  return def.range;
-}
+export { reachFor };
 
 export function createSensors(core, feed) {
   const { ctx, mpu, T, nodes, tracker, fusion, send, deliver, antennaM, rel, bearingOf } = core;
@@ -33,31 +19,29 @@ export function createSensors(core, feed) {
     return daz <= s.def.fov / 2 && del <= s.def.fov / 2;
   }
 
+  // How far this sensor reaches along the real path to this drone.
+  function reachTo(s, d) {
+    const m = mpu();
+    return reachOnPath(s.def, d.def, terrainState.data, { x: s.pos.x * m, y: antennaM(s), z: s.pos.z * m }, { x: d.pos.x * m, y: d.pos.y * m, z: d.pos.z * m }, d.freq);
+  }
+
   // The chance that this sensor detects this drone on one scan. It depends on:
   //  - how far away it is compared with the sensor's range for a small reference drone, scaled by how big the target
   //    looks (radar cross-section for radar, physical size for the camera, link power for RF)
-  //  - ground clutter hiding low flyers from radar, line of sight over the terrain, and trees
+  //  - ground clutter hiding low flyers from radar, and what the real path costs it (site-range.js)
   //  - for a camera, whether it is pointing at the target (it has a narrow field of view and has to be cued)
   // `pointing: false` ignores the camera's aim, for coverage maps (assume it has been cued).
   function pd(s, d, { pointing = true } = {}) {
-    const def = s.def, kind = def.kind || def.id;
+    const def = s.def;
     const r = rel(s, d);
     if (def.senses === 'perimeter') return r.hr < def.range ? 0.98 : 0;
-    let reach = reachFor(def, d.def);
-    if (!reach || r.rng > reach * SENSING.rangeCap) return 0;
+    const open = reachFor(def, d.def);
+    if (!open || r.rng > open * SENSING.rangeCap) return 0;
     const T3 = terrainState.data, m = mpu();
     const dxm = d.pos.x * m, dzm = d.pos.z * m, dym = d.pos.y * m;
-    let p = 1;
-    if (def.lowAlt && dym - T3.groundAt(dxm, dzm) < def.lowAlt && r.hr > def.lowRange * COVER_CLUTTER[T3.coverAt(dxm, dzm)]) p *= SENSING.clutterPenalty; // lost in clutter
-    const sight = T3.los(s.pos.x * m, antennaM(s), s.pos.z * m, dxm, dym, dzm);
-    if (kind === 'acoustic') { // sound carries over hills and through trees, but hills weaken it and a noisy place drowns it
-      if (!sight.clear) reach *= ACOUSTIC.hillLoss;
-      if (T3.coverAt(s.pos.x * m, s.pos.z * m) === BUILT_UP) reach *= ACOUSTIC.noiseLoss;
-      return p / (1 + Math.pow(r.rng / (reach * SENSING.pdEdge), SENSING.pdSlope));
-    }
-    if (!sight.clear) return 0;
-    if (kind === 'rf') reach *= Math.exp(-sight.canopy / TERRAIN.rfCanopyLength);
-    else if (sight.canopy > TERRAIN.opticalCanopyTol) return 0;
+    const p = inClutter(def, T3, dxm, dzm, dym - T3.groundAt(dxm, dzm), r.hr) ? SENSING.clutterPenalty : 1; // lost in clutter
+    const reach = reachTo(s, d);
+    if (!reach) return 0;
     if (pointing && def.fov && !inView(s, r)) return 0;
     return p / (1 + Math.pow(r.rng / (reach * SENSING.pdEdge), SENSING.pdSlope));
   }
@@ -102,23 +86,25 @@ export function createSensors(core, feed) {
     const def = s.def, n = def.sapient.noise || {};
     const r = d ? rel(s, d) : falseGeometry(s);
     const b = bearingOf(r);
-    const azM = (b.az + gauss() * (n.az || 0) + 360) % 360;
-    const elM = b.el + gauss() * (n.el || 0);
-    const rngM = r.rng + gauss() * (n.range || 0);
+    const reach = d ? reachTo(s, d) : def.range, k = errorScale(def, r.rng, reach); // a weak signal gives a worse measurement, and the sensor knows it
+    const errAz = n.az * k, errEl = n.el * k, errRange = n.range * k;
+    const azM = (b.az + gauss() * (errAz || 0) + 360) % 360;
+    const elM = b.el + gauss() * (errEl || 0);
+    const rngM = r.rng + gauss() * (errRange || 0);
 
     const rb = {};
     if (n.el != null) rb.elevation = round(elM);
     rb.azimuth = round(azM);
     if (n.range != null) rb.range = round(rngM, 1);
-    if (n.el != null) rb.elevation_error = n.el;
-    rb.azimuth_error = n.az;
-    if (n.range != null) rb.range_error = n.range;
+    if (n.el != null) rb.elevation_error = round(errEl, 3);
+    rb.azimuth_error = round(errAz, 3);
+    if (n.range != null) rb.range_error = round(errRange, 2);
     rb.coordinate_system = RB_UNITS;
     rb.datum = rbDatum();
 
     const kind = def.kind || def.id;
     const conf = !d ? 0.3 + rand() * 0.2
-      : kind === 'radar' ? clamp(0.55 + 0.4 * (1 - r.rng / def.range), 0.3, 0.98)
+      : kind === 'radar' ? clamp(0.55 + 0.4 * (1 - r.rng / reach), 0.3, 0.98)
       : kind === 'camera' ? 0.85 + rand() * 0.1
       : kind === 'rf' ? 0.75 + rand() * 0.15
       : kind === 'acoustic' ? 0.55 + rand() * 0.2 : 0.9;
@@ -150,9 +136,9 @@ export function createSensors(core, feed) {
       sent,
       meas: {
         node: s.nodeId, color: def.color, from, az: rad(azM), el: n.el != null ? rad(elM) : null, range: n.range != null ? rngM : null,
-        sigAz: rad(n.az), sigEl: n.el != null ? rad(n.el) : null, sigRange: n.range || 0, t: T(), scan: s.scanId,
+        sigAz: rad(errAz), sigEl: n.el != null ? rad(errEl) : null, sigRange: errRange || 0, t: T(), scan: s.scanId,
       },
-      source: { name: s.name, objectId, ts: S.timestamp(), conf, rb, from: { east: from[0], north: from[1], up: from[2] }, color: def.color, vel, cls: report.classification, rangeErr: n.range, hasRange: n.range != null },
+      source: { name: s.name, objectId, ts: S.timestamp(), conf, rb, from: { east: from[0], north: from[1], up: from[2] }, color: def.color, vel, cls: report.classification, rangeErr: errRange, hasRange: n.range != null },
     };
   }
 

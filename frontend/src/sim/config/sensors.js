@@ -1,10 +1,12 @@
 // The sensors you can buy. Radar, RF detector, camera and acoustic sensor each come in three sizes, with the medium one first, and `variantOf`
 // marks a further real system of a size. `product` is the name the toolbar lists it by.
 // Costs are in US dollars, and each system's `ref` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
-// `mount` is how high a sensor sits on its mast (m), an assumption: below the 12-20 m tree tops, trees hide most low flyers.
+// `mount` is how high a sensor sits on its mast (m), an assumption: below the 12-20 m tree tops, trees hide most low flyers. RF systems default to 9 m.
+// RF ranges are for a clear path. Terrain and trees are applied on top, from the map, so these figures must not also allow for them.
+// RF link budget used to check them, an assumption: a small FPV sends 25 dBm at 5.8 GHz, where path loss is 107.7 + 20 log10(km) dB.
 export const SENSORS = {
   radar: {
-    product: 'Robin Radar IRIS', size: 'M', name: 'Medium radar', short: 'RDR', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 2000, mount: 25, falseAlarm: 0.1, // chance of a false alarm per scan
+    product: 'Robin Radar IRIS', size: 'M', name: 'Medium radar', short: 'RDR', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 3100, mount: 25, falseAlarm: 0.1, // chance of a false alarm per scan
     health: 30, signature: 1.0, emits: [{ label: 'X-band radar (assumed 9.2\u20139.5 GHz)', f: [[9.2, 9.5]] }], // radar band: assumption
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
@@ -15,13 +17,14 @@ export const SENSORS = {
     },
     ref: {
       class: 'Counter-UAS surveillance radar, medium range',
-      analogues: ['Robin Radar IRIS', 'Blighter A800'],
-      published: 'IRIS: medium-range band 2–7 km, long-range mode 5–12 km. A800: >2 km claimed for micro-UAS, datasheet up to 7 km for winged drones.',
-      basis: 'Game range is the ~2 km vendors quote for small quadcopters. The longer figures are for larger targets or special modes.',
-      confidence: 'Vendor claims, not independently tested',
+      analogues: ['Robin Radar IRIS'],
+      published: 'IRIS datasheet, from real-life testing in typical conditions: 1.1 km against a 0.25 kg drone, 3.1 km against 0.9 kg, 3.7 to 4 km against 2.9 kg (the sheets differ) and 7.6 km against 52 kg. Its instrumented range is 5 km, or 12 km in Long-Range Mode.',
+      basis: 'Game range is the 3.1 km figure, because 0.9 kg is closest to the game\u2019s small FPV. The 5 and 12 km are how far it can display, not how far it sees a small drone.',
+      confidence: 'Manufacturer\u2019s test figures, not independently checked',
       sources: [
+        { label: 'Robin Radar: IRIS product sheet, April 2026', url: 'https://www.robinradar.com/hubfs/IRIS%20product%20sheet%20042026.pdf' },
+        { label: 'Robin Radar: IRIS datasheet V15.6', url: 'https://www.robinradar.com/hubfs/Iris%20Datasheet%20V15.6_online.pdf' },
         { label: 'EDR Magazine: IRIS long-range module', url: 'https://www.edrmagazine.eu/?p=46182' },
-        { label: 'Unmanned Airspace: Blighter A800', url: 'https://www.unmannedairspace.info/?p=24347' },
       ],
       cost: {
         capex: 'Robin Radar’s CEO put IRIS at under $1 million per unit (traditional air-defence radars: $20–50 million). Game price $900,000.',
@@ -58,7 +61,7 @@ export const SENSORS = {
     product: 'Blighter A800', variantOf: 'radar', size: 'M', name: 'Blighter A800', short: 'A80', model: 'radar_s', cost: 600000, shotCost: 0, color: 0x448aff, role: 'sensor', kind: 'radar', published: 3000, mount: 25, falseAlarm: 0.1,
     health: 30, signature: 1.0, emits: [{ label: 'Ku-band radar 15.7\u201317.2 GHz', f: [[15.7, 17.2]] }],
     lowAlt: 40, lowRange: 500,
-    desc: '3D multi-mode AESA drone radar. It reaches further than the IRIS for less, but the real one only looks through a 90\u00B0 cone, which stage A4 will model.',
+    desc: '3D multi-mode AESA drone radar. It reaches about as far as the IRIS for less, but the real one only looks through a 90\u00B0 cone, which stage A4 will model.',
     sapient: {
       nodeType: 'NODE_TYPE_RADAR', subType: ['Multi-mode', 'C-UAS'], scan: 'SCAN_TYPE_SCANNING', interval: 1,
       noise: { az: 0.6, el: 1.2, range: 8 }, velocity: true,
@@ -67,10 +70,13 @@ export const SENSORS = {
     ref: {
       class: 'Counter-UAS surveillance radar, medium range',
       analogues: ['Blighter A800'],
-      published: 'Ku band, 15.7\u201317.2 GHz. FMCW Doppler AESA scanning a 90\u00B0 x 40\u00B0 cone, with a 1 s full scan. DJI Phantom detected to 3 km.',
-      basis: 'Game range is the 3 km Phantom figure. Accuracy and clutter are assumptions, copied from the IRIS entry. It still sees all round until stage A4.',
+      published: 'Ku band, 15.7\u201317.2 GHz. FMCW Doppler AESA scanning a 90\u00B0 x 40\u00B0 cone, with a 1 s full scan. Up to 3 km against a nano-quadcopter and 7 km against a Class 2 winged drone, assuming ideal mounting over flat terrain. Instrumented range 3.5, 10 or 20 km.',
+      basis: 'Game range is the 3 km quadcopter figure, a best case by the maker\u2019s own footnote. Accuracy and clutter are assumptions, copied from the IRIS entry. It still sees all round until stage A4.',
       confidence: 'Vendor figures',
-      sources: [{ label: 'Blighter: A800', url: 'https://www.blighter.com/products/a800-3d-multi-mode-radar' }],
+      sources: [
+        { label: 'Blighter: A800', url: 'https://www.blighter.com/products/a800-3d-multi-mode-radar' },
+        { label: 'Blighter: A800 Mk 2 datasheet', url: 'https://blighter.com/wp-content/uploads/2025/10/blighter-a800-mk-2-4d-multi-mode-radar-datasheet-bss-4003-MR.pdf' },
+      ],
       cost: { capex: 'No public price found. Game price $600,000 is a placeholder.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },
     },
   },
@@ -87,10 +93,12 @@ export const SENSORS = {
     ref: {
       class: 'Long-range air-defence and C-UAS radar',
       analogues: ['Hensoldt Spexer 2000 3D MkIII'],
-      published: 'X-band pulse Doppler, 9.2\u201310 GHz, with a 40 km instrumented range. About 9 km is reported against a 0.2 m\u00B2 drone.',
-      basis: 'Game range is that 9 km scaled to the 0.01 m\u00B2 reference drone by the radar range equation, which brings a 0.2 m\u00B2 fixed-wing strike drone back to 9 km. Accuracy and clutter are assumptions. The real radar looks through a 120\u00B0 panel: this one still sees all round until stage A4.',
-      confidence: 'Secondary reporting; no manufacturer figure for small drones',
+      published: 'X-band pulse Doppler, 9.2\u201310 GHz. The 40 km instrumented range is for a single beam, and falls to 2.5 km with all 16 beams. The older Spexer 2000 is listed at up to 9 km against a 0.2 m\u00B2 UAV and 36 km against a 5 m\u00B2 low-flying aircraft. No figure for small drones was found for the MkIII.',
+      basis: 'Game range 4.3 km is an ASSESSMENT: that 9 km scaled to the 0.01 m\u00B2 reference drone by the radar range equation, which brings a 0.2 m\u00B2 Fixed-wing strike drone back to 9 km. It fits the Giraffe 1X, a comparable radar quoted at about 4 km against the smallest drones. The MkIII is newer, so this may be low. Accuracy and clutter are assumptions. The real radar looks through a 120\u00B0 panel: this one still sees all round until stage A4.',
+      confidence: 'Assessed from an older model; no manufacturer figure for small drones',
       sources: [
+        { label: 'Quwa: Spexer 2000 detection table', url: 'https://quwa.org/system-profile/profile-hensoldt-spexer-2000-border-surveillance-radar/' },
+        { label: 'Raksha Anirveda: Spexer 2000 3D MkIII', url: 'https://raksha-anirveda.com/hensoldt-spexer-2000-3d-mkiii-radar/' },
         { label: 'Hensoldt: Spexer 2000 3D MkIII', url: 'https://www.hensoldt.net/products/spexer-2000-3d-mkiii-land-ground-based-air-defence' },
         { label: 'Armed Conflicts: Spexer detection range', url: 'https://origin.armedconflicts.com/-t289922' },
       ],
@@ -98,7 +106,7 @@ export const SENSORS = {
     },
   },
   rf: {
-    product: 'Dedrone RF-360 / RF-160', size: 'M', name: 'Medium RF detector', short: 'RF', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
+    product: 'Dedrone RF-360 / RF-160', size: 'M', name: 'Medium RF detector', short: 'RF', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 9, senses: 'rf', falseAlarm: 0.05,
     health: 30, signature: 0.05, emits: [], listens: [[0.07, 6]], // passive
     desc: 'Passive RF sensor. Direction finding only (no range). Cannot hear a drone with no radio link.',
     sapient: {
@@ -108,10 +116,11 @@ export const SENSORS = {
     ref: {
       class: 'Passive RF detection / direction-finding sensor',
       analogues: ['Dedrone RF-360 / RF-160', 'Hensoldt Elysion RF DF'],
-      published: 'Up to 5 km listed for Dedrone passive RF sensors; a general C-UAS reference gives about 2–5 km for passive RF direction finding. A patent filing claims 1.5 km.',
-      basis: 'Game range 3.5 km is the middle of the quoted 2–5 km band. Drones with no radio emission (fibre-optic and autonomous fixed-wing drones here) give it nothing to detect.',
-      confidence: 'Vendor listings and a trade reference',
+      published: 'RF-360 datasheet: 2 km line of sight for most drones under normal conditions, and up to 5 km for specific drones under ideal conditions. The RF-160 sheet gives 1.6 km and 5 km.',
+      basis: 'Game range 3.5 km is an ASSESSMENT, the middle of 2 and 5 km: "normal conditions" already includes real-world losses, which the game applies itself from terrain and trees. A link budget of 6 dBi gain and -90 dBm sensitivity, both assumed, gives 4.6 km. Drones with no radio emission (fibre-optic FPV, autonomous fixed-wing here) give it nothing to detect.',
+      confidence: 'Assessed from a manufacturer datasheet and a link budget',
       sources: [
+        { label: 'Dedrone: RF-360 datasheet', url: 'https://l.dedrone.com/hubfs/Downloads%20-%20PDFs/DS_RF360-360T_en_web.pdf' },
         { label: 'Aviations UK: Dedrone RF vs Hensoldt', url: 'https://aviationsouk.com/compare-products/dedrone-dedronesensors-rf-rf-160-rf-360-vs-hensoldt-elysion-c-uas-current-c-uas-family-formerly-xpeller/' },
         { label: 'RF Essentials: counter-drone systems', url: 'https://rfessentials.com/resources/rf-glossary/counter-drone-system/' },
       ],
@@ -123,7 +132,7 @@ export const SENSORS = {
     },
   },
   rf_s: {
-    product: 'MyDefence Wingman 103/105', size: 'S', name: 'Small RF detector', short: 'RFS', model: 'rf', modelScale: 0.7, cost: 10000, shotCost: 0, color: 0x69f0ae, role: 'sensor', kind: 'rf', published: 1000, mount: 5, senses: 'rf', falseAlarm: 0.08,
+    product: 'MyDefence Wingman 103/105', size: 'S', name: 'Small RF detector', short: 'RFS', model: 'rf', modelScale: 0.7, cost: 10000, shotCost: 0, color: 0x69f0ae, role: 'sensor', kind: 'rf', published: 2000, mount: 9, senses: 'rf', falseAlarm: 0.08,
     health: 30, signature: 0.05, emits: [], listens: [[2.4, 2.4835], [5.15, 5.925]], // without its optional wideband antenna
     desc: 'Wearable passive RF detector. Cheap and short range, and its bearing is only a rough sector, so it warns of a drone more than it locates one.',
     sapient: {
@@ -133,10 +142,12 @@ export const SENSORS = {
     ref: {
       class: 'Wearable passive RF drone detector',
       analogues: ['MyDefence Wingman 103/105'],
-      published: 'Listings give up to 6 km, \u00B130\u00B0 direction finding, and 2.4, 5.2 and 5.8 GHz without an antenna, or 200 MHz\u20136 GHz with one.',
-      basis: 'Game range 1 km is an ASSUMPTION for a small first-person-view drone on a wearable antenna, well under the "up to" listing. The bearing error is the listed figure.',
-      confidence: 'Comparison listings; range is an assumption',
+      published: 'The maker\u2019s sheet gives up to 6 km and 3 to 5 km effective, depending on line of sight and the RF environment. A Lithuanian evaluation of the 105 reported more than 1 km, depending on conditions. Listings give \u00B130\u00B0 direction finding, and 2.4, 5.2 and 5.8 GHz without an antenna, or 200 MHz\u20136 GHz with one.',
+      basis: 'Game range 2 km is an ASSESSMENT from a link budget: 2 dBi gain and -85 dBm sensitivity, both assumed, give 1.6 km at 5.8 GHz and 2.2 km against 20 dBm at 2.4 GHz. It sits above the evaluation\u2019s "more than 1 km" and below the maker\u2019s 3 to 5 km. The bearing error is the listed figure.',
+      confidence: 'Assessed; a national evaluation found less and the maker claims more',
       sources: [
+        { label: 'Danish Parliament: MyDefence specification', url: 'https://ft.dk/samling/20222/almdel/FOU/bilag/136/2737420/index.htm' },
+        { label: 'Janes: Lithuania and Wingman', url: 'https://www.janes.com/defence-news/news-detail/lithuania-acquires-wingman-and-watchdog-c-uas-systems' },
         { label: 'Aviations UK: Wingman vs Dedrone RF', url: 'https://aviationsouk.com/compare-products/dedrone-dedronesensors-rf-rf-160-rf-360-vs-mydefence-wingman-103-105-drone-detector/' },
         { label: 'EverythingRF: Wingman 103', url: 'https://www.everythingrf.com/products/cuas-counter-unmanned-aerial-system/mydefence/1075-2458-wingman-103' },
       ],
@@ -144,7 +155,7 @@ export const SENSORS = {
     },
   },
   rf_elysion: {
-    product: 'Hensoldt Elysion RF DF', variantOf: 'rf', size: 'M', name: 'Elysion RF detector', short: 'ELY', model: 'rf', cost: 30000, shotCost: 0, color: 0x1de9b6, role: 'sensor', kind: 'rf', published: 3500, mount: 5, senses: 'rf', falseAlarm: 0.05,
+    product: 'Hensoldt Elysion RF DF', variantOf: 'rf', size: 'M', name: 'Elysion RF detector', short: 'ELY', model: 'rf', cost: 30000, shotCost: 0, color: 0x1de9b6, role: 'sensor', kind: 'rf', published: 3500, mount: 9, senses: 'rf', falseAlarm: 0.05,
     health: 30, signature: 0.05, emits: [], listens: [[2.4, 2.4835], [5.15, 5.925]],
     desc: 'Passive RF sensor with a rough bearing. It warns of a drone more than it locates one. Cannot hear a drone with no radio link.',
     sapient: {
@@ -154,15 +165,15 @@ export const SENSORS = {
     ref: {
       class: 'Passive RF detection / direction-finding sensor',
       analogues: ['Hensoldt Elysion RF DF'],
-      published: 'One catalogue lists \u00B130\u00B0 direction finding and 2.4, 5.2 and 5.8 GHz. No detection range or Hensoldt datasheet was found.',
-      basis: 'Game range 3.5 km is an ASSUMPTION, copied from the Dedrone entry. The bearing and bands are the unverified catalogue figures.',
+      published: 'One catalogue lists \u00B130\u00B0 direction finding and 2.4, 5.2 and 5.8 GHz, and up to 5 km for the older Xpeller. No Hensoldt datasheet was found.',
+      basis: 'Game range 3.5 km is an ASSESSMENT, set level with the Dedrone entry because the 5 km listing is the same kind of best case. The bearing and bands are the unverified catalogue figures.',
       confidence: 'One catalogue listing, unverified; range is an assumption',
       sources: [{ label: 'Aviations UK: Hensoldt Elysion', url: 'https://aviationsouk.com/products/hensoldt-elysion-c-uas-current-c-uas-family-formerly-xpeller/' }],
       cost: { capex: 'No public price found. Game price $30,000 is a placeholder.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },
     },
   },
   rf_l: {
-    product: 'Aaronia AARTOS', size: 'L', name: 'Large RF detector', short: 'RFL', model: 'rf', modelScale: 1.4, cost: 400000, shotCost: 0, color: 0x00a152, role: 'sensor', kind: 'rf', published: 8000, mount: 10, senses: 'rf', falseAlarm: 0.03,
+    product: 'Aaronia AARTOS', size: 'L', name: 'Large RF detector', short: 'RFL', model: 'rf', modelScale: 1.4, cost: 400000, shotCost: 0, color: 0x00a152, role: 'sensor', kind: 'rf', published: 14000, mount: 9, senses: 'rf', falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [], listens: [[0.02, 8]],
     desc: 'Fixed wideband RF detection system. It hears furthest and gives the best bearing, at a much higher price. It still cannot hear a drone with no radio link.',
     sapient: {
@@ -172,10 +183,11 @@ export const SENSORS = {
     ref: {
       class: 'Fixed wideband RF detection and direction-finding system',
       analogues: ['Aaronia AARTOS'],
-      published: 'The X2 is quoted at about 5 km as standard and the X9 at 14 km, with much larger claims elsewhere. Coverage is quoted as 20 MHz\u20138 GHz, or selectively 400 MHz\u20136 GHz.',
-      basis: 'Game range 8 km is an ASSUMPTION between the 5 and 14 km listings, because vendor claims conflict. No bearing accuracy is published, so 2\u00B0 is also an assumption.',
-      confidence: 'Vendor listings conflict; range and bearing are assumptions',
+      published: 'The X9 is listed at 14 km against commercial drones, 40 km with a long-range option and 80 km against military UAVs. The X2 is quoted at about 5 km. Typical tracking accuracy is 1\u00B0 to 3\u00B0. Coverage is quoted as 20 MHz\u20138 GHz, or selectively 400 MHz\u20136 GHz.',
+      basis: 'Game range is the 14 km standard listing. A link budget supports it: 12 dBi gain and -100 dBm sensitivity, both assumed for a large directional array, give 23 km at 5.8 GHz. Only a clear path gets that far: on a 9 m mast, tree tops and hills will usually stop it sooner. Bearing is the middle of the 1\u00B0 to 3\u00B0 listed.',
+      confidence: 'Vendor listing, checked with a link budget',
       sources: [
+        { label: 'EverythingRF: AARTOS X9', url: 'https://everythingrf.com/products/cuas-counter-unmanned-aerial-system/aaronia-ag/1075-281-aartos-x9' },
         { label: 'EDR Magazine: Aaronia AARTOS', url: 'https://www.edrmagazine.eu/landeuro-2025-aaronia-aartos-a-uav-detection-and-neutralisation-system-from-germany' },
         { label: 'Aviations UK: AARTOS DDS', url: 'https://aviationsouk.com/products/aaronia-aartos-dds-drone-detection-system/' },
       ],
@@ -183,7 +195,7 @@ export const SENSORS = {
     },
   },
   camera: {
-    product: 'Generic EO/IR turret', size: 'M', name: 'Medium EO/IR camera', short: 'EO', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 1000, mount: 15, falseAlarm: 0.03,
+    product: 'Generic EO/IR turret', size: 'M', name: 'Medium EO/IR camera', short: 'EO', cost: 100000, shotCost: 0, color: 0xb0bec5, role: 'sensor', kind: 'camera', published: 650, mount: 15, falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [], // passive
     // A narrow field of view (degrees, total) that has to be pointed. Idle, it sweeps; the fusion node cues it to
     // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.
@@ -196,9 +208,9 @@ export const SENSORS = {
     ref: {
       class: 'EO/IR drone-detection camera',
       analogues: ['Multi-sensor C-UAS EO/IR turrets (e.g. as fitted to Hensoldt Elysion)'],
-      published: 'An industry source says lower-cost imaging-only EO + long-wave IR detection systems reach under 1,000 m for drones. No manufacturer range found.',
-      basis: 'Game range of 1 km follows that statement.',
-      confidence: 'One industry statement; tune this yourself',
+      published: 'An industry source says lower-cost imaging-only EO and long-wave IR systems reach under 1,000 m for drones, and only cooled, zoomed cameras go further. Another gives 200 m to 2 km or more, by sensor and drone size. No manufacturer range found.',
+      basis: 'Game range 650 m is calculated by the rule used for the other cameras: a 0.35 m drone covers 4 pixels. This assumes a 1280 pixel sensor across the 10\u00B0 view. It fits "under 1,000 m".',
+      confidence: 'Calculated, with an assumed sensor; fits one industry statement',
       sources: [{ label: 'Military Systems Tech: thermal sensor design (figures as surfaced by search; confirm)', url: 'https://www.militarysystems-tech.com/articles/thermal-infrared-sensor-design' }],
       cost: {
         capex: 'The same source puts these imaging-only detection systems at $50,000–$150,000. Game price $100,000, the midpoint.',

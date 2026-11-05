@@ -2,6 +2,8 @@
 
 import { Vector3 } from 'three';
 import { WORLD, SITE, DRONES, ADAPT } from './config/index.js';
+import { antennaHeight, reachOnPath } from './site-range.js';
+import { terrainState } from './terrain.js';
 import { rand, gauss } from './rng.js';
 import { u, hdist, clamp, groundM, hereU, SITE_POS } from './units.js';
 import { tally } from './economy.js';
@@ -128,6 +130,15 @@ function moveStrike(w, d, spd) {
   return true;
 }
 
+export function jamReaches(s, d) {
+  const dist = s.pos.distanceTo(d.pos);
+  if (dist > u(s.def.range)) return false;
+  // A jammer needs a radio path, the same as a radio detector. shortcut: it uses the drone's one reported band, not each link it jams.
+  const m = WORLD.metresPerUnit;
+  const from = { x: s.pos.x * m, y: s.pos.y * m + antennaHeight(s.def), z: s.pos.z * m }, to = { x: d.pos.x * m, y: d.pos.y * m, z: d.pos.z * m };
+  return dist <= u(reachOnPath(s.def, d.def, terrainState.data, from, to, d.freq));
+}
+
 // Jamming. Each jammer that is on and in range jams the bands it is set to, and what that does depends on what the
 // drone relies on: a jammed control link slows it and eventually crashes it, a jammed video link does the same more
 // slowly (it is flying blind), and jammed GNSS makes a navigating drone drift off course (and the drift stays).
@@ -136,7 +147,7 @@ function applyJamming(w, d, dt) {
   const links = d.def.links || {};
   let ctrl = false, vid = false, gnss = false, killTime = Infinity, ctrlSlow = 1;
   for (const s of w.structures) {
-    if (s.def.kind !== 'jammer' || s.mode !== 'Jam' || s.pos.distanceTo(d.pos) > u(s.def.range)) continue;
+    if (s.def.kind !== 'jammer' || s.mode !== 'Jam' || !jamReaches(s, d)) continue;
     if (links.control && s.jamBands.has(links.control)) { ctrl = true; ctrlSlow = Math.min(ctrlSlow, s.def.slow); }
     if (links.video && s.jamBands.has(links.video)) vid = true;
     if (links.gnss && s.jamBands.has('gnss')) gnss = true;

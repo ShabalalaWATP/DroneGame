@@ -33,8 +33,10 @@ describe('the catalogue', () => {
       expect(sizeButtons(g).map((id) => STRUCTURES[id].size)).toEqual(['S', 'M', 'L']);
       expect(STRUCTURES[firstClass(g)].size).toBe('M');
       const [s, m, l] = sizeButtons(g).map((id) => STRUCTURES[id]);
-      expect(s.range).toBeLessThan(m.range);
-      expect(m.range).toBeLessThan(l.range);
+      expect(s.range).toBeLessThan(l.range);
+      // Real ranges do not always rise with size: the Sting is reported to fly further than the larger Merops.
+      if (g.kind !== 'interceptor') expect(s.range).toBeLessThan(m.range);
+      if (g.kind !== 'interceptor') expect(m.range).toBeLessThan(l.range);
       // Real prices do not always rise with size: a large acoustic station is reported cheaper than a medium array, and a small laser dearer than the DragonFire figure.
       if (['radar', 'rf', 'camera', 'jammer'].includes(g.kind)) {
         expect(s.cost).toBeLessThan(m.cost);
@@ -100,11 +102,15 @@ describe('the hotkeys', () => {
     press('1');
     expect(game.getTool()).toBe('radar');
     press('1');
-    expect(game.getTool()).toBe('radar_a800');
+    expect(game.getTool()).toBe('radar_giraffe');
     press('1');
     expect(game.getTool()).toBe('radar_l');
     press('1');
     expect(game.getTool()).toBe('radar_s');
+    press('1');
+    expect(game.getTool()).toBe('radar_a400');
+    press('1');
+    expect(game.getTool()).toBe('radar_a800');
     press('1');
     expect(game.getTool()).toBe('radar');
   });

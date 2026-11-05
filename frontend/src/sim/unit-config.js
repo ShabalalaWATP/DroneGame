@@ -5,14 +5,14 @@
 import { STRUCTURES } from './config/index.js';
 
 const each = (ids, limits) => Object.fromEntries(ids.map((id) => [id, limits]));
-const RADARS = ['radar_s', 'radar', 'radar_a800', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_l'], ACOUSTICS = ['acoustic_s', 'acoustic', 'acoustic_l'];
+const RADARS = ['radar_s', 'radar_a400', 'radar', 'radar_a800', 'radar_giraffe', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_auds', 'jammer_l'], ACOUSTICS = ['acoustic_s', 'acoustic', 'acoustic_l'];
 const MAST_PRICE = 0.015, RELOAD_PRICE = 0.1; // share of the system's price, per metre and per second
 const THRESHOLD = { low: { range: 1.1, falseAlarm: 2 }, high: { range: 0.9, falseAlarm: 0.5 } };
 
 export const UNIT_FIELDS = [
   {
     key: 'mount', label: 'Mast height', unit: 'm', step: 1, base: (c) => c.mount, direct: 'mount',
-    limits: { radar_s: [5, 25], radar: [5, 35], radar_a800: [5, 35], radar_l: [10, 40], rf_s: [2, 10], rf: [2, 15], rf_elysion: [2, 15], rf_l: [2, 20], camera_s: [5, 20], camera: [5, 25], camera_l: [5, 30], acoustic_s: [2, 6], acoustic: [2, 6], acoustic_l: [2, 10] },
+    limits: { radar_s: [5, 25], radar: [5, 35], radar_a800: [5, 35], radar_a400: [5, 35], radar_giraffe: [5, 20], radar_l: [10, 40], rf_s: [2, 10], rf: [2, 15], rf_elysion: [2, 15], rf_l: [2, 20], camera_s: [5, 20], camera: [5, 25], camera_l: [5, 30], ...each(JAMMERS, [2, 20]), acoustic_s: [2, 6], acoustic: [2, 6], acoustic_l: [2, 10] },
     price: (v, c) => (v - c.mount) * MAST_PRICE * c.cost,
     help: 'Higher sees over more trees and terrain, at a price.',
   },
@@ -43,12 +43,12 @@ export const UNIT_FIELDS = [
     help: 'Longer holds a track for more looks, and leaves other tracks waiting.',
   },
   {
-    key: 'reload', label: 'Time between shots', unit: 's', step: 0.5, base: (c) => c.cooldown, direct: 'cooldown', limits: { interceptor_s: [2, 8], interceptor: [1.5, 6], interceptor_p1: [1.5, 6], interceptor_l: [1.5, 6], missile_s: [1, 4], missile: [2, 8], missile_l: [3, 10] },
+    key: 'reload', label: 'Time between shots', unit: 's', step: 0.5, base: (c) => c.cooldown, direct: 'cooldown', limits: { interceptor_s: [2, 8], interceptor: [1.5, 6], interceptor_p1: [1.5, 6], interceptor_l: [1.5, 6], missile_rr: [2, 8], missile_hvm: [2, 8], missile_paladin: [0.5, 3], missile_skysabre: [3, 10], missile_s: [1, 4], missile: [2, 8], missile_l: [3, 10] },
     price: (v, c) => (c.cooldown - v) * RELOAD_PRICE * c.cost,
     help: 'Faster launchers cost more.',
   },
   {
-    key: 'beam', label: 'Beam damage', unit: 'hp/s', step: 2, base: (c) => c.dps, direct: 'dps', limits: { laser_s: [7, 28], laser: [14, 56], laser_l: [28, 112] },
+    key: 'beam', label: 'Beam damage', unit: 'hp/s', step: 2, base: (c) => c.dps, direct: 'dps', limits: { laser_rfdew: [28, 112], laser_s: [7, 28], laser: [14, 56], laser_l: [28, 112] },
     price: (v, c) => (v / c.dps - 1) * c.cost,
     help: 'A stronger beam burns faster, and its price rises in step.',
   },
