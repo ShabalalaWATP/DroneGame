@@ -215,7 +215,7 @@ table.mini i { display: inline-block; width: 9px; height: 9px; border-radius: 50
 #toast.show { opacity: 1; }
 
 #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: rgba(5, 9, 16, 0.75); }
+  background: rgba(5, 9, 16, 0.75); z-index: 5; } /* above the map buttons and panel */
 #overlay.hidden { display: none; }
 .card { max-width: 480px; background: #0f1a2e; border: 1px solid #2f4468; border-radius: 12px; padding: 24px 28px; }
 .card h1 { margin: 0 0 8px; letter-spacing: 0.2em; font-size: 24px; }
