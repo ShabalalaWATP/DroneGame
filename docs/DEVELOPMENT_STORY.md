@@ -121,6 +121,8 @@ Alex then asked for Leaflet-style light and dark maps, and reported that locatio
 
 Alex confirmed the project is non-commercial, which allowed EOxCloudless for satellite and hybrid styles across Britain on the start map. It needs no key. It is 10 m per pixel, the same as the packs, so it adds coverage rather than sharpness.
 
+Alex then found that a sensor could not stand in a gap between houses. Placement read the 20 m grid, where any cell with enough building in it counts as solid, so about 57% of marked spots on both real maps were not on a building at all. Placement on real maps now reads the true outlines. Line of sight still reads the grid, as changing it would change how every real-map run plays.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

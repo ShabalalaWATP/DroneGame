@@ -15,6 +15,22 @@ describe('a world from any source', () => {
   const emptyGrids = (N, cell, R) => ({ N, cell, R, ground: new Float32Array(N * N), canopy: new Uint8Array(N * N), bldg: new Uint8Array(N * N), cover: new Uint8Array(N * N) });
   const features = { seed: 'hand-made', buildings: [], lines: [], towers: [], station: [] };
 
+  it('lets a system stand between houses on a real map, but not on one', () => {
+    const grids = emptyGrids(11, 20, 100);
+    const houses = [{ x: -8, z: 0, w: 10, d: 10, h: 8, angle: 0 }, { x: 40, z: 40, w: 20, d: 4, h: 8, angle: Math.PI / 2 }];
+    grids.bldg.fill(8); // every cell is marked, as cells touching a house are
+    const w = makeWorld({ ...grids, ...features, buildings: houses, geo: {} });
+    expect(w.onBuilding(-8, 0)).toBe(true);
+    expect(w.onBuilding(-2.5, 0)).toBe(true); // within a metre of the wall
+    expect(w.onBuilding(5, 0)).toBe(false); // the gap, in a marked cell
+    expect(w.onBuilding(40, 48)).toBe(true); // along a turned house
+    expect(w.onBuilding(48, 40)).toBe(false); // beside it
+    expect(makeWorld({ ...grids, ...features, buildings: houses }).onBuilding(5, 0)).toBe(true); // generated ground only has the grid
+    expect(makeWorld({ ...grids, ...features, geo: {} }).onBuilding(5, 0)).toBe(true); // a map with no outlines
+    grids.bldg.fill(0);
+    expect(w.onBuilding(-8, 0)).toBe(false); // an unmarked cell stays free, so no laydown that worked before can stop working
+  });
+
   it('answers the rules from its grids', () => {
     const grids = emptyGrids(11, 20, 100); // posts from -100 to 100 m
     const post = (x, z) => ((z + 100) / 20) * 11 + (x + 100) / 20;

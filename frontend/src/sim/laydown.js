@@ -32,7 +32,7 @@ export function placementProblem(w, x, z, def, cost = def.cost) {
   if (BUILD.lockAfterStart && w.state.wave > 0) return 'The laydown is locked once the first wave starts';
   if (r < u(BUILD.minDist)) return `Too close to the station (minimum ${BUILD.minDist} m)`;
   if (r > u(BUILD.maxDist)) return `Outside the build zone (maximum ${BUILD.maxDist} m)`;
-  if (terrainState.data.bldgAt(xm, zm)) return 'There is a building here';
+  if (terrainState.data.onBuilding(xm, zm)) return 'There is a building here';
   if (terrainState.data.coverAt(xm, zm) === 4) return 'You cannot build in water';
   if (terrainState.data.slope(xm, zm) > 0.4) return 'The ground is too steep';
   if (w.structures.some((s) => hdist(s.pos, { x, z }) < u(BUILD.spacing))) return 'Too close to another structure';

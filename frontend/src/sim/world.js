@@ -6,6 +6,7 @@
 import { TERRAIN, COMMS } from './config/index.js';
 
 export const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
+const WALL_GAP = 1; // metres a system must stand clear of a wall
 
 // Mark a building on the grids, clearing any trees under it.
 export function rasterBox({ N, cell, R, canopy, bldg, cover }, b) {
@@ -65,9 +66,20 @@ export function makeWorld({ seed, N, cell, R, ground, canopy, bldg, cover, build
     return { clear: true, blocker: null, canopy: canopyLen };
   }
 
+  // Whether a point is on a building. A real map has true outlines, so a gap between houses counts as free even though its 20 m grid
+  // cell is marked. Other worlds only have the grid.
+  function onBuilding(x, z) {
+    if (!bldg[cellOf(x, z)]) return false;
+    if (!geo || !buildings.length) return true;
+    return buildings.some((b) => {
+      const dx = x - b.x, dz = z - b.z, c = Math.cos(b.angle || 0), s = Math.sin(b.angle || 0);
+      return Math.abs(dx * c - dz * s) <= b.w / 2 + WALL_GAP && Math.abs(dx * s + dz * c) <= b.d / 2 + WALL_GAP;
+    });
+  }
+
   return {
     seed, N, cell, R, ground, canopy, bldg, cover, buildings, lines, towers, station, geo, // geo: where a real world is on the grid, or null
-    groundAt, cellOf, los,
+    groundAt, cellOf, los, onBuilding,
     coverAt: (x, z) => cover[cellOf(x, z)],
     canopyAt: (x, z) => canopy[cellOf(x, z)],
     bldgAt: (x, z) => bldg[cellOf(x, z)],
