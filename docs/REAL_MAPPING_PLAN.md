@@ -298,7 +298,7 @@ A CLI run with `uv`: `mapbuild --centre "SU 12 34" --size 30 --tier lidar --out 
 6. **OS map picture:** crop and retile the VectorMap District GeoTIFFs.
 7. **Satellite picture:** search Earth Search for the clearest summer scenes (up to 5, under 10% cloud), read just the pack's area from each `visual` file, reproject to EPSG:27700 with OSTN15, and take the median of each pixel to remove leftover cloud. If too few scenes are clear, the pack is built without this layer and says so.
 8. **Roads and names:** clip OpenMap Local roads and place names to the pack.
-9. **Fit:** least squares over a 61 x 61 sample using pyproj with OSTN15. Geoid separation from OSGM15 at the centre. The build fails if the fit error exceeds 0.5 m.
+9. **Fit:** least squares over a 61 x 61 sample using pyproj with OSTN15. Geoid separation from OSGM15 at the centre. The build fails, before downloading anything, if the fit error exceeds 2 m. It was 0.5 m until a 60 km pack reached 0.93 m at its corners; 30 km packs stay near 0.1 m.
 10. **Check and write:** no NaN anywhere, all lengths correct, then hash.
 
 The DSM must be the **First Return** product, because tree tops are the point. The builder fetches lidar one square kilometre at a time, with `geotiff:compression=DEFLATE`, keeps only the 20 m results and throws the raw data away. A full 30 km pack transfers about 2.2 GB in 1,800 requests, which takes about 40 minutes. It fetches at a limited rate and can resume, as the EA's limits are unknown. Each square is checked and fetched again if damaged, and a square that keeps returning HTTP 500 counts as missing.

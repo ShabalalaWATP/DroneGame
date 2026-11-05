@@ -36,6 +36,7 @@ def main(argv: list[str] | None = None) -> int:
     say = lambda text: print(f"[{time.time() - began:5.0f}s] {text}", flush=True)
     east, north = map(int, args.centre.split(",")) if re.fullmatch(r"\d{1,6},\d{1,7}", args.centre) else parse_grid_ref(args.centre)
     window = Window(east // 1000 * 1000, north // 1000 * 1000, args.size * 500)
+    position = fit.geo_fit(window)  # first, so a refusal does not waste an hour of downloads
     if args.fetch:
         download.ensure(args.data, window.squares(), say)
 
@@ -70,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     header = {
         "name": args.name[:80], "east": window.east, "north": window.north, "half": window.half, "cell": 20, "N": window.side,
         "tier": "lidar" if args.lidar_km else "terrain50", "lidarHalf": args.lidar_km * 500, "built": date.today().isoformat(), "credits": credits,
-        **fit.geo_fit(window),
+        **position,
     }
     written = packfile.write_pack(args.out, header, grids, feature_lists, os_pictures + sat_pictures)
     say(f"wrote {args.out}: {os.path.getsize(args.out) / 1e6:.1f} MB, hash {written['gridsSha256'][:16]}, fit error {written['fitErrorM']} m")
