@@ -37,7 +37,7 @@ export function createAuthority(core, { raiseAlert, ackAlert }, approveEngagemen
   const isPending = (s, tr) => pending.some((p) => p.s === s && p.tr.id === tr.id);
   function requestApproval(s, tr) {
     const cost = s.def.shotCost ? `, ${usd(s.def.shotCost)} per shot` : '';
-    const text = `Authorise ${s.name} to engage ${tr.short} (${tr.airframe === 'Unknown' ? 'unclassified' : tr.airframe})${cost}?`;
+    const text = `Authorise ${s.name} to engage ${tr.short} (${tr.model ?? (tr.airframe === 'Unknown' ? 'unclassified' : tr.airframe)})${cost}?`;
     const alertId = raiseAlert('warning', `Engagement request: ${text}`, null, 'DISCRETE_PRIORITY_HIGH', tr, false);
     const req = { id: alertId, alertId, s, tr, t0: T(), text };
     pending.push(req);

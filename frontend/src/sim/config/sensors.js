@@ -211,6 +211,7 @@ export const SENSORS = {
     // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.
     fov: 10, trackFov: 2.5, slewRate: 90, searchRate: 12, dwell: 3,
     channels: 'both', pixels: 'hd', fnumber: 2, // visible and thermal, 1280 pixels across, an f/2 lens: assumptions (camera-model.js)
+    ir: 'lwir', pitch: 12, // a long-wave thermal core with 12 µm pixels, as HD cores are: an assumption
     desc: 'Electro-optical / infrared camera. Narrow view that must be cued by another sensor. Bearing and elevation with strong classification, no range.',
     sapient: {
       nodeType: 'NODE_TYPE_CAMERA', subType: ['EO/IR', 'C-UAS'], scan: 'SCAN_TYPE_STEERABLE', interval: 0.5,
@@ -234,7 +235,7 @@ export const SENSORS = {
     product: 'Teledyne FLIR Boson 640, 36 mm', size: 'S', name: 'Small EO/IR camera', short: 'EOS', model: 'camera', modelScale: 0.7, cost: 25000, shotCost: 0, color: 0xcfd8dc, role: 'sensor', kind: 'camera', published: 260, mount: 15, falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [],
     fov: 12, slewRate: 90, searchRate: 12, dwell: 3,
-    channels: 'thermal', pixels: 'sd', fnumber: 1, // a fixed lens: no zoom
+    channels: 'thermal', pixels: 'sd', fnumber: 1, ir: 'lwir', pitch: 12, // a fixed lens: no zoom. Long-wave, 12 µm pixels, as published
     desc: 'Small thermal camera. Cheap and passive, with a short reach. Must be cued by another sensor. Bearing and elevation with strong classification, no range.',
     sapient: {
       nodeType: 'NODE_TYPE_CAMERA', subType: ['LWIR', 'C-UAS'], scan: 'SCAN_TYPE_STEERABLE', interval: 0.5,
@@ -254,7 +255,7 @@ export const SENSORS = {
     product: 'MWIR turret, Ophir 80\u20131200 mm', size: 'L', name: 'Large EO/IR camera', short: 'EOL', model: 'camera', modelScale: 1.4, cost: 500000, shotCost: 0, color: 0x78909c, role: 'sensor', kind: 'camera', published: 450, mount: 25, falseAlarm: 0.02,
     health: 30, signature: 0.05, emits: [],
     fov: 7.1, trackFov: 0.5, slewRate: 90, searchRate: 12, dwell: 3,
-    channels: 'thermal', pixels: 'sd', fnumber: 5.5, // the lens's own wide and narrow ends, and its published f/5.5
+    channels: 'thermal', pixels: 'sd', fnumber: 5.5, ir: 'mwir', pitch: 15, // the lens's own wide and narrow ends, its published f/5.5, and 15 µm mid-wave pixels
     desc: 'Cooled long-zoom thermal turret. It reaches further and identifies at a distance, but its view is very narrow, so it needs a good cue.',
     sapient: {
       nodeType: 'NODE_TYPE_CAMERA', subType: ['MWIR', 'C-UAS'], scan: 'SCAN_TYPE_STEERABLE', interval: 0.5,

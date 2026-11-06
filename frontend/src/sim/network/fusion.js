@@ -24,8 +24,9 @@ export function createFusion(core, { raiseAlert }) {
       tr.est = { east: e.east, north: e.north, up: e.up };
       tr.estErr = e.err;
       tr.speed = Math.hypot(e.vel[0], e.vel[1], e.vel[2]);
-      if (tr.cls) tr.airframe = classDepth(tr.cls) >= 2 ? tr.cls[0].sub_class[0].sub_class[0].type : 'Unknown';
-      else tr.airframe = 'Unknown';
+      const named = tr.cls && classDepth(tr.cls) >= 2 && tr.cls[0].sub_class[0].sub_class[0];
+      tr.airframe = named ? named.type : 'Unknown';
+      tr.model = named?.sub_class?.[0]?.type ?? null; // a camera that identified it names the drone's model
     }
     for (const d of ctx.drones) d.track = null;
     for (const tr of tracker.tracks.values()) {
@@ -76,7 +77,7 @@ export function createFusion(core, { raiseAlert }) {
     for (const tr of [...tracker.tracks.values()]) {
       if (!tr.killWatch || T() - tr.killWatch.t < FUSION.killConfirmDelay * slowestSensor(tr)) continue; // a slow radar gets time to look again
       if (tr.lastT <= tr.killWatch.lastT + 1e-6) {
-        raiseAlert('information', `Kill confirmed: ${tr.short} (${tr.airframe === 'Unknown' ? 'unclassified' : tr.airframe}), reported by ${tr.killWatch.by}`, null, 'DISCRETE_PRIORITY_LOW', tr);
+        raiseAlert('information', `Kill confirmed: ${tr.short} (${tr.model ?? (tr.airframe === 'Unknown' ? 'unclassified' : tr.airframe)}), reported by ${tr.killWatch.by}`, null, 'DISCRETE_PRIORITY_LOW', tr);
         if (ctx.onKillConfirmed) ctx.onKillConfirmed(tr);
         tracker.tracks.delete(tr.id);
       } else {

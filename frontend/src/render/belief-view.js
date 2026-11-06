@@ -80,7 +80,7 @@ export function createBeliefViews(scene, net, camera, labelLayer) {
       if (show) {
         b.label.style.left = ((_p.x + 1) / 2) * innerWidth + 'px';
         b.label.style.top = ((1 - _p.y) / 2) * innerHeight + 'px';
-        const cls = tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : 'UAV';
+        const cls = tr.model ?? (tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : 'UAV');
         const err = `±${Math.round(tr.estErr || 0)} m`;
         b.label.textContent = tr.status === 'tentative' ? `tentative ${err}` : `${tr.short} · ${cls} ${err}${tr.status === 'coasting' ? ' · coasting' : ''}`;
       }

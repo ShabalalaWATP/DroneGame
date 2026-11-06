@@ -125,7 +125,7 @@ export function createPlanCanvas(cv, sim) {
       }
       g.strokeStyle = col; g.beginPath(); g.moveTo(x - 4, y - 4); g.lineTo(x + 4, y + 4); g.moveTo(x + 4, y - 4); g.lineTo(x - 4, y + 4); g.stroke();
       if (tr.status !== 'tentative') {
-        const cls = tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : 'UAV';
+        const cls = tr.model ?? (tr.airframe && tr.airframe !== 'Unknown' ? tr.airframe : 'UAV');
         g.fillStyle = col; g.fillText(`${tr.short} · ${cls}`, x + 7, y + 3);
       }
     }

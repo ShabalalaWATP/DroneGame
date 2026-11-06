@@ -177,12 +177,12 @@ export const UNIT_FIELDS = [
   {
     key: 'pixels', label: 'Resolution', base: (c) => c.pixels, limits: each(CAMERAS, true), choices: choicesOf(PIXELS),
     range: (v, c) => PIXELS[v].px / PIXELS[c.pixels].px, price: (v, c) => Math.log2(PIXELS[v].px / PIXELS[c.pixels].px) * RES_PRICE * c.cost,
-    help: 'More pixels put more on the drone, so it is seen, recognised and identified further away, at a price.',
+    help: 'More pixels put more on the drone, so it is seen, recognised and identified further away, at a price. On thermal, not past what the lens can resolve.',
   },
   {
     key: 'fnumber', label: 'Lens F-number', step: 0.1, base: (c) => c.fnumber, direct: 'fnumber', limits: { camera_s: [1, 2], camera: [1.4, 4], camera_l: [4, 5.6] },
     price: (v, c) => ((c.fnumber / v) ** 2 - 1) * LENS_PRICE * c.cost,
-    help: 'A faster lens, with a lower number, gathers more light, so it keeps more of its range at dusk, at night and in haze, at a price.',
+    help: 'A faster lens, with a lower number, gathers more light, so it keeps more of its range at dusk, at night and in haze, and on thermal it blurs less, at a price.',
   },
   {
     key: 'rangefinder', label: 'Laser rangefinder', base: (c) => c.rangefinder ?? 'no', direct: 'rangefinder', limits: each(CAMERAS, true), choices: { no: 'No', yes: 'Yes' },

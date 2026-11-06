@@ -6,7 +6,7 @@ import { rand, gauss } from '../rng.js';
 import { terrainState } from '../terrain.js';
 import { errorScale, inClutter, reachFor, reachOnPath } from '../site-range.js';
 import { blindSpeed, classifiesAt, coverArc, elevationBand, inCover, outwardFrom } from '../sensor-model.js';
-import { airframeConfidence, hasZoom, pixelsOn } from '../camera-model.js';
+import { IDENTIFY_PX, airframeConfidence, hasZoom, pixelsOn } from '../camera-model.js';
 import { LIBRARIES, bandGhz, covers, heardBand, libraryKnows } from '../rf-model.js';
 import { deafAt } from '../jamming.js';
 import { RB_UNITS, rbDatum, round, clamp } from './core.js';
@@ -82,9 +82,9 @@ export function createSensors(core, feed) {
     const id = s.def.kind || s.def.id;
     const sub = (type, c, level, inner) => ({ type, confidence: round(c, 2), level, ...(inner ? { sub_class: [inner] } : {}) });
     if (!d) return [{ type: 'Unknown', confidence: 0.4 }]; // a false alarm doesn't look like anything in particular
-    if (id === 'camera') { // it names the airframe once the drone covers enough pixels (camera-model.js)
-      const named = airframeConfidence(pixelsOn(reach, rng));
-      return [{ type: 'Air Vehicle', confidence: 0.95, sub_class: [sub('UAV', 0.9, 1, named ? sub(d.def.airframe, named, 2) : null)] }];
+    if (id === 'camera') { // it names the airframe once the drone covers enough pixels, and identified, its model (camera-model.js)
+      const px = pixelsOn(reach, rng), named = airframeConfidence(px), model = px >= IDENTIFY_PX ? sub(d.def.label ?? d.def.name, 0.9, 3) : null;
+      return [{ type: 'Air Vehicle', confidence: 0.95, sub_class: [sub('UAV', 0.9, 1, named ? sub(d.def.airframe, named, 2, model) : null)] }];
     }
     if (id === 'acoustic') return [{ type: 'Air Vehicle', confidence: 0.7, sub_class: [sub('UAV', 0.6, 1)] }]; // it sounds like a drone, not which one
     if (id === 'rf') { // its library names the airframe of a link it knows, and takes any other moving emitter for a drone; with none, it is energy
