@@ -39,11 +39,12 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
 
   const state = {
     seed, terrainSeed, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, time: 0, warnedWire: false,
-    started: false, over: false, autoStart: false, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX,
+    started: false, over: false, autoStart: false, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX, conditions: 'day',
     waveActive: false, queue: [], waveTime: 0, autoTimer: -1,
     sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, // sandbox: attacks without consequences, before the first wave
   };
   const w = { state, drones: [], structures: [], missiles: [], people: [], peopleUid: 0, peopleRev: 0, patrol: null, ledger: createLedger(), emit, droneUid: 0, startLaydown: null, startFigures: null, runEnded: false };
+  laydown.applyConditions(w, 'day'); // the conditions are module state that physics reads: a new simulation starts on a clear day
   w.rec = createRecorder(() => state.time);
   w.net = createNetwork({
     drones: w.drones,
@@ -94,6 +95,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
       health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, time: 0, warnedWire: false, over: false,
       waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX,
     });
+    laydown.applyConditions(w, 'day'); // a kept laydown brings its own back
     resetLedger(w.ledger);
     w.rec.clear(); stepCount = 0; w.droneUid = 0;
     log.length = 0;
@@ -175,6 +177,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     setZone: (points) => laydown.setZone(w, points),
     setPatrol: (points) => setPatrol(w, points),
     setAttack: (ids) => laydown.setAttack(w, ids),
+    setConditions: (name) => laydown.setConditions(w, name),
     place: (id, x, z, settings) => laydown.place(w, id, x, z, settings),
     sell: (x, z) => laydown.sell(w, x, z),
     placePeople: (x, z, count, protection) => people.placePeople(w, x, z, count, protection),

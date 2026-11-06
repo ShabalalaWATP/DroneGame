@@ -8,6 +8,7 @@ import { SITE_POS, u, hdist, hereU } from './units.js';
 import { cleanZone, reachProblem, siteIsFree, zoneCentre } from './attack-area.js';
 import { outwardFrom } from './sensor-model.js';
 import { cleanMix, hasStrike, isDefaultMix } from './attack-mix.js';
+import { ENV, cleanConditions } from './conditions.js';
 import { buyTerminal, money } from './economy.js';
 import { capturePeople, clearPeople, restorePeople } from './people.js';
 import { fillMagazine } from './magazine.js';
@@ -86,6 +87,7 @@ export function captureLaydown(w) {
     ...capturePeople(w),
     ...(w.state.zone ? { zone: w.state.zone } : {}),
     ...(isDefaultMix(w.state.attack) ? {} : { attack: w.state.attack }),
+    ...(w.state.conditions === 'day' ? {} : { conditions: w.state.conditions }),
     ...(w.patrol ? { patrol: w.patrol.route } : {}),
   };
 }
@@ -114,6 +116,7 @@ export function restoreLaydown(w, spec) {
   restorePeople(w, spec.people);
   applyZone(w, cleanZone(spec.zone));
   w.state.attack = cleanMix(spec.attack);
+  applyConditions(w, spec.conditions);
   const refused = spec.patrol && setPatrol(w, spec.patrol); // a saved route comes from outside the game, so it is checked again
   if (refused) w.emit('toast', `The saved patrol was left out: ${refused}`);
 }
@@ -125,6 +128,14 @@ export function setAttack(w, ids) {
   w.state.attack = cleanMix(ids);
   return null;
 }
+
+// The light and weather the run is fought in. Like the laydown, it is locked once the first wave starts. Returns why not, or null.
+export function setConditions(w, name) {
+  if (designLocked(w)) return 'The conditions are locked once the first wave starts';
+  applyConditions(w, name);
+  return null;
+}
+export function applyConditions(w, name) { w.state.conditions = ENV.now = cleanConditions(name); }
 
 function applyZone(w, points) {
   w.state.zone = points;

@@ -27,8 +27,9 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] A4 part 1: coverage arcs and elevation for every radar, panels and facing on fixed-panel radars, drawn in every view. Small radars now see 120° per panel
 - [x] A4 part 2: tracker timing scaled to each sensor's update interval, so a radar's scan period now goes up to 5 s
 - [x] A4 part 3: 2D radars, band, clutter filter, the beam's low and top edges, blanking arcs and micro-Doppler
-- [ ] A4 left over: a narrower azimuth arc that gains range, and rain loss by band, which needs A5's weather
-- [ ] A5: environment and electro-optical physics
+- [ ] A4 left over: a narrower azimuth arc that gains range
+- [x] A5: conditions (clear day, dusk, night, rain and haze) for cameras by channel, radar by band and lasers, and camera optics: pixels on target, zoom on a cue, channels, resolution, lens, rangefinder, search arc and slew
+- [ ] A5 left over: rain noise for acoustic sensors, thermal diffraction with the F-number, and a camera that names the drone's model when identified, not only its airframe
 - [ ] A6: RF detector, libraries and jammer physics
 - [ ] A7: balance pass. This is the place to fix five lasers never losing.
 
@@ -80,7 +81,8 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] Interceptor drones may take fixed-wing drones, as the Sting is built to, with hit chance falling for faster targets. The small net carrier still only takes small, slow drones
 - [ ] Wave sizes were set for cheap first-person-view drones. When a mix has none, the same number of Shaheds take their place, which may be too many
 - [ ] Check the path model offline against NTIA ITM, and against any real measurements
-- [ ] Rain and haze for lasers and cameras, and ground reflection lobes for radar
+- [x] Rain and haze for lasers and cameras (A5)
+- [ ] Ground reflection lobes for radar
 
 **Real drones**
 

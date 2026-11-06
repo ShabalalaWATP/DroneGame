@@ -160,6 +160,7 @@ export const UK_SYSTEMS = {
     },
   },
   laser_rfdew: {
+    rfBeam: true, // an RF weapon: rain and haze do not scatter it as they do a laser (conditions.js)
     product: 'Thales RapidDestroyer (RF weapon)', variantOf: 'laser_s', size: 'S', name: 'RapidDestroyer', short: 'RFD', model: 'laser', modelScale: 0.8, cost: 5000000, shotCost: 0.13, color: 0xea80fc, role: 'effector', kind: 'laser', published: 1000, mount: 9, muzzleY: 2.6, fire: 'beam',
     health: 30, signature: 1.5, emits: [],
     dps: 56, magazine: 600, reloadTime: 300,

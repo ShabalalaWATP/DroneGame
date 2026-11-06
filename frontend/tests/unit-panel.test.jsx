@@ -222,7 +222,7 @@ describe('the panel', () => {
     const text = panel().textContent;
     expect(text).toContain('Searching');
     expect(text).toContain('once cued');
-    expect(text).toContain('10° view');
+    expect(text).toContain('10° search view, 2.5° on a cue');
     expect(text).toContain('airframe type');
   });
 

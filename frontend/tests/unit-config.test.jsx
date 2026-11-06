@@ -90,7 +90,7 @@ describe('what a setting does', () => {
 
   it('a camera\'s view sets its reach, with the large one matching the lens figures', () => {
     expect(set('camera', 'view', 2.5).range).toBe(2600);
-    expect(set('camera_l', 'view', 0.5).range).toBe(6400);
+    expect(set('camera_l', 'view', 0.5).range).toBe(6390); // the lens's narrow end: about 6.4 km
     expect(unit('camera_l').def.fov).toBe(0.5);
   });
 

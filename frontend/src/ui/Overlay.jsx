@@ -9,6 +9,7 @@ import { parseWorldId } from '../sim/world-pack.js';
 import { Debrief } from './assistant/Debrief.jsx';
 import { useGame, useTick } from './hooks.js';
 import { WorldPicker } from './WorldPicker.jsx';
+import { ConditionsPicker } from './ConditionsPicker.jsx';
 
 const STAGES = [['1. See', 'Place sensors'], ['2. Stop', 'Place effectors'], ['3. Connect', 'Network it all'], ['4. Prove', 'Rehearse, then fight']];
 
@@ -48,6 +49,7 @@ function StartCard({ openDock }) {
       {!wantReal && <div className="stages">{STAGES.map(([head, text]) => <div key={head}><b>{head}</b>{text}</div>)}</div>}
       <p className="muted">A game and a teaching tool. Most figures are vendor claims or labelled assumptions, so do not base real decisions on it.</p>
       <WorldPicker wantReal={wantReal} onWantReal={setWantReal} onWorld={setRealWorld} guiding={onSiteStep} onStopGuiding={() => setGuiding(false)} />
+      <div className="start-conditions"><ConditionsPicker id="start-conditions" /></div>
       <details className="seeds">
         <summary>Advanced: scenario and terrain seeds</summary>
         <div className="seed-row">

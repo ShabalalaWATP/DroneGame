@@ -358,8 +358,8 @@ Range follows the search radar equation: `range ∝ (power x aperture x scan tim
 |---|---|---|---|
 | Based on | Boson-class thermal core | Today's EO/IR camera | Cooled MWIR long-zoom turret |
 | Sensor | LWIR 640 x 512, 12 µm | HD visible plus LWIR | MWIR 640 x 512, 15 µm |
-| Lens and view | 36 mm, 12° | 10° search, 2.5° track (assumption) | 80–1200 mm, 7.1° to 0.5°. One fixed 2° view until A5. |
-| Range, small quadcopter | About 260 m | 1 km in search | 1.6 km at the fixed 2° view until A5. Then about 470 m in search, 7 km in track. |
+| Lens and view | 36 mm, 12° | 10° search, 2.5° track (assumption) | 80–1200 mm, 7.1° to 0.5° |
+| Range, small quadcopter | About 260 m | 650 m in search, 2.6 km on a cue | About 450 m in search, 6.4 km on a cue |
 | Price | $25k (assumption) | $100k | $500k (assumption) |
 
 | Field | Kind | Effect |
@@ -466,8 +466,8 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 | A4 part 1 (built) | Coverage in `sim/sensor-model.js`: a fixed-panel radar covers its arc per panel, side by side and centred on where it faces, and every radar covers a band of elevation from 10° below the horizon. Unless turned, a radar faces away from what is defended, so it follows a drawn area or a walking patrol. Panels (paid) and facing are unit fields. Detection, false alarms, the range prediction, the rings, the plan map, the minimap, the placing preview, the coverage map and the wizard's spot search all use it. | Digests re-baselined: Small radars dropped from 360° to 120°, a deliberate balance change. The laser and jammer reference laydowns, which rely on Small radars, now let more through; the mixed ones only change in their messages. `GAME_VERSION` is 0.6.0. |
 | A4 part 2 (built) | Tracker timing in `sim/tracker.js`: each measurement carries its sensor's update interval, and a sensor slower than once a second stretches the tentative, confirmed and coasting timeouts and the bearing life by that interval. A track drops or coasts only when every sensor that fed it has missed as many of its own updates. Fused reports keep a slow source as long, and kill confirmation waits for the track's slowest sensor. The radar scan period now goes to 5 s. | Reference digests are unchanged by this part, because every catalogue sensor reports once a second or faster. |
 | A4 part 3 (built) | Radar fields in `sim/unit-config.js`, with their rules in `sim/sensor-model.js`. 2D on Medium and Large radars, 30% cheaper: no height, so its tracks are flat, compared across the ground, and a cued camera looks at the guessed height, then steps up a view at a time. Band: angle error goes with wavelength, small drones are seen a little further higher up, and the Spectrum tab shows it. The beam's low and top edges, up to 3 blanking arcs, and a clutter filter that can miss slow and crossing drones. Micro-Doppler names multirotor or fixed wing inside half the reach, standard on the IRIS and A400. The API's settings allow negative numbers and lists of arcs. | Digests re-baselined: micro-Doppler changes the messages of every laydown with an IRIS, the mixed laydown on seed 1 kills one more drone for $600k less, and on seed 7 ends the same for $400k more. `GAME_VERSION` is 0.7.0. |
-| A4, left over | A narrower azimuth arc that gains range, and rain loss by band, which needs A5's weather | |
-| A5 | Environment and EO physics | Tests confirm the pixel maths and night behaviour |
+| A4, left over | A narrower azimuth arc that gains range. Rain loss by band came with A5. | |
+| A5 (built) | Conditions in `sim/conditions.js`: clear day, dusk, night, or rain and haze, chosen on the start card or in the control panel until the first wave, saved with the laydown, reported as `STATUS_TYPE_ILLUMINATION` and `STATUS_TYPE_WEATHER`, and lighting the scene. They scale a unit's own range: a camera by its better channel and its lens, radar in rain by band, and lasers in rain. Camera optics in `sim/camera-model.js`: 4 pixels detect, 8 name the airframe, 13 name it surely. A zoom camera searches at its wide view, zooms to its track view on a cue, and widens again when half its dwell finds nothing. Fields for channels, resolution, F-number, rangefinder, track view, search arc, sweep and slew. | Tests confirm the pixel maths, the zoom, night and rain behaviour, saving and replay. Digests re-baselined: sensor statuses carry the conditions, and cameras now name only what covers 8 pixels. `GAME_VERSION` is 0.8.0. |
 | A6 | RF, libraries and jammer physics | Tests confirm band matching, jam range and self-interference |
 | A7 | Balance using `tools/balance.js`. Optionally, later waves move to non-standard bands such as 3.3 GHz, as reported in Ukraine. | Results are recorded and the game is playable |
 
@@ -485,12 +485,12 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 |---|---|
 | Radar | Mast height (paid), transmit power, scan period 0.5–5 s, detection threshold, band (paid), micro-Doppler (paid), low and top edge of the beam, up to 3 blanking arcs, clutter filter, 2D on Medium and Large (cheaper), and on fixed-panel radars, panels (paid) and facing |
 | RF detector | Mast height (paid), detection threshold |
-| EO/IR camera | Mast height (paid), field of view (medium and large), dwell, detection threshold |
+| EO/IR camera | Mast height (paid), channels (paid), resolution (paid), lens F-number (paid), laser rangefinder (paid), slew rate (paid), search view and track view (medium and large), search arc, sweep rate, dwell, detection threshold |
 | RF jammer | Transmit power, and active bands, which stay live during a run |
 | Interceptor, missile | Time between shots (paid) |
 | Laser | Beam damage (paid) |
 
-Radar 2D or 3D, band, blanking arcs, elevation edges, clutter filter and micro-Doppler came in A4 part 3. Camera channels, resolution, focal length and rangefinder wait for A5. RF bands, sensitivity, direction finding and libraries, and jammer antennas, technique and trigger, wait for A6. Each needs rules that do not exist yet, so editing it now would change nothing.
+Radar 2D or 3D, band, blanking arcs, elevation edges, clutter filter and micro-Doppler came in A4 part 3. Camera channels, resolution, lens, rangefinder, zoom, search arc and slew came in A5; a different lens is not offered, so each camera keeps its own zoom range. RF bands, sensitivity, direction finding and libraries, and jammer antennas, technique and trigger, wait for A6. Each needs rules that do not exist yet, so editing it now would change nothing.
 
 **Left out:** track capacity limits, GNSS spoofing and protocol takeover, operator geolocation, separating drones that are very close together, reusable custom presets, and changing hardware during a run.
 

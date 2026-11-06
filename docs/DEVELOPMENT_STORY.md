@@ -257,6 +257,14 @@ The first camera search swept up and down without stopping. It is rarely at the 
 
 The reference digests were re-recorded. Micro-Doppler classifications change the messages of every laydown with an IRIS. On seed 1 the mixed laydown kills one more drone and spends $600k less; on seed 7 it ends the same and spends $400k more. `GAME_VERSION` moved to 0.7.0. The beam's low edge is a negative number and blanking arcs are a list, so the API's settings schema now allows both, still checked for shape.
 
+## Conditions and cameras
+
+Stage A5 added the light and weather a run is fought in: a clear day, dusk, night, or rain and haze. It is chosen on the start card or in the control panel until the first wave, saved with the laydown so a run replays, reported by every sensor over SAPIENT, and changes how the scene is lit. It works through one place, a unit's own range, so detection, the rings, tasking and a laser's reach all follow it. A camera keeps the range of its better channel: visible light fades at dusk and is almost blind at night, while thermal works on, and rain and haze cut both. A faster lens gathers more light and keeps more of it. In rain, a K-band radar keeps 75% of its range and an S-band one all of it, and a laser beam half. Radio is not affected. A clear day changes nothing.
+
+Cameras now follow their optics. A drone covers 4 pixels at the edge of a camera's reach, where it is detected; the airframe is named at 8 pixels and named surely at 13, so a camera sees some drones it cannot yet name. A zoom camera searches at its wide view and zooms to its track view on a cue, which reaches four times as far on the medium camera and fourteen times on the large one, then widens again when half its dwell has found nothing there. The large camera used to sit at one fixed 2° view; now it searches at its lens's wide 7.1° end, about 450 m, and reaches about 6.4 km on a good cue. Channels, resolution, the lens's F-number, a laser rangefinder and the slew rate are paid hardware; the track view, search arc and sweep rate are free settings, each with its own cost in play.
+
+Over six seeds of the mixed laydown, a clear day ended much as before, 411 kills and 2 leaks against 413 and 6, and rain was harder, 397 kills and 6 leaks. Dusk and night played the same as a clear day there, because its cameras have a thermal channel; only a visible camera is blind at night, which is the saving it buys. The reference digests were re-recorded, because every sensor status now carries the conditions and cameras name only what covers 8 pixels. `GAME_VERSION` moved to 0.8.0.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

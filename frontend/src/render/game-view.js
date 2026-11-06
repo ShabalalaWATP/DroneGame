@@ -18,6 +18,13 @@ import { createMapTexture } from './map-texture.js';
 import { view } from './view.js';
 
 const FLIGHT_SECONDS = 0.7;
+// How the scene looks in the run's conditions: sky and fog colour, fog distance (m) and light. The look only; the physics is in sim/conditions.js.
+const LOOKS = {
+  day: { sky: 0x0b1220, fog: [12000, 30000], hemi: 0.9, sun: 1.1, sunColour: 0xffffff },
+  dusk: { sky: 0x2b1d2f, fog: [9000, 26000], hemi: 0.55, sun: 0.6, sunColour: 0xffb27a },
+  night: { sky: 0x03060c, fog: [6000, 18000], hemi: 0.3, sun: 0.15, sunColour: 0x9fb4ff },
+  rain: { sky: 0x2f3742, fog: [2500, 9000], hemi: 0.6, sun: 0.35, sunColour: 0xd0d8e0 },
+};
 
 // getMapSource(world): the pictures, roads and names for a real world. The simulation never sees them.
 export function createGameView(canvas, labelLayer, sim, getMapSource = () => null) {
@@ -34,10 +41,21 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
   controls.maxDistance = 1200;
   controls.enableDamping = true;
 
-  scene.add(new THREE.HemisphereLight(0xbcd4ff, 0x203020, 0.9));
+  const sky = new THREE.HemisphereLight(0xbcd4ff, 0x203020, 0.9);
+  scene.add(sky);
   const sun = new THREE.DirectionalLight(0xffffff, 1.1);
   sun.position.set(60, 120, 40);
   scene.add(sun);
+  let lit = 'day';
+  function light(name) {
+    const look = LOOKS[name] ?? LOOKS.day;
+    lit = name;
+    scene.background.setHex(look.sky);
+    scene.fog.color.setHex(look.sky);
+    [scene.fog.near, scene.fog.far] = look.fog.map(u);
+    sky.intensity = look.hemi;
+    sun.intensity = look.sun; sun.color.setHex(look.sunColour);
+  }
 
   // ---------- terrain and the protected site ----------
   const siteMat = new THREE.MeshStandardMaterial({ color: 0x8aa0b4, roughness: 0.7, emissive: 0xff0000, emissiveIntensity: 0 });
@@ -149,6 +167,7 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
 
   // Show the live state of the simulation. Replay runs after this and hides what it replaces.
   function update(real) {
+    if (sim.state.conditions !== lit) light(sim.state.conditions);
     effects.update(real);
     structures.sync(real);
     people.sync();

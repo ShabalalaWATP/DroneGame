@@ -94,7 +94,7 @@ export function createPlanCanvas(cv, sim) {
       if (n.def.role === 'sensor') { g.beginPath(); g.arc(x, y, 5, 0, Math.PI * 2); g.fill(); } else g.fillRect(x - 5, y - 5, 10, 10);
       g.fillStyle = '#dbe4f0'; g.fillText(n.short + (n.def.kind === 'jammer' && n.mode === 'Jam' ? ' [JAM]' : ''), x + 8, y + 3);
       if (n.def.fov && n.point) { // camera: its current view
-        const a = (n.point.az * Math.PI) / 180, half = (n.def.fov / 2 * Math.PI) / 180, len = n.def.range;
+        const view = n.view ?? n.def.fov, a = (n.point.az * Math.PI) / 180, half = (view / 2 * Math.PI) / 180, len = (n.def.range * n.def.fov) / view; // zoomed in on a cue, it reaches further
         g.fillStyle = hex(n.def.color) + '33'; g.beginPath(); g.moveTo(x, y);
         g.lineTo(X(n.pos.x * mpu() + len * Math.sin(a - half)), Y(-n.pos.z * mpu() + len * Math.cos(a - half)));
         g.lineTo(X(n.pos.x * mpu() + len * Math.sin(a + half)), Y(-n.pos.z * mpu() + len * Math.cos(a + half))); g.closePath(); g.fill();

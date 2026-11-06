@@ -5,7 +5,8 @@ import { SENSING } from '../config/index.js';
 import { rand, gauss } from '../rng.js';
 import { terrainState } from '../terrain.js';
 import { errorScale, inClutter, reachFor, reachOnPath } from '../site-range.js';
-import { blindSpeed, classifiesAt, coverArc, elevationBand, inCover } from '../sensor-model.js';
+import { blindSpeed, classifiesAt, coverArc, elevationBand, inCover, outwardFrom } from '../sensor-model.js';
+import { airframeConfidence, hasZoom, pixelsOn } from '../camera-model.js';
 import { RB_UNITS, rbDatum, round, clamp } from './core.js';
 
 export { reachFor };
@@ -15,11 +16,20 @@ const STARE_LOOKS = 3; // looks a camera takes at each height while it searches 
 export function createSensors(core, feed) {
   const { ctx, mpu, T, nodes, tracker, fusion, send, deliver, antennaM, rel, bearingOf } = core;
 
+  // A camera's view now: its track view on a cue, and its search view again once half its dwell there has found nothing.
+  function viewOf(s) {
+    const def = s.def, c = s.cue;
+    if (!c || !hasZoom(def)) return def.fov;
+    const tr = tracker.tracks.get(c.trackId), seen = (tr?.heard.get(s.nodeId)?.t ?? -Infinity) >= c.from;
+    return seen || c.onAt == null || T() < c.onAt + def.dwell / 2 ? def.trackFov : def.fov;
+  }
+  const zoomOf = (s) => (s.def.fov ? s.def.fov / viewOf(s) : 1); // how much further a camera reaches in its view now
+
   // Is the target inside the camera's current field of view?
   function inView(s, r) {
-    const b = bearingOf(r);
+    const b = bearingOf(r), half = viewOf(s) / 2;
     const daz = Math.abs(((b.az - s.point.az + 540) % 360) - 180), del = Math.abs(b.el - s.point.el);
-    return daz <= s.def.fov / 2 && del <= s.def.fov / 2;
+    return daz <= half && del <= half;
   }
 
   // How far this sensor reaches along the real path to this drone.
@@ -38,7 +48,8 @@ export function createSensors(core, feed) {
     const def = s.def;
     const r = rel(s, d);
     if (def.senses === 'perimeter') return r.hr < def.range ? 0.98 : 0;
-    const open = reachFor(def, d.def);
+    const zoom = pointing ? zoomOf(s) : 1; // coverage maps assume a camera's search view
+    const open = reachFor(def, d.def) * zoom;
     if (!open || r.rng > open * SENSING.rangeCap) return 0;
     const b = bearingOf(r);
     if (!inCover(def, b.az, b.el)) return 0; // outside a radar's arc, or above or below its beam
@@ -47,7 +58,7 @@ export function createSensors(core, feed) {
     const p = inClutter(def, T3, dxm, dzm, dym - T3.groundAt(dxm, dzm), r.hr) ? SENSING.clutterPenalty : 1; // lost in clutter
     const blind = blindSpeed(def);
     if (blind && d.vel && Math.abs((d.vel.x * r.east - d.vel.z * r.north + d.vel.y * r.up) * m) < blind * r.rng) return 0; // too slow, or crossing, for its clutter filter
-    const reach = reachTo(s, d);
+    const reach = reachTo(s, d) * zoom;
     if (!reach) return 0;
     if (pointing && def.fov && !inView(s, r)) return 0;
     return p / (1 + Math.pow(r.rng / (reach * SENSING.pdEdge), SENSING.pdSlope));
@@ -66,8 +77,9 @@ export function createSensors(core, feed) {
     const id = s.def.kind || s.def.id;
     const sub = (type, c, level, inner) => ({ type, confidence: round(c, 2), level, ...(inner ? { sub_class: [inner] } : {}) });
     if (!d) return [{ type: 'Unknown', confidence: 0.4 }]; // a false alarm doesn't look like anything in particular
-    if (id === 'camera') {
-      return [{ type: 'Air Vehicle', confidence: 0.95, sub_class: [sub('UAV', 0.9, 1, sub(d.def.airframe, 0.85, 2))] }];
+    if (id === 'camera') { // it names the airframe once the drone covers enough pixels (camera-model.js)
+      const named = airframeConfidence(pixelsOn(reach, rng));
+      return [{ type: 'Air Vehicle', confidence: 0.95, sub_class: [sub('UAV', 0.9, 1, named ? sub(d.def.airframe, named, 2) : null)] }];
     }
     if (id === 'acoustic') return [{ type: 'Air Vehicle', confidence: 0.7, sub_class: [sub('UAV', 0.6, 1)] }]; // it sounds like a drone, not which one
     if (id === 'rf') { // a radio emitter is recognised as a UAV link, but not as an airframe type
@@ -82,9 +94,10 @@ export function createSensors(core, feed) {
   function falseGeometry(s) {
     const def = s.def;
     const arc = coverArc(def), band = elevationBand(def); // a radar's false alarms come from where it looks, low in its beam
-    const azD = def.fov ? s.point.az + (rand() - 0.5) * def.fov : arc < 360 ? def.facing + (rand() - 0.5) * arc : rand() * 360;
+    const view = def.fov ? viewOf(s) : 0;
+    const azD = def.fov ? s.point.az + (rand() - 0.5) * view : arc < 360 ? def.facing + (rand() - 0.5) * arc : rand() * 360;
     const lo = band ? Math.max(band[0], -2) : -2, hi = band ? Math.max(Math.min(band[1], 10), lo) : 10;
-    const elD = def.fov ? s.point.el + (rand() - 0.5) * def.fov : lo + rand() * (hi - lo);
+    const elD = def.fov ? s.point.el + (rand() - 0.5) * view : lo + rand() * (hi - lo);
     const rng = def.range * (0.15 + 0.85 * rand());
     if (!inCover(def, (azD + 360) % 360, elD)) return null;
     const az = (azD * Math.PI) / 180, el = (elD * Math.PI) / 180;
@@ -99,7 +112,7 @@ export function createSensors(core, feed) {
     const r = d ? rel(s, d) : falseGeometry(s);
     if (!r) return null;
     const b = bearingOf(r);
-    const reach = d ? reachTo(s, d) : def.range, k = errorScale(def, r.rng, reach); // a weak signal gives a worse measurement, and the sensor knows it
+    const reach = (d ? reachTo(s, d) : def.range) * zoomOf(s), k = errorScale(def, r.rng, reach); // a weak signal gives a worse measurement, and the sensor knows it
     const errAz = n.az * k, errEl = n.el * k, errRange = n.range * k;
     const azM = (b.az + gauss() * (errAz || 0) + 360) % 360;
     const elM = b.el + gauss() * (errEl || 0);
@@ -184,15 +197,26 @@ export function createSensors(core, feed) {
         const st = s.stare?.trackId === tr.id ? s.stare : (s.stare = { trackId: tr.id, el: clamp(b.el, 0, top), from: null });
         if (Math.abs(s.point.el - st.el) < 0.5) {
           st.from ??= s.scanId;
-          if (s.scanId - st.from >= STARE_LOOKS) { st.el = st.el + def.fov > top ? 0 : st.el + def.fov; st.from = null; }
+          if (s.scanId - st.from >= STARE_LOOKS) { const step = viewOf(s); st.el = st.el + step > top ? 0 : st.el + step; st.from = null; }
         }
         tgtEl = st.el;
       }
-    } else { tgtAz = s.point.az + 1; tgtEl = 3; } // sweep
+    } else { // sweep, all round or back and forth across its search arc, facing away from what is defended
+      const arc = def.searchArc ?? 360;
+      if (arc >= 360) tgtAz = s.point.az + 1;
+      else {
+        const mid = outwardFrom(ctx.siteCentre(), s.pos), off = ((s.point.az - mid + 540) % 360) - 180;
+        if (off >= arc / 2 - 0.5) s.sweepBack = true; else if (off <= 0.5 - arc / 2) s.sweepBack = false;
+        tgtAz = mid + (s.sweepBack ? -arc : arc) / 2;
+      }
+      tgtEl = 3;
+    }
     const dAz = ((tgtAz - s.point.az + 540) % 360) - 180;
     const step = rate * dt;
     s.point.az = (s.point.az + clamp(dAz, -step, step) + 360) % 360;
     s.point.el += clamp(tgtEl - s.point.el, -step, step);
+    if (s.cue && s.cue.onAt == null && Math.abs(dAz) <= step && Math.abs(tgtEl - s.point.el) < 0.5) s.cue.onAt = T(); // on the cue: the zoomed hunt starts
+    s.view = viewOf(s); // for the plan map
   }
 
   return { pd, coverageAt, scan, aimCamera };

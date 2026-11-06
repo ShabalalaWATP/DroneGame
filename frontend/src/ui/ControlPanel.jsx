@@ -6,6 +6,7 @@ import { view } from '../render/view.js';
 import { useArmed, useGame, useTick } from './hooks.js';
 import { ResupplyButton } from './ResupplyButton.jsx';
 import { AttackMix, mixLabel } from './AttackMix.jsx';
+import { ConditionsPicker } from './ConditionsPicker.jsx';
 
 const SPEEDS = [[0, '❚❚', 'Pause (Space)'], [1, '1x'], [2, '2x'], [3, '3x']];
 
@@ -46,6 +47,7 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
           <option value="auto">Automatic</option><option value="costly">Ask for costly shots</option><option value="all">Ask for every engagement</option>
         </select>
       </label>
+      <ConditionsPicker />
       <button id="btn-attack" title="Choose which drones the waves send. Locked once the first wave starts." aria-expanded={mixOpen} onClick={() => setMixOpen((o) => !o)}>Attack: {mixLabel(state.attack)}</button>
       <button id="btn-sandbox" title="Try attacks against your laydown without risking the site" onClick={() => { if (state.sandbox) commands.exitSandbox(); else { commands.enterSandbox(); onSandbox(); } }}>
         {state.sandbox ? 'Exit sandbox' : 'Sandbox'}

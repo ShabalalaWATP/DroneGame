@@ -87,6 +87,7 @@ class LaydownSpec(Strict):
     fusionUplinks: list[Uplink] = Field(max_length=2)
     fusionCell: CellBand
     attack: list[DroneTypeId] | None = Field(default=None, min_length=1, max_length=MAX_ATTACK_TYPES, exclude_if=lambda attack: attack is None)
+    conditions: Literal["day", "dusk", "night", "rain"] | None = Field(default=None, exclude_if=lambda conditions: conditions is None)  # light and weather
     people: list[PlacedPeople] | None = Field(default=None, max_length=MAX_PEOPLE_GROUPS, exclude_if=lambda people: people is None)
     zone: list[Annotated[list[Coordinate], Field(min_length=2, max_length=2)]] | None = Field(default=None, min_length=3, max_length=MAX_ZONE_POINTS, exclude_if=lambda zone: zone is None)
     # a patrol's looped route (see docs/PATROL_MODE.md); the game checks it again on the ground when it is restored

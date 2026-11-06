@@ -3,6 +3,7 @@
 import * as S from '../sapient.js';
 import { FUSION, DRONES } from '../config/index.js';
 import { canFire } from '../magazine.js';
+import { zoomMax } from '../camera-model.js';
 
 // Would this effector ever take this airframe? Unknown tracks are offered, and the effector can reject them.
 const takesAirframe = (def, airframe) => !def.engages || !airframe || airframe === 'Unknown' || def.engages.some((t) => DRONES[t].airframe === airframe);
@@ -73,7 +74,7 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
       if (s.cue && T() < s.cue.until && tracker.tracks.has(s.cue.trackId)) continue; // still dwelling on a live track
       let best = null, bs = Infinity;
       for (const tr of live) {
-        if (distToTrack(s, tr) > s.def.range * 1.3) continue;
+        if (distToTrack(s, tr) > s.def.range * zoomMax(s.def) * 1.3) continue; // it zooms in on a cue
         const looked = s.lookedAt.get(tr.id);
         if (tr.airframe !== 'Unknown' && looked !== undefined) continue; // already classified
         if (looked !== undefined && T() - looked < 4) continue;
@@ -85,7 +86,7 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
         const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { look_at: { location_list: { locations: [loc] } } } }, `Look at ${best.short}`, `Slew to track ${best.short} and dwell`);
         s.lookedAt.set(best.id, T());
         deliver(res, () => { // the camera turns once the task arrives
-          s.cue = { trackId: best.id, until: T() + s.def.dwell };
+          s.cue = { trackId: best.id, until: T() + s.def.dwell, from: T(), onAt: null };
           s.mode = 'Track';
           sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED');
           sendStatus(s, true);

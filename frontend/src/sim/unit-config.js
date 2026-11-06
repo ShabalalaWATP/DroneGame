@@ -4,6 +4,8 @@
 
 import { STRUCTURES } from './config/index.js';
 import { BANDS, CLUTTER, arcsText, bandOf, bandRange, bandSharpness, beamGain, lowestEdge, parseArcs } from './sensor-model.js';
+import { CHANNELS, PIXELS } from './camera-model.js';
+import { weatherRange } from './conditions.js';
 
 const each = (ids, limits) => Object.fromEntries(ids.map((id) => [id, limits]));
 const RADARS = ['radar_s', 'radar_a400', 'radar', 'radar_a800', 'radar_giraffe', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_auds', 'jammer_l'], ACOUSTICS = ['acoustic_s', 'acoustic', 'acoustic_l'];
@@ -11,6 +13,9 @@ const PANELLED = { radar_s: [1, 3], radar_l: [1, 3], radar_a800: [1, 4], radar_a
 const MEDIUM_UP = RADARS.filter((id) => STRUCTURES[id].size !== 'S'); // 2D is offered on Medium and Large radars
 const TOP_EDGE = Object.fromEntries(RADARS.filter((id) => STRUCTURES[id].elevation + lowestEdge > 15).map((id) => [id, [15, STRUCTURES[id].elevation + lowestEdge]])); // a narrow beam keeps its top
 const FLAT_PRICE = 0.3, MICRO_DOPPLER_PRICE = 0.15; // share of the system's price saved by 2D, and added by a micro-Doppler classifier: assumptions
+const ZOOMS = { camera: [2.5, 10], camera_l: [0.5, 7.1] }; // what each zoom lens can do, wide and narrow, in degrees
+const RES_PRICE = 0.3, LENS_PRICE = 0.1, SLEW_PRICE = 0.1; // share of a camera's price per doubling of pixels, per doubling of light, and per extra slew rate
+const RANGEFINDER_PRICE = 20000, RANGEFINDER_ERROR = 5; // dollars, and metres: assumptions
 const choicesOf = (table) => Object.fromEntries(Object.entries(table).map(([k, v]) => [k, v.label]));
 const MAST_PRICE = 0.015, RELOAD_PRICE = 0.1; // share of the system's price, per metre and per second
 const THRESHOLD = { low: { range: 1.1, falseAlarm: 2 }, high: { range: 0.9, falseAlarm: 0.5 } };
@@ -84,9 +89,46 @@ export const UNIT_FIELDS = [
     help: 'Low detects further with more false alarms. High is the reverse.',
   },
   {
-    key: 'view', label: 'Field of view', unit: '°', step: 0.5, base: (c) => c.fov, direct: 'fov', limits: { camera: [2.5, 10], camera_l: [0.5, 7.1] },
+    key: 'view', label: 'Search view', unit: '°', step: 0.5, base: (c) => c.fov, direct: 'fov', limits: ZOOMS,
     range: (v, c) => c.fov / v,
-    help: 'Narrower reaches further, but a poor cue can miss the target.',
+    help: 'The view it sweeps with. Narrower reaches further, but covers less sky on each look.',
+  },
+  {
+    key: 'trackView', label: 'Track view', unit: '°', step: 0.1, base: (c) => c.trackFov, direct: 'trackFov', limits: ZOOMS,
+    help: 'How far it zooms in on a cue. Narrower reaches further and names the drone sooner, but a poor cue leaves it looking at empty sky.',
+  },
+  {
+    key: 'channels', label: 'Channels', base: (c) => c.channels, direct: 'channels', limits: each(CAMERAS, true), choices: choicesOf(CHANNELS),
+    price: (v, c) => (CHANNELS[v].price / CHANNELS[c.channels].price - 1) * c.cost,
+    help: 'Visible fades at dusk and is almost blind at night. Thermal works day and night. Rain and haze cut both.',
+  },
+  {
+    key: 'pixels', label: 'Resolution', base: (c) => c.pixels, limits: each(CAMERAS, true), choices: choicesOf(PIXELS),
+    range: (v, c) => PIXELS[v].px / PIXELS[c.pixels].px, price: (v, c) => Math.log2(PIXELS[v].px / PIXELS[c.pixels].px) * RES_PRICE * c.cost,
+    help: 'More pixels put more on the drone, so it is seen, recognised and identified further away, at a price.',
+  },
+  {
+    key: 'fnumber', label: 'Lens F-number', step: 0.1, base: (c) => c.fnumber, direct: 'fnumber', limits: { camera_s: [1, 2], camera: [1.4, 4], camera_l: [4, 5.6] },
+    price: (v, c) => ((c.fnumber / v) ** 2 - 1) * LENS_PRICE * c.cost,
+    help: 'A faster lens, with a lower number, gathers more light, so it keeps more of its range at dusk, at night and in haze, at a price.',
+  },
+  {
+    key: 'rangefinder', label: 'Laser rangefinder', base: (c) => c.rangefinder ?? 'no', direct: 'rangefinder', limits: each(CAMERAS, true), choices: { no: 'No', yes: 'Yes' },
+    price: (v, c) => ((v === 'yes') - (c.rangefinder === 'yes')) * RANGEFINDER_PRICE,
+    help: 'Measures the range to what it sees, so a cued camera can start a track by itself.',
+  },
+  {
+    key: 'searchArc', label: 'Search arc', unit: '°', step: 10, base: () => 360, direct: 'searchArc', limits: each(CAMERAS, [30, 360]),
+    help: 'Idle, it sweeps this arc, facing away from what you defend. Narrower comes round sooner, and sees nothing outside it.',
+  },
+  {
+    key: 'sweep', label: 'Sweep rate', unit: '°/s', step: 1, base: (c) => c.searchRate, direct: 'searchRate', limits: each(CAMERAS, [4, 40]),
+    help: 'Faster comes round sooner, but once it turns more than its view between looks it leaves gaps.',
+  },
+  {
+    key: 'slew', label: 'Slew rate', unit: '°/s', step: 10, base: (c) => c.slewRate, direct: 'slewRate', limits: each(CAMERAS, [30, 180]),
+    price: (v, c) => (v / c.slewRate - 1) * SLEW_PRICE * c.cost,
+    help: 'How fast it turns to a cue. Faster gets to the next track sooner, at a price.',
   },
   {
     key: 'dwell', label: 'Dwell on a cue', unit: 's', step: 0.5, base: (c) => c.dwell, direct: 'dwell', limits: each(CAMERAS, [1, 10]),
@@ -146,7 +188,7 @@ export function unitDef(id, settings = {}) {
   if (c.sapient.noise) def.sapient.noise = { ...c.sapient.noise };
   const scaled = (prop) => fields.reduce((v, f) => (f[prop] && settings[f.key] != null ? v * f[prop](settings[f.key], c) : v), c[prop]);
   Object.defineProperty(def, 'cost', { get: () => unitCost(id, settings) });
-  Object.defineProperty(def, 'range', { get: () => Math.round(scaled('range') * beamGain(def)) });
+  Object.defineProperty(def, 'range', { get: () => Math.round(scaled('range') * beamGain(def) * weatherRange(def)) }); // and the light and weather now
   for (const prop of ['signature', 'falseAlarm', 'lowRange']) if (fields.some((f) => f[prop])) Object.defineProperty(def, prop, { get: () => scaled(prop) });
   for (const f of fields) {
     if (f.direct) Object.defineProperty(def, f.direct, { get: () => settings[f.key] ?? c[f.direct] });
@@ -158,6 +200,7 @@ export function unitDef(id, settings = {}) {
     Object.defineProperty(def.sapient.noise, 'el', { get: () => (settings.dims === 'flat' ? undefined : n.el * sharp()), enumerable: true });
     Object.defineProperty(def, 'emits', { get: () => (settings.band ? [{ label: `${BANDS[settings.band].label} radar`, f: BANDS[settings.band].f }] : c.emits) });
   }
+  if (c.kind === 'camera') Object.defineProperty(def.sapient.noise, 'range', { get: () => (def.rangefinder === 'yes' ? RANGEFINDER_ERROR : undefined), enumerable: true });
   return def;
 }
 

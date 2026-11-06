@@ -2,6 +2,7 @@
 
 import * as S from '../sapient.js';
 import { FUSION } from '../config/index.js';
+import { CONDITIONS, ENV } from '../conditions.js';
 import { rand } from '../rng.js';
 import { RB_UNITS, rbDatum, dur } from './core.js';
 
@@ -116,8 +117,13 @@ export function createRegistration(core, raiseAlert) {
       node_location: S.location(s.pos.x * mpu(), -s.pos.z * mpu(), antennaM(s)),
     };
     if (s.task) body.active_task_id = s.task.id;
-    const st = s.def.sapient.status;
-    if (st) body.status = [{ status_level: 'STATUS_LEVEL_INFORMATION_STATUS', status_type: st.type, status_value: st.value }];
+    const st = s.def.sapient.status, env = CONDITIONS[ENV.now];
+    const status = (type, value) => ({ status_level: 'STATUS_LEVEL_INFORMATION_STATUS', status_type: type, status_value: value });
+    body.status = [
+      ...(st ? [status(st.type, st.value)] : []),
+      ...(s.def.role === 'sensor' ? [status('STATUS_TYPE_ILLUMINATION', env.light), status('STATUS_TYPE_WEATHER', env.weather)] : []), // what it is working in
+    ];
+    if (!body.status.length) delete body.status;
     const res = send(S.envelope(s.nodeId, 'status_report', body), s.nodeId, routeTo(s));
     deliver(res, () => heard(s)); // the fusion node hears the node only if the report gets through
   }

@@ -205,6 +205,13 @@ class TestUnitSettings:
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings
 
+    def test_keeps_the_conditions_and_refuses_unknown_ones(self, client):
+        spec = copy.deepcopy(SPEC) | {"conditions": "night"}
+        made = client.post(f"{API}/laydowns", json=laydown(spec=spec))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["conditions"] == "night"
+        assert client.post(f"{API}/laydowns", json=laydown(spec=spec | {"conditions": "fog"})).status_code == 422
+
     def test_a_laydown_saved_before_these_fields_still_loads(self, client):
         made = client.post(f"{API}/laydowns", json=_laydown_with())
         assert made.status_code == 201

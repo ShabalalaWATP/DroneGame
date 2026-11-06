@@ -8,6 +8,7 @@ import { magazineWord } from '../sim/magazine.js';
 import { burnTime, hitChance } from '../sim/hit-chance.js';
 import { ERROR_AT_LIMIT, predictRange, reachFor, usesPath } from '../sim/site-range.js';
 import { arcsText, coverArc, elevationBand } from '../sim/sensor-model.js';
+import { CHANNELS, IDENTIFY_PX, RECOGNISE_PX, hasZoom } from '../sim/camera-model.js';
 import { terrainState } from '../sim/terrain.js';
 import { fmtTime, hex, useGame, useTick } from './hooks.js';
 import { stateWord } from './dock/NetworkSide.jsx';
@@ -171,7 +172,7 @@ function limitsOf(def) {
   const edge = (e) => (e < 0 ? `${-e}° below the horizon` : e > 0 ? `${e}° up` : 'the horizon');
   const looks = def.kind === 'radar' && `${arc < 360 ? `Looks through ${arc}° facing ${def.facing ?? 0}°` : 'Looks all round'}${band ? `, from ${edge(band[0])} to ${edge(band[1])}` : ''}${def.blank ? `, blind over ${arcsText(def.blank)}` : ''}`;
   if (def.lowAlt) return `${looks ? `${looks}. ` : ''}Below ${def.lowAlt} m, unreliable beyond about ${def.lowRange} m (ground clutter)`;
-  if (def.fov) return `${def.fov}° view, so it must be pointed. Another sensor cues it`;
+  if (def.fov) return `${def.fov}° search view${hasZoom(def) ? `, ${def.trackFov}° on a cue` : ''}, so it must be pointed. Another sensor cues it. ${CHANNELS[def.channels].label}${def.channels === 'both' ? ' channels' : ' only'}`;
   if (def.fire === 'beam') return 'Needs a clear line of sight, and engages one target at a time';
   return null;
 }
@@ -183,7 +184,7 @@ function measuresOf(def) {
   if (n.el != null) out.push(`elevation ±${+n.el.toFixed(2)}°`);
   else if (def.kind === 'radar') out.push('no height');
   if (def.sapient.velocity) out.push('velocity');
-  if (def.kind === 'camera') out.push('airframe type');
+  if (def.kind === 'camera') out.push(`airframe type once the drone covers ${RECOGNISE_PX} pixels, surely at ${IDENTIFY_PX}`);
   if (def.microDoppler === 'yes') out.push('multirotor or fixed wing, close in');
   const text = out.join(', ');
   return text[0].toUpperCase() + text.slice(1);

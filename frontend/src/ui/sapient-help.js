@@ -72,7 +72,7 @@ export const ENUM_HELP = {
   DISCRETE_PRIORITY_HIGH: 'high', DISCRETE_PRIORITY_MEDIUM: 'medium', DISCRETE_PRIORITY_LOW: 'low',
   RANGE_BEARING_COORDINATE_SYSTEM_DEGREES_M: 'angles in degrees, range in metres', RANGE_BEARING_DATUM_TRUE: 'measured from true north', RANGE_BEARING_DATUM_GRID: 'measured from grid north',
   LOCATION_COORDINATE_SYSTEM_LAT_LNG_DEG_M: 'latitude and longitude in degrees, height in metres', LOCATION_DATUM_WGS84_E: 'the standard GPS reference',
-  POWERSOURCE_MAINS: 'mains power', STATUS_TYPE_CLUTTER: 'ground clutter is affecting it',
+  POWERSOURCE_MAINS: 'mains power', STATUS_TYPE_CLUTTER: 'ground clutter is affecting it', STATUS_TYPE_ILLUMINATION: 'the light it is working in', STATUS_TYPE_WEATHER: 'the weather it is working in',
 };
 
 // JSON with a plain-English comment after each known field. Returns an array of lines.

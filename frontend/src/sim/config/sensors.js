@@ -205,7 +205,8 @@ export const SENSORS = {
     health: 30, signature: 0.05, emits: [], // passive
     // A narrow field of view (degrees, total) that has to be pointed. Idle, it sweeps; the fusion node cues it to
     // radar tracks with a look_at task and it dwells there before moving on. Slew and sweep rates are in deg/s.
-    fov: 10, slewRate: 90, searchRate: 12, dwell: 3,
+    fov: 10, trackFov: 2.5, slewRate: 90, searchRate: 12, dwell: 3,
+    channels: 'both', pixels: 'hd', fnumber: 2, // visible and thermal, 1280 pixels across, an f/2 lens: assumptions (camera-model.js)
     desc: 'Electro-optical / infrared camera. Narrow view that must be cued by another sensor. Bearing and elevation with strong classification, no range.',
     sapient: {
       nodeType: 'NODE_TYPE_CAMERA', subType: ['EO/IR', 'C-UAS'], scan: 'SCAN_TYPE_STEERABLE', interval: 0.5,
@@ -215,7 +216,7 @@ export const SENSORS = {
       class: 'EO/IR drone-detection camera',
       analogues: ['Multi-sensor C-UAS EO/IR turrets (e.g. as fitted to Hensoldt Elysion)'],
       published: 'An industry source says lower-cost imaging-only EO and long-wave IR systems reach under 1,000 m for drones, and only cooled, zoomed cameras go further. Another gives 200 m to 2 km or more, by sensor and drone size. No manufacturer range found.',
-      basis: 'Game range 650 m is calculated by the rule used for the other cameras: a 0.35 m drone covers 4 pixels. This assumes a 1280 pixel sensor across the 10\u00B0 view. It fits "under 1,000 m".',
+      basis: 'Game range 650 m is calculated by the rule used for the other cameras: a 0.35 m drone covers 4 pixels. This assumes a 1280 pixel sensor across the 10\u00B0 view. It fits "under 1,000 m". It zooms to a 2.5\u00B0 track view on a cue, where it reaches four times as far; that view and the f/2 lens are ASSUMPTIONS.',
       confidence: 'Calculated, with an assumed sensor; fits one industry statement',
       sources: [{ label: 'Military Systems Tech: thermal sensor design (figures as surfaced by search; confirm)', url: 'https://www.militarysystems-tech.com/articles/thermal-infrared-sensor-design' }],
       cost: {
@@ -229,6 +230,7 @@ export const SENSORS = {
     product: 'Teledyne FLIR Boson 640, 36 mm', size: 'S', name: 'Small EO/IR camera', short: 'EOS', model: 'camera', modelScale: 0.7, cost: 25000, shotCost: 0, color: 0xcfd8dc, role: 'sensor', kind: 'camera', published: 260, mount: 15, falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [],
     fov: 12, slewRate: 90, searchRate: 12, dwell: 3,
+    channels: 'thermal', pixels: 'sd', fnumber: 1, // a fixed lens: no zoom
     desc: 'Small thermal camera. Cheap and passive, with a short reach. Must be cued by another sensor. Bearing and elevation with strong classification, no range.',
     sapient: {
       nodeType: 'NODE_TYPE_CAMERA', subType: ['LWIR', 'C-UAS'], scan: 'SCAN_TYPE_STEERABLE', interval: 0.5,
@@ -238,16 +240,17 @@ export const SENSORS = {
       class: 'Thermal camera core',
       analogues: ['Teledyne FLIR Boson 640, 36 mm lens'],
       published: 'LWIR, 640 x 512 at 12 \u00B5m pitch. The 36 mm lens gives a 12\u00B0 horizontal view. No drone detection range is published.',
-      basis: 'Game range 260 m is where a 0.35 m drone covers 4 pixels on this lens. The 4 pixel threshold and the accuracy are assumptions.',
+      basis: 'Game range 260 m is where a 0.35 m drone covers 4 pixels on this lens. The 4 pixel threshold and the accuracy are assumptions. It has no zoom, and f/1, typical of uncooled thermal lenses, is an ASSUMPTION.',
       confidence: 'Lens and sensor from the vendor; range is calculated',
       sources: [{ label: 'Teledyne FLIR: Boson', url: 'https://www.oem.flir.com/products/boson/' }],
       cost: { capex: 'A core alone costs far less than a mounted, weatherproof sensor. Game price $25,000 is a placeholder.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },
     },
   },
   camera_l: {
-    product: 'MWIR turret, Ophir 80\u20131200 mm', size: 'L', name: 'Large EO/IR camera', short: 'EOL', model: 'camera', modelScale: 1.4, cost: 500000, shotCost: 0, color: 0x78909c, role: 'sensor', kind: 'camera', published: 1600, mount: 25, falseAlarm: 0.02,
+    product: 'MWIR turret, Ophir 80\u20131200 mm', size: 'L', name: 'Large EO/IR camera', short: 'EOL', model: 'camera', modelScale: 1.4, cost: 500000, shotCost: 0, color: 0x78909c, role: 'sensor', kind: 'camera', published: 450, mount: 25, falseAlarm: 0.02,
     health: 30, signature: 0.05, emits: [],
-    fov: 2, slewRate: 90, searchRate: 12, dwell: 3,
+    fov: 7.1, trackFov: 0.5, slewRate: 90, searchRate: 12, dwell: 3,
+    channels: 'thermal', pixels: 'sd', fnumber: 5.5, // the lens's own wide and narrow ends, and its published f/5.5
     desc: 'Cooled long-zoom thermal turret. It reaches further and identifies at a distance, but its view is very narrow, so it needs a good cue.',
     sapient: {
       nodeType: 'NODE_TYPE_CAMERA', subType: ['MWIR', 'C-UAS'], scan: 'SCAN_TYPE_STEERABLE', interval: 0.5,
@@ -257,7 +260,7 @@ export const SENSORS = {
       class: 'Cooled MWIR long-range camera',
       analogues: ['MWIR camera with Ophir SupIR 80\u20131200 mm f/5.5'],
       published: 'For 15 \u00B5m 640 x 512 cameras, with a 7.1\u00B0 to 0.5\u00B0 horizontal view. Ophir quotes more than 26 km, but that is for vehicles, not drones.',
-      basis: 'One fixed zoom until stage A5: at a 2\u00B0 view (about 280 mm) a 0.35 m drone covers 4 pixels at 1.6 km. At full zoom that becomes about 7 km in a 0.5\u00B0 view. The 4 pixel threshold and the accuracy are assumptions.',
+      basis: 'Game range 450 m is its search view at the wide 7.1\u00B0 end, where a 0.35 m drone covers 4 pixels. On a cue it zooms to the narrow 0.5\u00B0 end, where that is about 6.4 km. The 4 pixel threshold and the accuracy are assumptions.',
       confidence: 'Lens from the vendor; range is calculated',
       sources: [{ label: 'Ophir: MWIR f/5.5 zoom lenses', url: 'https://www.ophiropt.com/g/long-range-mwir-vga-imaging-lenses' }],
       cost: { capex: 'No public price found. Game price $500,000 is a placeholder.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },

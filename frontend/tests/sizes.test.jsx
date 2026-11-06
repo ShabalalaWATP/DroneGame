@@ -3,6 +3,7 @@
 
 import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { zoomMax } from '../src/sim/camera-model.js';
 import { createGame } from '../src/game.js';
 import { STRUCTURES, TOOLBAR, firstClass, resetAllFigures, sizeButtons } from '../src/sim/config/index.js';
 import { GameContext } from '../src/ui/hooks.js';
@@ -33,10 +34,11 @@ describe('the catalogue', () => {
       expect(sizeButtons(g).map((id) => STRUCTURES[id].size)).toEqual(['S', 'M', 'L']);
       expect(STRUCTURES[firstClass(g)].size).toBe('M');
       const [s, m, l] = sizeButtons(g).map((id) => STRUCTURES[id]);
-      expect(s.range).toBeLessThan(l.range);
+      const reach = (d) => d.range * zoomMax(d); // a zoom camera searches wide and reaches furthest on a cue
+      expect(reach(s)).toBeLessThan(reach(l));
       // Real ranges do not always rise with size: the Sting is reported to fly further than the larger Merops.
-      if (g.kind !== 'interceptor') expect(s.range).toBeLessThan(m.range);
-      if (g.kind !== 'interceptor') expect(m.range).toBeLessThan(l.range);
+      if (g.kind !== 'interceptor') expect(reach(s)).toBeLessThan(reach(m));
+      if (g.kind !== 'interceptor') expect(reach(m)).toBeLessThan(reach(l));
       // Real prices do not always rise with size: a large acoustic station is reported cheaper than a medium array, and a small laser dearer than the DragonFire figure.
       if (['radar', 'rf', 'camera', 'jammer'].includes(g.kind)) {
         expect(s.cost).toBeLessThan(m.cost);
