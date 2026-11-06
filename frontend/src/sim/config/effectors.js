@@ -69,15 +69,14 @@ export const EFFECTORS = {
   interceptor: {
     product: 'Wild Hornets Sting', size: 'M', name: 'Interceptor drones', short: 'INT', cost: 100000, shotCost: 5000, color: 0x00e5ff, role: 'effector', kind: 'interceptor', published: 25000, muzzleY: 1.6, fire: 'guided',
     health: 30, signature: 0.2, emits: [],
-    engages: ['fpv', 'fo'], // too slow to catch the fixed-wing drones (game rule)
     pk: 0.9, damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80, magazine: 12, storage: 24, reloadTime: 30,
-    desc: 'Cheap ram-type interceptor drones. Good against first-person-view and fibre-optic strike drones; cannot catch the fixed-wing drones.',
+    desc: 'Cheap ram-type interceptor drones, built to hunt Shahed-type drones as well as smaller ones. The faster the target, the lower the chance: a jet is hard to catch.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Low-cost kinetic interceptor drone',
       analogues: ['Wild Hornets Sting', 'SkyFall P1-SUN'],
       published: 'Sting: range about 25 km, up to 37 km for newer versions. Top speed 280 km/h, with higher test claims. About $2,000–2,500 per unit (outliers up to $15,000); Ukrainian kinetic interceptors generally $2,000–$5,000.',
-      basis: 'Per-launch cost $5,000 (your figure, the top of the reported $2,000–5,000 band). Range is the 25 km figure, and speed 80 m/s is close to the listed 280 km/h. The maker has not published official specifications. Magazine, storage and reload time are ASSUMPTIONS: no published launcher capacity was found. Hit chance 0.9 is the top of the maker\u2019s claimed 80\u201390%. With evasion and speed it comes to about 66% against an FPV, close to the 68% average President Zelenskyy gave for interceptor drones.',
+      basis: 'It may engage any drone, as the real one is built to hunt Shaheds, and its hit chance falls as the target gets faster. Per-launch cost $5,000 (your figure, the top of the reported $2,000–5,000 band). Range is the 25 km figure, and speed 80 m/s is close to the listed 280 km/h. The maker has not published official specifications. Magazine, storage and reload time are ASSUMPTIONS: no published launcher capacity was found. Hit chance 0.9 is the top of the maker\u2019s claimed 80\u201390%. With evasion and speed it comes to about 66% against an FPV, close to the 68% average President Zelenskyy gave for interceptor drones.',
       confidence: 'Press reports of maker\u2019s figures, which conflict',
       sources: [
         { label: 'NV: Sting hit rate', url: 'https://english.nv.ua/nation/the-drone-killer-inside-the-sting-fpv-interceptor-50591418.html' },
@@ -95,9 +94,8 @@ export const EFFECTORS = {
   interceptor_p1: {
     product: 'SkyFall P1-SUN', variantOf: 'interceptor', name: 'P1-SUN interceptor', short: 'P1S', model: 'interceptor', cost: 100000, shotCost: 1000, color: 0x18ffff, role: 'effector', kind: 'interceptor', published: 30000, muzzleY: 1.6, fire: 'guided',
     health: 30, signature: 0.2, emits: [],
-    engages: ['fpv', 'fo'],
     pk: 0.5, damage: 60, splash: 10, fuze: 15, cooldown: 3, missileSpeed: 80, magazine: 12, storage: 24, reloadTime: 30,
-    desc: 'Mass-produced ram-type interceptor drone, cheaper per launch. Good against first-person-view and fibre-optic strike drones; cannot catch the fixed-wing drones.',
+    desc: 'Mass-produced ram-type interceptor drone, cheaper per launch, used against Shaheds as well as smaller drones. The faster the target, the lower the chance.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Guided'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Low-cost kinetic interceptor drone',
@@ -172,7 +170,7 @@ export const EFFECTORS = {
   interceptor_s: {
     product: 'Fortem DroneHunter F700', size: 'S', name: 'Small interceptor', short: 'INS', model: 'interceptor', modelScale: 0.7, cost: 100000, shotCost: 1000, color: 0x84ffff, role: 'effector', kind: 'interceptor', published: 3000, muzzleY: 1.6, fire: 'guided',
     health: 30, signature: 0.2, emits: [],
-    engages: ['fpv', 'fo'],
+    engages: ['fpv', 'fo'], // a net carrier at 25 m/s is too slow for the fixed-wing drones (game rule)
     pk: 0.85, damage: 60, splash: 5, fuze: 10, cooldown: 4, missileSpeed: 25, magazine: 2, storage: 6, reloadTime: 180,
     desc: 'Radar-guided drone that fires nets to capture its target. Slow, so fast drones can outrun it, and it takes minutes to reload.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Interceptor drone', 'Net capture'], scan: 'SCAN_TYPE_STEERABLE' },

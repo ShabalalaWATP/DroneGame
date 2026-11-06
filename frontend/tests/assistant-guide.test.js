@@ -93,9 +93,10 @@ describe('who answers which drone', () => {
     expect(answer(fw, jammer)).toBe('Part');
     expect(answer(spotter, jammer)).toBe('Hard');
   });
-  it('knows interceptors cannot catch fixed wing, and missiles are saved for it', () => {
+  it('knows interceptors take fixed wing too, and missiles are saved for it', () => {
     expect(answer(fo, interceptor)).toBe('Yes');
-    expect(answer(fw, interceptor)).toBe('No');
+    expect(answer(fw, interceptor)).toBe('Yes');
+    expect(answer(fw, STRUCTURES.interceptor_s)).toBe('No');
     expect(answer(fw, missile)).toBe('Yes');
     expect(answer(fpv, missile)).toBe('Last');
   });
@@ -108,7 +109,7 @@ describe('who answers which drone', () => {
   it('picks the cheapest clear answer', () => {
     expect(effectorFor(fpv).kind).toBe('jammer');
     expect(effectorFor(fo).kind).toBe('interceptor');
-    expect(effectorFor(fw).kind).toBe('missile');
+    expect(effectorFor(fw).kind).toBe('interceptor');
   });
   it('lists what the laydown cannot answer yet', () => {
     expect(unanswered(sim).length).toBe(DRONE_CLASSES.length);

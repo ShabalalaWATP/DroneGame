@@ -204,7 +204,7 @@ describe('auto-start', () => {
 
 describe('sandbox', () => {
   it('cannot damage the site or systems, and shots are free', () => {
-    fresh([['radar', 600, 0], ['rf', 900, 0], ['interceptor', 490, 99]]);
+    fresh([['radar', 600, 0], ['rf', 900, 0], ['missile', 490, 99]]); // a missile keeps to fixed-wing drones, so the small ones get through
     sim.commands.enterSandbox();
     expect(sim.state.sandbox).toBe(true);
     const budget = sim.state.budget;
