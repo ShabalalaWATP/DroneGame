@@ -2,7 +2,7 @@
 
 import { Vector3 } from 'three';
 import { WORLD, TERRAIN, STRUCT_SCALE } from './config/index.js';
-import { beamFactor, evasionFactor, hitChance } from './hit-chance.js';
+import { beamFactor, evasionFactor, hitChance, layTime } from './hit-chance.js';
 import { rand } from './rng.js';
 import { antennaHeight } from './site-range.js';
 import { terrainState } from './terrain.js';
@@ -50,12 +50,14 @@ const FIRE = {
   beam(w, s, t, dt) {
     if (t && !opticalLos(s, t)) t = null; // terrain or trees in the way
     const def = s.def;
-    const firing = !!t && affordable(w, s) && canFire(s);
+    const on = t ? t.uid : null;
+    if (on !== s.laidOn) { s.laidOn = on; s.layT = 0; } // a new target, or one lost from view: swing onto it and settle before firing
+    if (t) { aimAt(s, t); s.layT += dt; }
+    const firing = !!t && s.layT >= layTime(def) && affordable(w, s) && canFire(s);
     s.beamTarget = firing ? t : null;
     if (firing && !s.beamOn) { spend(w, s); useRound(w, s); s.beamT = 0; } // a shot is charged when the beam starts, then every second it stays on
     s.beamOn = firing;
     if (!firing) return;
-    aimAt(s, t);
     s.beamT = (s.beamT || 0) + dt; // a "shot" is a second of beam time
     while (s.beamT >= 1) { s.beamT -= 1; spend(w, s); useRound(w, s); }
     const rate = def.dps * evasionFactor(t.evade) * beamFactor(def, s.pos.distanceTo(t.pos) * WORLD.metresPerUnit); // evasion and distance spoil its dwell

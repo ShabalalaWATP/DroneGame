@@ -293,6 +293,14 @@ The receiver opens two choices. Reactive jamming follows only the links its rece
 
 The last of A6 went to radio detectors: the bands they monitor and how much they take in at once. A detector can drop bands its hardware covers, hearing nothing there but cutting the false alarms each band brings. A narrow receiver costs a quarter less and takes in one band at a time, so it reports once per band it monitors: a Medium detector on all three bands comes round every 3 s, and on one band every second, as now. A real receiver steps through bands far faster than that, so the game stretches it to make the choice felt. A sensitivity for the jammer's receiver was dropped from the list, as hearing further than a jammer can reach would change nothing.
 
+## The balance pass
+
+Stage A7 started from the to-do note that five lasers never lose. Measured over six seeds, that was no longer true: since the Small radar dropped to a 120° arc, the five-laser laydown fell between waves 9 and 22, to drones that came in through gaps in its cover. A sweep of the new unit settings, one at a time on the mixed laydown, found no free win. A 5 s radar scan reaches half as far again, but the laydown lost at wave 9 against 15. P1-SUNs in place of Stings lost at 9.5, because they miss more and run out of rounds. The faster camera lens, dusk, night and rain stayed within the usual spread.
+
+The lasers told a different story. With three panels on each Small radar, all-round cover for $180k more, five lasers reached wave 30 on every seed without a leak in the first ten waves, and so did two lasers costing $5.2M in all. Half the beam power did as well as full, so a laser's burn was never what limited it. In the game a laser burned a small drone in about a second and switched targets at once. Raytheon's 15 kW laser reportedly took 34 s to down three drones, with about 5 s of dwell on each, so about 6 s a drone went on finding and laying on the next. A laser now takes 4 s to swing onto each new drone, or onto one it lost from view, before its beam goes on. The RF weapon steers its beam electronically, so it has none.
+
+With full cover, five lasers now fall between waves 26 and 32, and two at about 20. Beam power matters again: two lasers last about 15 waves at half power and 23 at one and a half times. The reference digests were re-recorded, as the laser laydown kills 121 drones in eight waves against 124, with the same leak, and `GAME_VERSION` is 0.12.0. The balance tool now plays the all-round laydown too, since the standard laydowns hid the problem. Lasers stay the best buy for their price, but the DragonFire's $2M is a placeholder below the smaller LOCUST's $8M, which is for the price review.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

@@ -8,6 +8,7 @@ import { MIXED, setUp } from './support/scenarios.js';
 
 const sim = createSimulation();
 const m = 20;
+const LAY = 4; // seconds a laser takes to swing onto a new drone: fixed here, so dropping it makes the test fail
 const SEEKER_LIMIT = 300; // a fixed number, not FUSION.acquireRadius, so widening the seeker makes these tests fail
 const reports = (type) => sim.bus.entries.filter((e) => e.type === type).map((e) => e.msg[type]);
 const start = (laydown, seed = '1') => {
@@ -122,5 +123,29 @@ describe('radar over trees', () => {
       if (los.canopy > TERRAIN.opticalCanopyTol) blocked++;
     }
     expect(blocked / total).toBeLessThan(0.25);
+  });
+});
+
+describe('a beam weapon', () => {
+  // Seconds from each new target to its beam going on, over the first few drones of a run.
+  const waits = (id) => {
+    start([['radar', 400, 0], [id, 430, 133]]);
+    const s = sim.structures.find((u) => u.def.id === id), out = [];
+    let on = null, since = null;
+    for (let n = 0; n < 30000 && out.length < 3 && !sim.state.over; n++) {
+      sim.step();
+      if (s.laidOn !== on) { on = s.laidOn; since = on == null ? null : sim.state.time; }
+      if (s.beamOn && since != null) { out.push(sim.state.time - since); since = null; }
+    }
+    return out;
+  };
+
+  it('swings onto each new drone before a laser fires, while an RF weapon fires at once', () => {
+    const laser = waits('laser');
+    expect(laser.length).toBe(3);
+    for (const t of laser) expect(t).toBeGreaterThan(LAY - 0.05);
+    const rf = waits('laser_rfdew');
+    expect(rf.length).toBe(3);
+    for (const t of rf) expect(t).toBe(0);
   });
 });

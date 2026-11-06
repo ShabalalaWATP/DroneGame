@@ -101,7 +101,7 @@ export const EFFECTORS = {
       class: 'Low-cost kinetic interceptor drone',
       analogues: ['SkyFall P1-SUN'],
       published: 'Reported at about $1,000 a drone, or about $3,000 per kill. The maker gives about 310 km/h. Its JetKiller version is listed at 30 km and the Long version at 33 km.',
-      basis: 'Per-launch cost is the $1,000 figure, and range the 30 km listed for a close version. Speed, damage, magazine, storage and reload time are ASSUMPTIONS, copied from the Sting entry, so it is simply cheaper to fire until stage A7 rebalances it. Hit chance 0.5 is worked back from the reported $3,000 per kill at $1,000 a drone: about 1 in 3 after evasion and speed.',
+      basis: 'Per-launch cost is the $1,000 figure, and range the 30 km listed for a close version. Speed, damage, magazine, storage and reload time are ASSUMPTIONS, copied from the Sting entry. Hit chance 0.5 is worked back from the reported $3,000 per kill at $1,000 a drone: about 1 in 3 after evasion and speed.',
       confidence: 'Press figures for price; performance is an assumption',
       sources: [
         { label: 'Oboronka: P1-SUN price', url: 'https://oboronka.mezha.ua/en/skyfall-rozpovila-pro-cinu-na-dron-perehoplyuvach-p1-sun-308453/' },
@@ -149,13 +149,14 @@ export const EFFECTORS = {
       class: 'High-energy laser directed-energy weapon',
       analogues: ['UK DragonFire'],
       published: 'Range is classified. Trials are reported at about 1 km, which is not a limit. Rafael says a 50 kW version of its laser reaches about 5 km. The MoD gives a precision claim of hitting a £1 coin from 1 km, operating cost under £10 per shot, and downing drones at up to ~400 mph in trials.',
-      basis: 'Game range 3 km is an ASSESSMENT for a reported 50 kW laser, between the 1 km trial figure and the 5 km Rafael gives at that power. Lasers lose range in rain and haze, which the game halves in its rain and haze conditions, an assumption. Beam damage rate is an assumption. The 300 s beam store converts the 200+ stored engagements EOS claims for its Apollo laser at about 1.5 s a kill, which is an assumption, as is the recharge time. Its beam is at full strength out to a quarter of its range, then falls with distance. Dwell doubling with range follows ST Engineering\u2019s published 5 s at 0.5 km and 10 s at 1 km for its 3 kW CDLE laser.',
+      basis: 'Game range 3 km is an ASSESSMENT for a reported 50 kW laser, between the 1 km trial figure and the 5 km Rafael gives at that power. Lasers lose range in rain and haze, which the game halves in its rain and haze conditions, an assumption. Beam damage rate is an assumption. The 300 s beam store converts the 200+ stored engagements EOS claims for its Apollo laser at about 1.5 s a kill, which is an assumption, as is the recharge time. Its beam is at full strength out to a quarter of its range, then falls with distance. Dwell doubling with range follows ST Engineering\u2019s published 5 s at 0.5 km and 10 s at 1 km for its 3 kW CDLE laser. Each new target first takes 4 s to swing onto, an ASSUMPTION below the roughly 6 s a drone implied by Raytheon’s 15 kW laser downing three drones in 34 s with about 5 s of dwell on each.',
       confidence: 'ASSUMPTION for range and power; per-shot cost from the MoD',
       sources: [
         { label: 'ST Engineering: CDLE brochure', url: 'https://www.stengg.com/getmedia/f2bf2478-35e2-4c37-9ff3-e9029811a1ed/CDLE-Online-Brochure.pdf' },
         { label: 'GOV.UK: DragonFire', url: 'https://www.gov.uk/government/news/advanced-future-military-laser-achieves-uk-first' },
         { label: "Tom's Hardware: DragonFire trials", url: 'https://www.tomshardware.com/tech-industry/uk-dragonfire-laser-downs-high-speed-drones' },
         { label: 'Laser Wars: the infinite magazine myth', url: 'https://www.laserwars.net/p/laser-weapon-infinite-magazine-myth' },
+        { label: 'Army Technology: Raytheon laser, three drones in 34 s', url: 'https://www.army-technology.com/news/dsei-2023-wolfhounds-laser-system-takes-out-uavs-for-the-price-of-a-cup-of-coffee/' },
       ],
       cost: {
         capex: 'Game price $2,000,000 (your figure). No unit price is published; the UK development contract with MBDA is £316 million (about $414 million), which includes R&D. Per shot: about £10 ($13).',
@@ -263,7 +264,7 @@ export const EFFECTORS = {
       class: 'Vehicle-mounted high-energy laser',
       analogues: ['AeroVironment LOCUST'],
       published: '20–35+ kW. The maker claims under $5 to under $10 a shot. Range is classified: reports say "at least several kilometers", and that lasers of this class typically work below 5 km.',
-      basis: 'Game range 2 km is an ASSESSMENT: Rafael\u2019s 5 km at 50 kW, scaled by power to about 20 kW, and below the DragonFire entry. Beam damage is half the DragonFire figure, an assumption from its lower power. The beam store is an assumption. Its beam is at full strength out to a quarter of its range, then falls with distance.',
+      basis: 'Game range 2 km is an ASSESSMENT: Rafael\u2019s 5 km at 50 kW, scaled by power to about 20 kW, and below the DragonFire entry. Beam damage is half the DragonFire figure, an assumption from its lower power. The beam store is an assumption. Its beam is at full strength out to a quarter of its range, then falls with distance. Like the DragonFire, it takes 4 s to swing onto each new target.',
       confidence: 'Maker’s per-shot claim; range and beam effect are assumptions',
       sources: [
         { label: 'Wikipedia: LOCUST', url: 'https://en.wikipedia.org/wiki/Locust_Laser_Weapon_System' },
@@ -286,7 +287,7 @@ export const EFFECTORS = {
       class: 'High-power air-defence laser',
       analogues: ['Rafael Iron Beam'],
       published: 'A 100 kW laser. Globes reports about 10 km, and about half that for a 50 kW version. An older 2020 report says up to 7 km. A former Israeli prime minister put a shot at $3.50; other estimates, from $2 to $2,000, are unverified.',
-      basis: 'Game range is the 10 km figure, and per second the $3.50 figure. Beam damage is twice the DragonFire figure, for twice its reported 50 kW power, an assumption. The beam store is an assumption. Its beam is at full strength out to a quarter of its range, then falls with distance.',
+      basis: 'Game range is the 10 km figure, and per second the $3.50 figure. Beam damage is twice the DragonFire figure, for twice its reported 50 kW power, an assumption. The beam store is an assumption. Its beam is at full strength out to a quarter of its range, then falls with distance. Like the DragonFire, it takes 4 s to swing onto each new target.',
       confidence: 'Press reports; no official range or price',
       sources: [
         { label: 'Task & Purpose: Iron Beam', url: 'https://taskandpurpose.com/military-life/israel-iron-beam-air-defense/' },

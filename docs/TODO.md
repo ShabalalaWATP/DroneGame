@@ -34,7 +34,7 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] A6 part 2: how far a jammer reaches: bands fitted as paid modules, an omni or sector antenna with its facing, a control link easier to jam the further the drone is from its operator, and a louder jammer for each band it jams
 - [x] A6 part 3: the jammer's own receiver and library, barrage or reactive, what switches it on (the fusion node, its own receiver or you), and receiver blanking
 - [x] A6 left over: monitored bands and instantaneous bandwidth on RF detectors. A sensitivity for a jammer's receiver is not offered: hearing further than it can jam would change nothing
-- [ ] A7: balance pass. This is the place to fix five lasers never losing.
+- [x] A7: balance pass. A laser now takes 4 s to swing onto each new drone, so lasers with all-round radar cover lose too. No unit setting was a free win. Later waves on other bands were left out
 
 **Feature B: magazine depth**
 

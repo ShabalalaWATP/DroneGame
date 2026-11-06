@@ -26,5 +26,10 @@ export function hitChance(def, target, rangeM, cueErrorM = 0) {
 // 5 s at 0.5 km and 10 s at 1 km. shortcut: no rain or haze, which reduce it further. Add them with weather.
 export const beamFactor = (def, rangeM) => Math.min(1, (BEAM_FULL * def.range) / Math.max(rangeM, 1));
 
+// Seconds a laser takes to swing onto a new target and settle its tracker before the beam goes on. Raytheon's 15 kW laser downed three
+// drones in 34 s with about 5 s of dwell on each, so about 6 s a drone went on finding and laying on the next: 4 s is an assumption below
+// that. An RF weapon steers its beam electronically, so it has none.
+export const layTime = (def) => (def.rfBeam ? 0 : 4);
+
 // Seconds of beam to destroy this target at this range.
 export const burnTime = (def, target, rangeM) => target.hp / (def.dps * evasionFactor(target.evade) * beamFactor(def, rangeM));

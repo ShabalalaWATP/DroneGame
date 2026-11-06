@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { COMMS, DRONES, DRONE_CLASSES, SENSING, SPECTRUM, WORLD } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
 import { magazineWord } from '../sim/magazine.js';
-import { burnTime, hitChance } from '../sim/hit-chance.js';
+import { burnTime, hitChance, layTime } from '../sim/hit-chance.js';
 import { ERROR_AT_LIMIT, predictRange, reachFor, usesPath } from '../sim/site-range.js';
 import { arcsText, coverArc, elevationBand } from '../sim/sensor-model.js';
 import { CHANNELS, IDENTIFY_PX, RECOGNISE_PX, hasZoom } from '../sim/camera-model.js';
@@ -164,7 +164,7 @@ function Odds({ def }) {
           return [<span key={d.id}>{d.name}{hits > 1 ? `, ${hits} hits` : ''}</span>, <span key={`${d.id}-near`}>{cell(d, 0)}</span>, <span key={`${d.id}-far`}>{cell(d, def.range)}</span>];
         })}
       </span>
-      <span className="muted">{beam ? 'Drones that evade take longer, and they get better at it each wave. Rain and haze shorten its reach.' : 'On a good track. A poor track lowers it, and drones get harder to hit each wave.'}</span>
+      <span className="muted">{beam ? `${layTime(def) ? `Plus ${layTime(def)} s to swing onto each new drone first. ` : ''}Drones that evade take longer, and they get better at it each wave.${def.rfBeam ? '' : ' Rain and haze shorten its reach.'}` : 'On a good track. A poor track lowers it, and drones get harder to hit each wave.'}</span>
     </Row>
   );
 }
