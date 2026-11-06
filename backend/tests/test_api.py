@@ -73,6 +73,20 @@ class TestLaydowns:
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["zone"] == zone
 
+    def test_an_attack_mix_is_kept_with_the_laydown(self, client):
+        attack = ["geran2", "lancet3", "orlan10"]
+        made = client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "attack": attack}))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["attack"] == attack
+
+    def test_a_laydown_with_no_attack_mix_comes_back_as_it_was_sent(self, client):
+        made = client.post(f"{API}/laydowns", json=laydown()).json()
+        assert "attack" not in client.get(f"{API}/laydowns/{made['id']}").json()["spec"]
+
+    @pytest.mark.parametrize("attack", [[], ["Geran2"], ["a" * 40], ["fpv"] * 65, ["<script>"], [1], "fpv"])
+    def test_a_bad_attack_mix_is_refused(self, client, attack):
+        assert client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "attack": attack})).status_code == 422
+
     def test_a_laydown_with_no_zone_comes_back_as_it_was_sent(self, client):
         made = client.post(f"{API}/laydowns", json=laydown()).json()
         assert "zone" not in client.get(f"{API}/laydowns/{made['id']}").json()["spec"]

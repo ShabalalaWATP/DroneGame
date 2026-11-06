@@ -96,6 +96,14 @@ button.danger:not(:disabled) { border-color: #e57373; color: #ffab91; }
 #sandbox .sb-threat input[type=number] { width: 48px; }
 #sandbox-banner { position: fixed; top: 0; left: 50%; transform: translateX(-50%); z-index: 5; padding: 3px 18px; border-radius: 0 0 8px 8px; background: #ff6f00; color: #fff; font-size: 12px; letter-spacing: 0.08em; font-weight: 700; pointer-events: none; }
 #sandbox-banner.hidden { display: none; }
+#attack-mix { right: 214px; top: 12px; width: 300px; max-width: calc(100vw - 24px); max-height: calc(100vh - 140px); overflow-y: auto; z-index: 5; font-size: 12px; }
+#attack-mix .note { color: #7f93b2; margin: 6px 0; }
+#attack-mix details { margin: 2px 0; }
+#attack-mix summary { cursor: pointer; color: #dbe4f0; padding: 3px 0; }
+#attack-mix .am-threat { display: flex; align-items: center; gap: 6px; min-height: 22px; color: #dbe4f0; }
+#attack-mix .am-threat i { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+#attack-mix .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+#attack-mix .row button { padding: 3px 8px; font-size: 12px; }
 #hud-top-right { max-height: calc(100vh - 24px); overflow-y: auto; }
 .bar { height: 12px; background: #1a2740; border-radius: 6px; overflow: hidden; }
 #health-fill { height: 100%; width: 100%; background: #4caf50; transition: width 0.2s, background 0.2s; }

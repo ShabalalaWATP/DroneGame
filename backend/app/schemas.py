@@ -15,6 +15,9 @@ SystemId = Literal[
 Uplink = Literal["starlink", "cellular"]
 CellBand = Literal["B8", "B3", "n78"]
 JamBand = Literal["control900", "control24", "video58", "gnss"]
+# A drone type the waves may send. The game keeps only the ids it knows, so this checks the shape alone.
+DroneTypeId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,31}$")]
+MAX_ATTACK_TYPES = 64
 
 WORLD_LIMIT = 350  # scene units: the ground reaches 7 km from the site, at 20 m a unit
 MAX_SYSTEMS = 200
@@ -70,6 +73,7 @@ class LaydownSpec(Strict):
     structures: list[PlacedSystem] = Field(max_length=MAX_SYSTEMS)
     fusionUplinks: list[Uplink] = Field(max_length=2)
     fusionCell: CellBand
+    attack: list[DroneTypeId] | None = Field(default=None, min_length=1, max_length=MAX_ATTACK_TYPES, exclude_if=lambda attack: attack is None)
     zone: list[Annotated[list[Coordinate], Field(min_length=2, max_length=2)]] | None = Field(default=None, min_length=3, max_length=MAX_ZONE_POINTS, exclude_if=lambda zone: zone is None)
 
 

@@ -111,6 +111,7 @@ export function SourcesTab({ active }) {
               <Figures kind="drones" id={d.id} def={d} onChange={changed} />
               {d.published && <Row k="Public figures">{d.published}</Row>}
               {d.usedBy && <Row k="Used by">{d.usedBy}</Row>}
+              {d.assumed && <Row k="Assumed">{d.assumed}</Row>}
               <Row k="Cost basis">{d.costRef.note} <Conf text={d.costRef.confidence} /></Row>
               <Row k="Sources"><SourceLinks sources={d.costRef.sources} /></Row>
               <div className="muted">{d.variantOf

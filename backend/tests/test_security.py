@@ -9,7 +9,7 @@ from conftest import SPEC, figure_set, laydown, run
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.schemas import MAX_COMMANDS, MAX_SYSTEMS, CellBand, JamBand, SystemId, Uplink
+from app.schemas import MAX_COMMANDS, MAX_SYSTEMS, CellBand, DroneTypeId, JamBand, SystemId, Uplink
 from app.security import MAX_BODY_BYTES
 
 API = "/api/v1"
@@ -227,6 +227,16 @@ def test_the_database_path_can_come_from_the_environment(tmp_path, monkeypatch):
     with TestClient(create_app(), base_url="http://localhost") as c:
         assert c.post(f"{API}/laydowns", json=laydown()).status_code == 201
     assert path.exists()
+
+
+def test_every_drone_the_waves_can_send_fits_the_shape_a_save_allows():
+    """A saved attack mix is checked by shape only, so every drone id the game has must fit that shape."""
+    config = Path(__file__).parent.parent.parent / "frontend" / "src" / "sim" / "config"
+    drones = "".join((config / name).read_text(encoding="utf-8") for name in ("drones.js", "real-drones.js", "real-drones-extra.js"))
+    ids = re.findall(r"^  (\w+): \{$", drones, re.M)
+    assert len(ids) > 20
+    pattern = DroneTypeId.__metadata__[0].pattern
+    assert [i for i in ids if not re.fullmatch(pattern, i)] == []
 
 
 def test_the_names_the_api_accepts_match_the_game():

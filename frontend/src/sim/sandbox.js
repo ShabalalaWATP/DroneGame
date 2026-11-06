@@ -19,7 +19,7 @@ export function enterSandbox(w) {
 export function launchSandboxWave(w) {
   const { state } = w;
   const lvl = state.sbLevel;
-  for (const q of makeWave(lvl, waveStream(state.seed, lvl))) state.sbQueue.push({ ...q, t: q.t + state.sbTime });
+  for (const q of makeWave(lvl, waveStream(state.seed, lvl), state.attack)) state.sbQueue.push({ ...q, t: q.t + state.sbTime });
   state.sbQueue.sort(byTime);
 }
 
