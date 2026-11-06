@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { DRONES, STRUCT_SCALE, WORLD } from '../sim/config/index.js';
 import { muzzle } from '../sim/effectors.js';
+import { coverKey } from '../sim/sensor-model.js';
 import { predictRange, usesPath } from '../sim/site-range.js';
 import { terrainState } from '../sim/terrain.js';
 import { u } from '../sim/units.js';
@@ -20,7 +21,7 @@ const ringOpacity = () => (onRealMap() ? 0.8 : 0.35);
 const SELECTED_RING_OPACITY = 0.95;
 const ringColour = (def) => (onRealMap() ? new THREE.Color(def.color).multiplyScalar(0.7) : def.color);
 const OPEN_RING_OPACITY = 0.45;
-const ringKey = (s) => `${s.def.range}|${s.def.mount}|${s.def.panels}|${s.def.facing}`; // a radar's facing follows what is defended
+const ringKey = (s) => `${s.def.range}|${s.def.mount}|${coverKey(s.def)}`; // a radar's facing follows what is defended
 const _m = new THREE.Vector3();
 
 export function createStructureViews(scene, sim, labels) {

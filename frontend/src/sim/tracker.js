@@ -63,7 +63,15 @@ export const TRACKER = {
   coastAfter: 1.6,     // a confirmed track not updated for this long is "coasting" (s)
   candidateLife: 3,    // how long an unmatched bearing is kept for triangulation (s)
   bigSigma: 4000,      // "unknown" along a line of sight, m
+  flatHeight: 60,      // a height guess above the sensor for a track nobody has measured the height of, m
+  flatSigma: 150,      // and how far off that guess may be, m
 };
+
+// The timeouts above are set for sensors that report about once a second. A slower sensor stretches them by its own update interval,
+// so a track is only dropped or coasting when every sensor that fed it has missed as many of its own updates.
+const slackOf = (m) => Math.max(1, m.every ?? 1);
+const quietFor = (tr, t, limit) => { for (const h of tr.heard.values()) if (t - h.t <= limit * h.slack) return false; return true; };
+export const slowestSensor = (tr) => Math.max(1, ...[...tr.heard.values()].map((h) => h.slack));
 
 export function createTracker(newId) {
   const tracks = new Map();
@@ -105,13 +113,14 @@ export function createTracker(newId) {
     tr.P11 = m3.mul(I_K1, tr.P11);
   }
 
-  const posError = (tr) => Math.sqrt((tr.P11[0] + tr.P11[4] + tr.P11[8]) / 3);
+  // Position error, horizontal only for a track with no measured height: what uses it then compares horizontal distance too.
+  const posError = (tr) => Math.sqrt(tr.flat ? (tr.P11[0] + tr.P11[4]) / 2 : (tr.P11[0] + tr.P11[4] + tr.P11[8]) / 3);
 
   function makeTrack(pos, Ppos, t) {
     const tr = {
       id: newId(), pos, vel: [0, 0, 0], t, firstT: t, lastT: t, hits: 1,
       P11: Ppos, P12: m3.I(0), P22: m3.I(TRACKER.velSigma * TRACKER.velSigma),
-      status: 'tentative', short: null, sources: new Map(), nodes: new Set(), ranged: false,
+      status: 'tentative', short: null, sources: new Map(), nodes: new Set(), ranged: false, heard: new Map(), flat: true,
     };
     tracks.set(tr.id, tr);
     return tr;
@@ -119,7 +128,7 @@ export function createTracker(newId) {
 
   // ---------- measurements ----------
   // m: { node, from:[e,n,u], az (rad, clockwise from north), el (rad) or null, range (m) or null,
-  //      sigAz, sigEl, sigRange (rad, rad, m), t, scan }
+  //      sigAz, sigEl, sigRange (rad, rad, m), t, scan, every (the sensor's update interval, s) }
   function rayOf(m) {
     const el = m.el ?? 0;
     return v.unit([Math.cos(el) * Math.sin(m.az), Math.cos(el) * Math.cos(m.az), Math.sin(el)]);
@@ -129,6 +138,11 @@ export function createTracker(newId) {
   // the pseudo-measurement point and covariance for a measurement, given where a track predicts the target to be
   function asMeasurement(m, predicted) {
     const u = rayOf(m);
+    if (hasRange(m) && m.el == null) { // a 2D radar: range and bearing, but the height is a guess or the track's own
+      const up = predicted ? predicted[2] : m.from[2] + TRACKER.flatHeight;
+      const hr = Math.sqrt(Math.max(m.range * m.range - (up - m.from[2]) ** 2, 0));
+      return { z: [m.from[0] + u[0] * hr, m.from[1] + u[1] * hr, up], R: measCov(u, m.sigRange, hr * m.sigAz, predicted ? TRACKER.bigSigma : TRACKER.flatSigma) };
+    }
     if (hasRange(m)) {
       const range = m.range;
       const z = v.add(m.from, v.mul(u, range));
@@ -147,7 +161,7 @@ export function createTracker(newId) {
   function associate(m, t) {
     let best = null, bd = TRACKER.gate;
     for (const tr of tracks.values()) {
-      if (tr.scanned && tr.scanned.get(m.node) === m.scan) continue; // one measurement per sensor scan
+      if (tr.heard.has(m.node) && tr.heard.get(m.node).scan === m.scan) continue; // one measurement per sensor scan
       predict(tr, t);
       const { z, R } = asMeasurement(m, tr.pos);
       const inn = innovation(tr, z, R);
@@ -174,7 +188,7 @@ export function createTracker(newId) {
 
   function tryTriangulate(m) {
     for (const c of cands) {
-      if (c.node === m.node || m.t - c.t > TRACKER.candidateLife) continue;
+      if (c.node === m.node || m.t - c.t > TRACKER.candidateLife * slackOf(c)) continue;
       const x = triangulate(c, m);
       if (!x) continue;
       const tol = 2.5 * (x.s * c.sigAz + x.t * m.sigAz) + 40;
@@ -186,7 +200,7 @@ export function createTracker(newId) {
         mid = [mid[0], mid[1], (c.from[2] + m.from[2]) / 2 + 60];
         P = [sig * sig, 0, 0, 0, sig * sig, 0, 0, 0, 150 * 150];
       }
-      return { mid, P, other: c.node };
+      return { mid, P, other: c.node, flat: x.flat };
     }
     return null;
   }
@@ -200,17 +214,19 @@ export function createTracker(newId) {
       update(hit.tr, hit.z, hit.R, hit.inn);
       tr = hit.tr;
       tr.hits++;
+      if (m.el != null) tr.flat = false;
     } else if (hasRange(m)) {
       const { z, R } = asMeasurement(m, null);
       tr = makeTrack(z, R, t);
+      tr.flat = m.el == null;
     } else {
       const fix = tryTriangulate(m);
-      if (fix) { tr = makeTrack(fix.mid, fix.P, t); tr.nodes.add(fix.other); }
+      if (fix) { tr = makeTrack(fix.mid, fix.P, t); tr.nodes.add(fix.other); tr.flat = fix.flat; }
       else cands.push({ ...m, id: ++candSeq });
     }
     if (tr) {
       tr.lastT = t;
-      (tr.scanned = tr.scanned || new Map()).set(m.node, m.scan);
+      tr.heard.set(m.node, { scan: m.scan, t, slack: slackOf(m) });
       tr.nodes.add(m.node);
       tr.ranged ||= hasRange(m);
       if (tr.status === 'tentative' && tr.hits >= TRACKER.confirmHits && (tr.ranged || tr.nodes.size >= TRACKER.confirmSensors)) { tr.status = 'confirmed'; tr.justConfirmed = true; }
@@ -222,12 +238,11 @@ export function createTracker(newId) {
   function prune(t) {
     const dropped = [];
     for (const tr of tracks.values()) {
-      const age = t - tr.lastT;
       const limit = tr.status === 'tentative' ? TRACKER.tentativeTimeout : TRACKER.confirmedTimeout;
-      if (age > limit) { tracks.delete(tr.id); dropped.push(tr); continue; }
-      if (tr.status !== 'tentative') tr.status = age > TRACKER.coastAfter ? 'coasting' : 'confirmed';
+      if (quietFor(tr, t, limit)) { tracks.delete(tr.id); dropped.push(tr); continue; }
+      if (tr.status !== 'tentative') tr.status = quietFor(tr, t, TRACKER.coastAfter) ? 'coasting' : 'confirmed';
     }
-    cands = cands.filter((c) => t - c.t <= TRACKER.candidateLife);
+    cands = cands.filter((c) => t - c.t <= TRACKER.candidateLife * slackOf(c));
     return dropped;
   }
 

@@ -25,7 +25,9 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] A2: small, medium and large catalogue entries, and the toolbar
 - [x] A3: editing in the unit panel, with names and settings in laydowns and the API
 - [x] A4 part 1: coverage arcs and elevation for every radar, panels and facing on fixed-panel radars, drawn in every view. Small radars now see 120° per panel
-- [ ] A4, the rest: tracker timing for scans up to 5 s, 2D radars with no height, then band, clutter filter, blanking arcs, elevation edges and micro-Doppler
+- [x] A4 part 2: tracker timing scaled to each sensor's update interval, so a radar's scan period now goes up to 5 s
+- [x] A4 part 3: 2D radars, band, clutter filter, the beam's low and top edges, blanking arcs and micro-Doppler
+- [ ] A4 left over: a narrower azimuth arc that gains range, and rain loss by band, which needs A5's weather
 - [ ] A5: environment and electro-optical physics
 - [ ] A6: RF detector, libraries and jammer physics
 - [ ] A7: balance pass. This is the place to fix five lasers never losing.
@@ -72,7 +74,7 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [ ] Better figures for hit chance: 8 of 11 are assumptions, because no rate is published. Only the Sting, P1-SUN and DroneHunter have reported figures
 - [ ] Jamming strength that falls with distance: inside its reach a jammer works fully, then stops. Real jamming depends on how far the drone is from its own controller too
 - [ ] Use the bands a detector listens on: `listens` is only drawn on the Spectrum tab, so it does not limit what is heard. Each jammed link should use its own band
-- [ ] A radar that classifies by micro-Doppler, as the IRIS and A400 do. Only cameras identify an airframe now
+- [x] A radar that classifies by micro-Doppler: standard on the IRIS and A400, and a paid option on the others
 - [x] Geran-3 jet, ASN-301 anti-radar drone and Wing Loong II added to the real drones
 - [x] Waves send any ticked mix of drone types, saved with the laydown
 - [x] Interceptor drones may take fixed-wing drones, as the Sting is built to, with hit chance falling for faster targets. The small net carrier still only takes small, slow drones

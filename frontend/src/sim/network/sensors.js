@@ -5,10 +5,12 @@ import { SENSING } from '../config/index.js';
 import { rand, gauss } from '../rng.js';
 import { terrainState } from '../terrain.js';
 import { errorScale, inClutter, reachFor, reachOnPath } from '../site-range.js';
-import { coverArc, inCover } from '../sensor-model.js';
+import { blindSpeed, classifiesAt, coverArc, elevationBand, inCover } from '../sensor-model.js';
 import { RB_UNITS, rbDatum, round, clamp } from './core.js';
 
 export { reachFor };
+
+const STARE_LOOKS = 3; // looks a camera takes at each height while it searches for a track with none
 
 export function createSensors(core, feed) {
   const { ctx, mpu, T, nodes, tracker, fusion, send, deliver, antennaM, rel, bearingOf } = core;
@@ -43,6 +45,8 @@ export function createSensors(core, feed) {
     const T3 = terrainState.data, m = mpu();
     const dxm = d.pos.x * m, dzm = d.pos.z * m, dym = d.pos.y * m;
     const p = inClutter(def, T3, dxm, dzm, dym - T3.groundAt(dxm, dzm), r.hr) ? SENSING.clutterPenalty : 1; // lost in clutter
+    const blind = blindSpeed(def);
+    if (blind && d.vel && Math.abs((d.vel.x * r.east - d.vel.z * r.north + d.vel.y * r.up) * m) < blind * r.rng) return 0; // too slow, or crossing, for its clutter filter
     const reach = reachTo(s, d);
     if (!reach) return 0;
     if (pointing && def.fov && !inView(s, r)) return 0;
@@ -58,7 +62,7 @@ export function createSensors(core, feed) {
     return n;
   }
 
-  function classification(s, d) {
+  function classification(s, d, rng, reach) {
     const id = s.def.kind || s.def.id;
     const sub = (type, c, level, inner) => ({ type, confidence: round(c, 2), level, ...(inner ? { sub_class: [inner] } : {}) });
     if (!d) return [{ type: 'Unknown', confidence: 0.4 }]; // a false alarm doesn't look like anything in particular
@@ -69,16 +73,20 @@ export function createSensors(core, feed) {
     if (id === 'rf') { // a radio emitter is recognised as a UAV link, but not as an airframe type
       return [{ type: 'Air Vehicle', confidence: 0.85, sub_class: [sub('UAV', 0.8, 1)] }];
     }
+    if (classifiesAt(s.def, rng, reach)) return [{ type: 'Air Vehicle', confidence: 0.8, sub_class: [sub('UAV', 0.7, 1, sub(d.def.airframe, 0.6, 2))] }]; // rotors or wings, by micro-Doppler
     return [{ type: 'Air Vehicle', confidence: 0.7, sub_class: [sub('UAV', 0.55, 1)] }];
   }
 
   // Where a false alarm appears: random direction and range inside what the sensor covers (a camera only inside its view).
+  // null when it falls in a radar's blanking arc, so blanking takes away false alarms in step with the share it blanks.
   function falseGeometry(s) {
     const def = s.def;
-    const arc = coverArc(def); // a radar's false alarms come from where it looks
+    const arc = coverArc(def), band = elevationBand(def); // a radar's false alarms come from where it looks, low in its beam
     const azD = def.fov ? s.point.az + (rand() - 0.5) * def.fov : arc < 360 ? def.facing + (rand() - 0.5) * arc : rand() * 360;
-    const elD = def.fov ? s.point.el + (rand() - 0.5) * def.fov : rand() * 12 - 2;
+    const lo = band ? Math.max(band[0], -2) : -2, hi = band ? Math.max(Math.min(band[1], 10), lo) : 10;
+    const elD = def.fov ? s.point.el + (rand() - 0.5) * def.fov : lo + rand() * (hi - lo);
     const rng = def.range * (0.15 + 0.85 * rand());
+    if (!inCover(def, (azD + 360) % 360, elD)) return null;
     const az = (azD * Math.PI) / 180, el = (elD * Math.PI) / 180;
     const hr = rng * Math.cos(el);
     return { east: hr * Math.sin(az), north: hr * Math.cos(az), up: rng * Math.sin(el), hr, rng };
@@ -89,6 +97,7 @@ export function createSensors(core, feed) {
   function measure(s, d) {
     const def = s.def, n = def.sapient.noise || {};
     const r = d ? rel(s, d) : falseGeometry(s);
+    if (!r) return null;
     const b = bearingOf(r);
     const reach = d ? reachTo(s, d) : def.range, k = errorScale(def, r.rng, reach); // a weak signal gives a worse measurement, and the sensor knows it
     const errAz = n.az * k, errEl = n.el * k, errRange = n.range * k;
@@ -118,7 +127,7 @@ export function createSensors(core, feed) {
     const report = {
       report_id: S.ulid(), object_id: objectId,
       range_bearing: rb, detection_confidence: round(conf, 2),
-      classification: classification(s, d),
+      classification: classification(s, d, r.rng, reach),
     };
     if (def.sapient.signal) {
       report.signal = [{
@@ -140,7 +149,7 @@ export function createSensors(core, feed) {
       sent,
       meas: {
         node: s.nodeId, color: def.color, from, az: rad(azM), el: n.el != null ? rad(elM) : null, range: n.range != null ? rngM : null,
-        sigAz: rad(errAz), sigEl: n.el != null ? rad(errEl) : null, sigRange: errRange || 0, t: T(), scan: s.scanId,
+        sigAz: rad(errAz), sigEl: n.el != null ? rad(errEl) : null, sigRange: errRange || 0, t: T(), scan: s.scanId, every: def.sapient.interval,
       },
       source: { name: s.name, objectId, ts: S.timestamp(), conf, rb, from: { east: from[0], north: from[1], up: from[2] }, color: def.color, vel, cls: report.classification, rangeErr: errRange, hasRange: n.range != null },
     };
@@ -154,7 +163,7 @@ export function createSensors(core, feed) {
       const p = pd(s, d);
       if (p > 0 && rand() < p) found.push(measure(s, d));
     }
-    if (s.def.falseAlarm && rand() < s.def.falseAlarm) found.push(measure(s, null));
+    if (s.def.falseAlarm && rand() < s.def.falseAlarm) { const f = measure(s, null); if (f) found.push(f); }
     s.detections = (s.detections || 0) + found.length; // false alarms included: the sensor cannot tell them apart
     for (const f of found) deliver(f.sent, () => feed(s, f)); // the tracker only hears it when it arrives
   }
@@ -170,6 +179,15 @@ export function createSensors(core, feed) {
       r.hr = Math.hypot(r.east, r.north);
       const b = bearingOf(r);
       tgtAz = b.az; tgtEl = b.el; rate = def.slewRate;
+      if (tr.flat) { // no height from a 2D radar or crossing bearings: look at the guess, then step up a view at a time, a few looks at each
+        const top = Math.min(45, (Math.atan2(500, Math.max(r.hr, 1)) * 180) / Math.PI);
+        const st = s.stare?.trackId === tr.id ? s.stare : (s.stare = { trackId: tr.id, el: clamp(b.el, 0, top), from: null });
+        if (Math.abs(s.point.el - st.el) < 0.5) {
+          st.from ??= s.scanId;
+          if (s.scanId - st.from >= STARE_LOOKS) { st.el = st.el + def.fov > top ? 0 : st.el + def.fov; st.from = null; }
+        }
+        tgtEl = st.el;
+      }
     } else { tgtAz = s.point.az + 1; tgtEl = 3; } // sweep
     const dAz = ((tgtAz - s.point.az + 540) % 360) - 180;
     const step = rate * dt;

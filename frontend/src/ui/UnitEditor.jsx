@@ -23,10 +23,17 @@ export function UnitField({ field, id, value, changed, onChange, locked, prefix 
             {Object.entries(field.choices).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
           </select>
         )
-        : <NumberInput key={attempt} id={inputId} value={value} step={field.step} min={limits[0]} max={limits[1]} disabled={locked} onCommit={change} />}
+        : field.arcs
+          ? (
+            <input
+              key={`${attempt}-${field.show(value)}`} id={inputId} type="text" maxLength={40} defaultValue={field.show(value)} placeholder="None" disabled={locked}
+              onBlur={(e) => { if (e.target.value !== field.show(value)) change(e.target.value); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+            />
+          )
+          : <NumberInput key={attempt} id={inputId} value={value} step={field.step} min={limits[0]} max={limits[1]} disabled={locked} onCommit={change} />}
       <button className="up-reset" aria-label={`Reset ${field.label}`} title="Back to this size's standard value" disabled={locked || !changed} onClick={() => change(null)}>↺</button>
       <span className="muted">
-        {field.help}{field.choices ? '' : ` ${limits[0]} to ${limits[1]} ${field.unit}.`}
+        {field.help}{field.choices || field.arcs ? '' : ` ${limits[0]} to ${limits[1]} ${field.unit}.`}
         {price !== 0 && <b> {price > 0 ? '+' : '-'}{money(Math.abs(price))}</b>}
       </span>
     </div>

@@ -145,7 +145,7 @@ export function configureUnit(w, s, key, value) {
   const field = fieldsFor(s.def.id).find((f) => f.key === key);
   if (!field) return 'That cannot be changed on this system';
   const before = s.def.cost, was = s.def.settings[key];
-  if (!setSetting(s.def.settings, field, s.def.id, value)) return `Not a valid ${field.label.toLowerCase()}`;
+  if (!setSetting(s.def.settings, field, s.def.id, value)) return field.invalid ?? `Not a valid ${field.label.toLowerCase()}`;
   const delta = s.def.cost - before;
   if (delta > w.state.budget) {
     if (was == null) delete s.def.settings[key]; else s.def.settings[key] = was;

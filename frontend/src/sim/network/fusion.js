@@ -3,6 +3,7 @@
 import * as S from '../sapient.js';
 import { FUSION } from '../config/index.js';
 import { round, classDepth } from './core.js';
+import { slowestSensor } from '../tracker.js';
 
 export function createFusion(core, { raiseAlert }) {
   const { ctx, mpu, T, tracker, fusion, gui, send, fromSite, siteDist } = core;
@@ -40,7 +41,7 @@ export function createFusion(core, { raiseAlert }) {
     const m = mpu();
     let best = null, bd = FUSION.acquireRadius;
     for (const d of ctx.drones) {
-      const dist = Math.hypot(tr.est.east - d.pos.x * m, tr.est.north + d.pos.z * m, tr.est.up - d.pos.y * m);
+      const dist = Math.hypot(tr.est.east - d.pos.x * m, tr.est.north + d.pos.z * m, tr.flat ? 0 : tr.est.up - d.pos.y * m); // no measured height: compare across the ground
       if (dist < bd) { bd = dist; best = d; }
     }
     return best;
@@ -58,7 +59,7 @@ export function createFusion(core, { raiseAlert }) {
   const isLoitering = (tr) => tr.loiterSince != null && T() - tr.loiterSince >= FUSION.loiterAfter;
 
   function fusedReport(tr) {
-    const srcs = [...tr.sources.entries()].filter(([, v]) => T() - v.lastT <= 3);
+    const srcs = [...tr.sources.entries()].filter(([id, v]) => T() - v.lastT <= 3 * (tr.heard.get(id)?.slack ?? 1));
     const body = { report_id: S.ulid(), object_id: tr.id, state: tr.status };
     body.location = S.location(tr.est.east, tr.est.north, tr.est.up, Math.max(tr.estErr, 5));
     body.detection_confidence = round(Math.min(0.99, 0.4 + 0.12 * tr.hits), 2);
@@ -73,7 +74,7 @@ export function createFusion(core, { raiseAlert }) {
   // Kill confirmation: the sensors must have lost the track.
   function confirmKills() {
     for (const tr of [...tracker.tracks.values()]) {
-      if (!tr.killWatch || T() - tr.killWatch.t < FUSION.killConfirmDelay) continue;
+      if (!tr.killWatch || T() - tr.killWatch.t < FUSION.killConfirmDelay * slowestSensor(tr)) continue; // a slow radar gets time to look again
       if (tr.lastT <= tr.killWatch.lastT + 1e-6) {
         raiseAlert('information', `Kill confirmed: ${tr.short} (${tr.airframe === 'Unknown' ? 'unclassified' : tr.airframe}), reported by ${tr.killWatch.by}`, null, 'DISCRETE_PRIORITY_LOW', tr);
         if (ctx.onKillConfirmed) ctx.onKillConfirmed(tr);

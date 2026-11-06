@@ -157,7 +157,8 @@ describe('each unit\'s own definition', () => {
     const [a, b] = two();
     game.commands.configureUnit(a, 'mount', 35);
     game.commands.configureUnit(a, 'scan', 0.5);
-    a.def.sapient.noise.az = 9;
+    game.commands.configureUnit(a, 'band', 'k'); // a narrower beam: its own angle error
+    expect(a.def.sapient.noise.az).toBeLessThan(0.6);
     expect(a.def.cost).toBeGreaterThan(900000);
     expect(a.def.sapient.interval).toBe(0.5);
     for (const other of [b.def, STRUCTURES.radar]) {

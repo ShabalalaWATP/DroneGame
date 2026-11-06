@@ -34,7 +34,7 @@ describe('the field table', () => {
   });
 
   it('keeps every standard value inside its own limits', () => {
-    for (const f of UNIT_FIELDS.filter((x) => !x.choices)) {
+    for (const f of UNIT_FIELDS.filter((x) => !x.choices && !x.arcs)) {
       for (const [id, [min, max]] of Object.entries(f.limits)) {
         const base = f.base(STRUCTURES[id]);
         if (base == null) continue; // no standard value: a radar faces away from what is defended
@@ -67,6 +67,16 @@ describe('what a setting does', () => {
     sim.state.warnedWire = true;
     sim.run(400);
     expect(unit('radar').scanId).toBeGreaterThan(unit('radar_s').scanId * 1.8);
+  });
+
+  it('a scan as slow as 5 s still confirms tracks', () => {
+    lay('radar');
+    expect(game.commands.configureUnit(unit('radar'), 'scan', 5)).toBeNull();
+    expect(unit('radar').def.sapient.interval).toBe(5);
+    firstWave();
+    let confirmed = false;
+    for (let n = 0; n < 3000 && !confirmed; n++) { sim.step(); confirmed = [...sim.net.tracks.values()].some((tr) => tr.status === 'confirmed'); }
+    expect(confirmed).toBe(true);
   });
 
   it('the threshold trades range against false alarms', () => {
@@ -316,6 +326,18 @@ describe('the Configure side of the panel', () => {
     open('radar');
     commit($('#unit-mount'), '500');
     expect($('#unit-mount').value).toBe('35');
+  });
+
+  it('takes blanking arcs as text, shows them tidied, and says how to write them', () => {
+    open('radar');
+    const toasts = [];
+    game.onToast((m) => toasts.push(m));
+    fireEvent.blur($('#unit-blank'), { target: { value: '40-80,350 - 10' } });
+    expect(unit('radar').def.settings.blank).toEqual([[40, 80], [350, 10]]);
+    expect($('#unit-blank').value).toBe('40-80, 350-10');
+    fireEvent.blur($('#unit-blank'), { target: { value: 'north' } });
+    expect(toasts[0]).toContain('such as 40-80');
+    expect(unit('radar').def.settings.blank).toEqual([[40, 80], [350, 10]]);
   });
 
   it('uses a list for choices', () => {

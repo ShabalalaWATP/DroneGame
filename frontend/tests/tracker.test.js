@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTracker, TRACKER } from '../src/sim/tracker.js';
+import { createTracker, slowestSensor, TRACKER } from '../src/sim/tracker.js';
 
 const rad = (d) => (d * Math.PI) / 180;
 let seq = 0;
@@ -37,6 +37,73 @@ describe('track lifecycle', () => {
     const tk = newTracker();
     tk.ingest(radarAt(1000, 2000, 100, 0, 0), 0);
     expect(tk.prune(TRACKER.tentativeTimeout + 0.1).length).toBe(1);
+  });
+});
+
+describe('sensors slower than once a second', () => {
+  const every = (m, s) => ({ ...m, every: s });
+
+  it('a radar scanning every 5 s confirms a track, holds it between scans, and drops it after as many missed scans', () => {
+    const tk = newTracker();
+    let tr;
+    for (let i = 0; i < TRACKER.confirmHits; i++) {
+      tr = tk.ingest(every(radarAt(1000, 2000, 100, i * 5, i), 5), i * 5);
+      tk.prune(i * 5 + 4.9); // just before the next scan
+    }
+    expect(tk.tracks.size).toBe(1);
+    expect(tr.status).toBe('confirmed');
+    const last = (TRACKER.confirmHits - 1) * 5;
+    tk.prune(last + TRACKER.coastAfter * 5 + 0.1);
+    expect(tr.status).toBe('coasting');
+    expect(tk.prune(last + TRACKER.confirmedTimeout * 5 - 0.1)).toEqual([]);
+    expect(tk.prune(last + TRACKER.confirmedTimeout * 5 + 0.1)).toEqual([tr]);
+  });
+
+  it('holds a track while its slow sensor may still look again, after a fast one has lost it', () => {
+    const tk = newTracker();
+    let tr;
+    for (let i = 0; i < 3; i++) tr = tk.ingest(radarAt(1000, 2000, 100, i, i, 'fast'), i);
+    expect(tk.ingest(every(radarAt(1000, 2000, 100, 2, 0, 'slow'), 5), 2)).toBe(tr);
+    expect(slowestSensor(tr)).toBe(5);
+    tk.prune(2 + TRACKER.coastAfter + 0.1);
+    expect(tr.status).toBe('confirmed');
+    expect(tk.prune(2 + TRACKER.confirmedTimeout + 1)).toEqual([]);
+    expect(tk.prune(2 + TRACKER.confirmedTimeout * 5 + 0.1)).toEqual([tr]);
+  });
+
+  it('keeps the usual clocks for a sensor that reports faster than once a second', () => {
+    const tk = newTracker();
+    const tr = tk.ingest(every(radarAt(1000, 2000, 100, 0, 0), 0.5), 0);
+    expect(slowestSensor(tr)).toBe(1);
+    expect(tk.prune(TRACKER.tentativeTimeout + 0.1)).toEqual([tr]);
+  });
+
+  it("keeps a slow sensor's bearing waiting for a cross for as many of its own updates", () => {
+    const tk = newTracker();
+    tk.ingest(every(bearingAt([0, 0, 0], 1000, 2000, 0, 0, 'rf1'), 4), 0);
+    const later = TRACKER.candidateLife + 1;
+    tk.prune(later);
+    expect(tk.candidates.length).toBe(1);
+    expect(tk.ingest(bearingAt([3000, 0, 0], 1000, 2000, later, 0, 'rf2'), later)).not.toBeNull();
+  });
+});
+
+describe('a 2D radar', () => {
+  const flat = (m) => ({ ...m, el: null, sigEl: null });
+
+  it('starts a track at a guessed height, and keeps it flat until something measures height', () => {
+    const tk = newTracker();
+    const tr = tk.ingest(flat(radarAt(1000, 2000, 300, 0, 0)), 0);
+    expect(tr.flat).toBe(true);
+    expect(tr.pos[2]).toBeCloseTo(TRACKER.flatHeight, 0);
+    expect(Math.hypot(tr.pos[0], tr.pos[1])).toBeCloseTo(Math.sqrt(1000 ** 2 + 2000 ** 2 + 300 ** 2 - TRACKER.flatHeight ** 2), 0); // its range, laid at that height
+    for (let i = 1; i < 4; i++) tk.ingest(flat(radarAt(1000, 2000, 300, i, i)), i);
+    expect(tk.tracks.size).toBe(1);
+    expect(tr.flat).toBe(true);
+    expect(tk.posError(tr)).toBeLessThan(100); // across the ground only
+    expect(tk.ingest(radarAt(1000, 2000, 300, 4, 0, 'radar3d'), 4)).toBe(tr);
+    expect(tr.flat).toBe(false);
+    expect(tr.pos[2]).toBeGreaterThan(200);
   });
 });
 

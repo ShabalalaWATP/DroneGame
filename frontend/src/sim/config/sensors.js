@@ -10,6 +10,7 @@ export const SENSORS = {
     health: 30, signature: 1.0, emits: [{ label: 'X-band radar (assumed 9.2\u20139.5 GHz)', f: [[9.2, 9.5]] }], // radar band: assumption
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
     elevation: 60, // degrees of elevation it covers (sensor-model.js). A rotating radar has no arc: it sees all round
+    microDoppler: 'yes', // tells a multirotor from a fixed wing close in (sensor-model.js)
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
     sapient: {
       nodeType: 'NODE_TYPE_RADAR', subType: ['Surveillance', 'C-UAS'], scan: 'SCAN_TYPE_SCANNING', interval: 1,
@@ -20,12 +21,13 @@ export const SENSORS = {
       class: 'Counter-UAS surveillance radar, medium range',
       analogues: ['Robin Radar IRIS'],
       published: 'IRIS datasheet, from real-life testing in typical conditions: 1.1 km against a 0.25 kg drone, 3.1 km against 0.9 kg, 3.7 to 4 km against 2.9 kg (the sheets differ) and 7.6 km against 52 kg. Its instrumented range is 5 km, or 12 km in Long-Range Mode.',
-      basis: 'Game range is the 3.1 km figure, because 0.9 kg is closest to the game\u2019s small FPV. The 5 and 12 km are how far it can display, not how far it sees a small drone. It rotates, so it sees all round; the 60\u00B0 of elevation it covers is an ASSUMPTION.',
+      basis: 'Game range is the 3.1 km figure, because 0.9 kg is closest to the game\u2019s small FPV. The 5 and 12 km are how far it can display, not how far it sees a small drone. It rotates, so it sees all round; the 60\u00B0 of elevation it covers is an ASSUMPTION. Robin Radar says it classifies drones by micro-Doppler with a neural network; that it names multirotor or fixed wing inside half its reach is an ASSUMPTION.',
       confidence: 'Manufacturer\u2019s test figures, not independently checked',
       sources: [
         { label: 'Robin Radar: IRIS product sheet, April 2026', url: 'https://www.robinradar.com/hubfs/IRIS%20product%20sheet%20042026.pdf' },
         { label: 'Robin Radar: IRIS datasheet V15.6', url: 'https://www.robinradar.com/hubfs/Iris%20Datasheet%20V15.6_online.pdf' },
         { label: 'EDR Magazine: IRIS long-range module', url: 'https://www.edrmagazine.eu/?p=46182' },
+        { label: 'Robin Radar: how the IRIS uses deep neural networks', url: 'https://www.robinradar.com/blog/elevating-drone-detection-how-we-use-deep-neural-networks-dnn-in-the-iris-radar' },
       ],
       cost: {
         capex: 'Robin Radar’s CEO put IRIS at under $1 million per unit (traditional air-defence radars: $20–50 million). Game price $900,000.',

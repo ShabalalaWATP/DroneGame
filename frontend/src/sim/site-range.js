@@ -3,7 +3,7 @@
 
 import { SENSING, TERRAIN } from './config/index.js';
 import { earthBulge, freeSpaceLoss, fresnelRadius, pathLoss, reachFactor } from './propagation.js';
-import { coverArc, inCover } from './sensor-model.js';
+import { coverKey, inCover } from './sensor-model.js';
 
 // How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
 // the radar's low-flyer range is multiplied by this.
@@ -73,7 +73,7 @@ export function predictRange(def, droneDef, world, x, z, alt = typicalAltitude(d
   const sx = Math.round(x / world.cell) * world.cell, sz = Math.round(z / world.cell) * world.cell;
   let results = predictions.get(world);
   if (!results) predictions.set(world, results = new Map());
-  const key = `${def.id}|${sx}|${sz}|${open}|${def.mount}|${droneDef.id}|${alt}|${coverArc(def)}|${def.facing}`;
+  const key = `${def.id}|${sx}|${sz}|${open}|${def.mount}|${droneDef.id}|${alt}|${coverKey(def)}`;
   const saved = results.get(key);
   if (saved) return saved;
   const out = calculate(def, droneDef, world, sx, sz, alt, open);

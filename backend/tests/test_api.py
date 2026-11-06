@@ -199,6 +199,12 @@ class TestUnitSettings:
         assert system["settings"] == {"mount": 35, "threshold": "low"}
         assert (system["name"], system["callsign"]) == ("North mast", "NORTH-1")
 
+    def test_keeps_a_radar_beam_below_the_horizon_and_its_blanking_arcs(self, client):
+        settings = {"elevLow": -10, "blank": [[40, 80], [350, 10]], "clutter": "high"}
+        made = client.post(f"{API}/laydowns", json=_laydown_with(settings=settings))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings
+
     def test_a_laydown_saved_before_these_fields_still_loads(self, client):
         made = client.post(f"{API}/laydowns", json=_laydown_with())
         assert made.status_code == 201
@@ -206,7 +212,11 @@ class TestUnitSettings:
         assert not {"settings", "name", "callsign"} & set(system)
 
     @pytest.mark.parametrize("bad", [
-        {"settings": {"mount": -1}},
+        {"settings": {"mount": -91}},
+        {"settings": {"blank": [[0, 10]] * 4}},
+        {"settings": {"blank": [[0, 360]]}},
+        {"settings": {"blank": [[0, 10, 20]]}},
+        {"settings": {"blank": [["north", 10]]}},
         {"settings": {"mount": 1e13}},
         {"settings": {"bad key": 1}},
         {"settings": {"threshold": "<script>"}},

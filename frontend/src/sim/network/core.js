@@ -68,7 +68,7 @@ export function createCore(ctx) {
   // distance from a node to where a track is believed to be (the effector is cued to the estimate, not the truth)
   const distToTrack = (s, tr) => {
     const m = mpu();
-    return Math.hypot(tr.est.east - s.pos.x * m, tr.est.north + s.pos.z * m, tr.est.up - (s.pos.y || 0) * m);
+    return Math.hypot(tr.est.east - s.pos.x * m, tr.est.north + s.pos.z * m, tr.flat ? 0 : tr.est.up - (s.pos.y || 0) * m); // no measured height: across the ground
   };
   // where a track is from what is being defended: the drawn area's centre if there is one, or the station
   // shortcut: distance is to the area's centre, not its edge, so a long thin area ranks threats unevenly; measure to the outline if that shows in play.
