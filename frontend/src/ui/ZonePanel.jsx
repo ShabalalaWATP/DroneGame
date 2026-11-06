@@ -30,7 +30,7 @@ export function ZonePanel({ onClose }) {
   const draw = () => { if (!drawing) game.setTool('zone'); };
   const finish = () => { set(closeZone(zone)); game.setTool('zone'); };
   const redraw = () => { set(null); draw(); };
-  const patrol = game.sim.patrol(), walking = game.getTool() === 'patrol';
+  const patrol = game.sim.getPatrol(), walking = game.getTool() === 'patrol';
   const drawRoute = () => { game.setViewOption('route', null); game.setTool('patrol'); };
   const clearPatrol = () => { game.commands.setPatrol(null); game.bump(); };
 

@@ -46,7 +46,7 @@ export function createZoneView(scene, sim) {
     if (!zone.closed) for (const [x, z] of zone.points) { const m = new THREE.Mesh(peg, material); m.position.set(x, hereU(x, z) + LIFT, z); group.add(m); }
   }
   const drawZone = () => outline(marks, view.zone, mat);
-  const route = () => view.route || (sim.patrol() ? { points: sim.patrol().route, closed: true } : null);
+  const route = () => view.route || (sim.getPatrol() ? { points: sim.getPatrol().route, closed: true } : null);
   const routeKey = () => JSON.stringify(route());
   const drawRoute = () => outline(routeMarks, route(), routeMat);
 

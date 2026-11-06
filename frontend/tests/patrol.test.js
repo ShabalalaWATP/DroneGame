@@ -39,14 +39,14 @@ describe('setting a patrol', () => {
   it('adds the escort and the people, paid from the budget, and refunds them when cleared', () => {
     const before = sim.state.budget;
     expect(sim.commands.setPatrol(ROUTE)).toBeNull();
-    const p = sim.patrol();
+    const p = sim.getPatrol();
     expect(sim.structures.map((s) => s.def.id).sort()).toEqual([FOOT.effector, FOOT.sensor].sort());
     expect(sim.structures.every((s) => s.escort && s.uplink === 'starlink')).toBe(true);
     expect(sim.people).toEqual([p.group]);
     expect(p.group.count).toBe(FOOT.groupSize);
     expect(sim.state.budget).toBeLessThan(before);
     sim.commands.setPatrol(null);
-    expect(sim.patrol()).toBeNull();
+    expect(sim.getPatrol()).toBeNull();
     expect(sim.structures).toHaveLength(0);
     expect(sim.people).toHaveLength(0);
     expect(sim.state.budget).toBe(before);
@@ -54,7 +54,7 @@ describe('setting a patrol', () => {
 
   it('refuses a bad route, leaving nothing behind', () => {
     expect(sim.commands.setPatrol(WET)).toMatch(/water/);
-    expect(sim.patrol()).toBeNull();
+    expect(sim.getPatrol()).toBeNull();
     expect(sim.structures).toHaveLength(0);
   });
 
@@ -65,12 +65,12 @@ describe('setting a patrol', () => {
     expect(sim.commands.setPatrol(ROUTE)).toBeNull();
     play(sim, 1);
     expect(sim.commands.setPatrol(null)).toMatch(/locked/);
-    expect(sim.patrol()).not.toBeNull();
+    expect(sim.getPatrol()).not.toBeNull();
   });
 
   it('keeps its escort out of the sell tool', () => {
     sim.commands.setPatrol(ROUTE);
-    const s = sim.patrol().sensor;
+    const s = sim.getPatrol().sensor;
     sim.commands.sell(s.pos.x, s.pos.z);
     expect(sim.structures).toContain(s);
   });
@@ -81,10 +81,10 @@ describe('walking', () => {
 
   it('waits for the attack, then walks at its speed with the escort ahead and behind', () => {
     sim.run(100);
-    expect(sim.patrol().dist).toBe(0);
+    expect(sim.getPatrol().dist).toBe(0);
     sim.commands.startWave();
     sim.run(200);
-    const p = sim.patrol(), metres = p.dist * 20;
+    const p = sim.getPatrol(), metres = p.dist * 20;
     expect(metres).toBeCloseTo(FOOT.walkSpeed * 200 * 0.05, 3);
     const at = along(p, p.dist);
     expect(p.group.x).toBeCloseTo(at.x); expect(p.group.z).toBeCloseTo(at.z);
@@ -95,7 +95,7 @@ describe('walking', () => {
 
   it('halts while its weapon is engaging', () => {
     sim.commands.startWave();
-    const p = sim.patrol();
+    const p = sim.getPatrol();
     sim.spawnDrone('fw', 0);
     for (let n = 0; n < 6000 && !p.effector.task; n++) sim.step();
     expect(p.effector.task).toBeTruthy();
@@ -107,7 +107,7 @@ describe('walking', () => {
 
   it('is what strike drones go for', () => {
     const fw = sim.spawnDrone('fw', 0);
-    expect(pickTarget({ structures: sim.structures, patrol: sim.patrol() }, fw)).toMatchObject({ x: sim.patrol().group.x, patrol: true });
+    expect(pickTarget({ structures: sim.structures, patrol: sim.getPatrol() }, fw)).toMatchObject({ x: sim.getPatrol().group.x, patrol: true });
   });
 });
 
@@ -128,7 +128,7 @@ describe('a whole run', () => {
     sim.commands.setPatrol(ROUTE);
     sim.commands.startWave();
     sim.commands.setFigure('drones', 'fw', 'casualtyRadius', 25);
-    const { group } = sim.patrol(), d = sim.spawnDrone('fw', 0);
+    const { group } = sim.getPatrol(), d = sim.spawnDrone('fw', 0);
     d.pos.set(group.x + u(29), d.pos.y, group.z); // inside the 30 m strike distance, beyond its 25 m casualty radius
     sim.step();
     expect(sim.state.leaks).toBe(1);
@@ -144,17 +144,17 @@ describe('a whole run', () => {
     sim.commands.reset('clear');
     sim.state.started = true;
     expect(sim.commands.loadLaydown(spec, '1')).toBeNull();
-    expect(sim.patrol().route).toEqual(ROUTE);
+    expect(sim.getPatrol().route).toEqual(ROUTE);
     expect(sim.structures).toHaveLength(2);
     sim.commands.reset('keep');
-    expect(sim.patrol().route).toEqual(ROUTE);
+    expect(sim.getPatrol().route).toEqual(ROUTE);
     expect(sim.people).toHaveLength(1);
   });
 
   it('leaves out a saved route that is no longer walkable', () => {
     const spec = { ...sim.currentLaydown(), patrol: WET };
     expect(sim.commands.loadLaydown(spec, '1')).toBeNull();
-    expect(sim.patrol()).toBeNull();
+    expect(sim.getPatrol()).toBeNull();
   });
 });
 

@@ -128,7 +128,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   // A click while drawing a patrol route. A closed route goes to the simulation, which adds the escort. A refused one is wiped.
   function patrolClick(x, z) {
     if (sim.designLocked()) { toast('The patrol is locked once the first wave starts'); return; }
-    if (!view.route && sim.patrol()) commands.setPatrol(null); // a new route replaces the old one
+    if (!view.route && sim.getPatrol()) commands.setPatrol(null); // a new route replaces the old one
     view.route = addZonePoint(view.route, x, z);
     if (!view.route?.closed) { bump(); return; }
     const refused = commands.setPatrol(view.route.points);

@@ -226,7 +226,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
 
   return {
     registerPack(pack) { packs.set(pack.hash, pack); },
-    patrol: () => w.patrol,
+    getPatrol: () => w.patrol,
     state, drones: w.drones, structures: w.structures, missiles: w.missiles, people: w.people, peopleRev: () => w.peopleRev, ledger: w.ledger, net: w.net, rec: w.rec, bus,
     commands, log, on, off, step, digest, endRun, stepCount: () => stepCount,
     currentLaydown: () => w.startLaydown || laydown.captureLaydown(w),
