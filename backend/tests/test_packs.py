@@ -148,3 +148,48 @@ def test_a_cross_site_form_cannot_start_a_build(client):
 
 def test_summary_tolerates_a_missing_file(tmp_path):
     assert read_summary(tmp_path / "gone.sgmap") is None
+
+
+def test_lists_only_finished_os_downloads(client, root):
+    nothing = {"heights": False, "surface": False, "features": False}
+    assert client.get(f"{API}/downloads").json() == {"terrain50": False, "squares": [], "estonia": nothing}
+    for folder, name in [("terrain50", "t.zip"), ("openmap_su", "o.zip"), ("vmd_su", "v.zip"), ("openmap_tq", "o.zip"), ("openmap_so", "o.zip"), ("vmd_so", "v.zip.part"), ("openmap_1x", "o.zip"), ("vmd_1x", "v.zip")]:
+        (root / "os" / folder).mkdir(parents=True)
+        (root / "os" / folder / name).write_bytes(b"x")
+    # TQ has no picture download, SO's is unfinished, and 1X is not a square
+    assert client.get(f"{API}/downloads").json() == {"terrain50": True, "squares": ["SU"], "estonia": nothing}
+    (root / "estonia").mkdir()
+    (root / "estonia" / "DTM_10m_eesti.tif").write_bytes(b"x")
+    (root / "estonia" / "DTM_10m_eesti.tif.part").write_bytes(b"x")
+    (root / "estonia" / "ndsm_5m_2020-2023_kogu_Eesti.zip.part").write_bytes(b"x")
+    for theme in ("ehitised", "kolvikud", "transport", "veekogud"):
+        (root / "estonia" / f"ETAK_Eesti_SHP_{theme}.zip").write_bytes(b"x")
+    assert client.get(f"{API}/downloads").json()["estonia"] == {"heights": True, "surface": False, "features": False}  # one theme is missing
+    (root / "estonia" / "ETAK_Eesti_SHP_tehnovorgud.zip").write_bytes(b"x")
+    assert client.get(f"{API}/downloads").json()["estonia"]["features"] is True
+
+
+def test_an_estonian_build_uses_its_own_folder_and_lidar_across_the_whole_pack(root):
+    calls = []
+
+    class Process:
+        stdout = iter([])
+
+        def wait(self):
+            return 0
+
+    jobs = PackBuilder(PackLibrary(root), run=lambda command, **_: calls.append(command) or Process())
+    jobs.start(611700, 6570700, True)
+    command = calls[0]
+    assert command[command.index("--data") + 1] == str(root / "estonia")
+    assert command[command.index("--lidar-km") + 1] == "30"
+    assert command[command.index("--centre") + 1] == "611700,6570700"
+
+
+@pytest.mark.parametrize("east,north,code", [
+    (611700, 6570700, 202), (422000, 166000, 202),  # Tapa and Savernake
+    (800000, 6570700, 422), (611700, 7000000, 422), (611700, 2000000, 422), (700000, 166000, 422),  # off both grids, or between them
+])
+def test_a_build_must_be_on_a_grid(client, root, monkeypatch, east, north, code):
+    monkeypatch.setattr(PackBuilder, "start", lambda self, *a: {"running": True, "ok": None, "message": "Starting"})
+    assert client.post(f"{API}/build", json={"east": east, "north": north, "lidar": False}).status_code == code

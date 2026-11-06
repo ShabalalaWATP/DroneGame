@@ -25,6 +25,7 @@ def test_the_api_matches_the_documented_table(client):
         f"{API}/figure-sets/{{figure_set_id}}": ["DELETE", "GET"],
         f"{API}/packs": ["GET"],
         f"{API}/packs/build": ["GET", "POST"],
+        f"{API}/packs/downloads": ["GET"],
         f"{API}/packs/{{name}}": ["GET"],
     }
 

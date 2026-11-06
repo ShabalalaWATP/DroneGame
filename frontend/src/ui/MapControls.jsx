@@ -6,11 +6,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { terrainState } from '../sim/terrain.js';
 import { STRUCTURES, WORLD } from '../sim/config/index.js';
-import { gridRef, parseGridRef } from '../sim/bng.js';
+import { gridRef, isEstonian, onGrid, parsePosition } from '../sim/grids.js';
+import { parseWorldId } from '../sim/world-pack.js';
 import { contourStep, heightRange } from '../render/topo.js';
 import { view } from '../render/view.js';
 import { useArmed, useGame, useTick } from './hooks.js';
-import { accuracyText, inBritain, locateMe } from './locate.js';
+import { accuracyText, locateMe } from './locate.js';
 import { ZonePanel } from './ZonePanel.jsx';
 import './map-panel.css';
 
@@ -24,6 +25,7 @@ const REAL_MAPS = [
   ['relief', 'Shaded relief', 'The bare shape of the ground'],
   ['live', 'Live map', 'OpenStreetMap, over the internet'],
 ];
+const ESTONIAN_MAPS = REAL_MAPS.map(([id, name, text]) => [id, name.replace('OS map', 'Basic map'), text.replace('OS map', 'basic map')]);
 const GENERATED_MAPS = [
   ['generated', 'Generated', 'The invented ground'],
   ['live', 'Live map demo', 'OpenStreetMap around Marlborough. A picture only: the hills stay as generated.'],
@@ -40,7 +42,7 @@ const usable = (id, source) => {
   if (id === 'live' && globalThis.navigator?.onLine === false) return 'Needs internet';
   return null;
 };
-export const mapName = (id) => REAL_MAPS.find(([map]) => map === id)?.[1] || id;
+export const mapName = (id, world) => (isEstonian(parseWorldId(world)?.n0) ? ESTONIAN_MAPS : REAL_MAPS).find(([map]) => map === id)?.[1] || id;
 // The next map the M key can show, skipping any that can't be used.
 export function nextBaseMap(current, source) {
   const ids = REAL_MAPS.map(([id]) => id).filter((id) => !usable(id, source));
@@ -103,7 +105,7 @@ export function MapControls() {
   const [zoneOpen, setZoneOpen] = useState(false);
   const change = useArmed();
 
-  const maps = geo ? REAL_MAPS : GENERATED_MAPS;
+  const maps = !geo ? GENERATED_MAPS : isEstonian(geo.n0) ? ESTONIAN_MAPS : REAL_MAPS;
   const source = game.mapSource?.(seed);
   const gameView = game.getView();
   useEffect(() => {
@@ -138,7 +140,7 @@ export function MapControls() {
       } else {
         view.me = null;
         const text = geo ? `outside this world` : 'and this is generated ground';
-        if (inBritain(fix)) say(`You are at ${where}, ${text}.`, { e: fix.e, n: fix.n, note: `Your location, ${quality}.` });
+        if (onGrid(fix.e, fix.n)) say(`You are at ${where}, ${text}.`, { e: fix.e, n: fix.n, note: `Your location, ${quality}.` });
         else say('You appear to be outside Great Britain, which these maps cover.');
       }
     } catch (problem) { say(problem.message); }
@@ -146,8 +148,8 @@ export function MapControls() {
   };
   const placeHere = (e) => {
     e.preventDefault();
-    const point = parseGridRef(typed);
-    if (!point) { say('That is not a grid reference, such as SU 220 660.'); return; }
+    const point = parsePosition(typed);
+    if (!point) { say(`That is not a grid reference, such as ${geo ? gridRef(geo.e0, geo.n0) : 'SU 220 660'}.`); return; }
     const at = toScene(point.e, point.n), tool = game.getTool();
     if (!inWorld(at)) { say('That grid reference is outside this world.', point); return; }
     if (STRUCTURES[tool]) {

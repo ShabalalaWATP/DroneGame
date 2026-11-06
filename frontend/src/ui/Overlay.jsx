@@ -20,6 +20,7 @@ function StartCard({ openDock }) {
   const [terrain, setTerrain] = useState(onRealMap ? '1' : sim.state.terrainSeed);
   const [realWorld, setRealWorld] = useState(null); // a world string, once a real map and start point are chosen
   const [wantReal, setWantReal] = useState(!!view.startAt || onRealMap);
+  const [guiding, setGuiding] = useState(false); // the guide starts here on a real map, because where to defend comes first
   const deploy = () => {
     const s = cleanSeed(seed.trim());
     if (wantReal) {
@@ -34,13 +35,19 @@ function StartCard({ openDock }) {
     return true;
   };
   const notChosen = wantReal && !realWorld;
+  const onSiteStep = guiding && wantReal;
+  const guide = () => {
+    if (wantReal && !guiding) { setGuiding(true); return; }
+    if (deploy()) game.setViewOption('wizard', 'open');
+  };
   return (
-    <div className="card welcome">
+    <div className={wantReal ? 'card welcome picking' : 'card welcome'}>
       <div className="wz-debrief-head">SITE GUARD</div>
       <h1>Defend a site</h1>
       <p className="lead">You place and network sensors and weapons on a fixed {money(ECONOMY.budget)} budget, then watch your system try to find and stop inbound drones. The heart of it is the gap between where drones really are and where your system believes they are.</p>
       {!wantReal && <div className="stages">{STAGES.map(([head, text]) => <div key={head}><b>{head}</b>{text}</div>)}</div>}
       <p className="muted">A game and a teaching tool. Most figures are vendor claims or labelled assumptions, so do not base real decisions on it.</p>
+      <WorldPicker wantReal={wantReal} onWantReal={setWantReal} onWorld={setRealWorld} guiding={onSiteStep} onStopGuiding={() => setGuiding(false)} />
       <details className="seeds">
         <summary>Advanced: scenario and terrain seeds</summary>
         <div className="seed-row">
@@ -54,9 +61,8 @@ function StartCard({ openDock }) {
         </div>
         <p className="muted seed-note">The same scenario seed and laydown give the same attack every time. The terrain seed changes the ground (hills, woods, power lines) without changing the attack.</p>
       </details>
-      <WorldPicker wantReal={wantReal} onWantReal={setWantReal} onWorld={setRealWorld} />
       <div className="start-actions">
-        <button id="btn-guide" className="wz-go" disabled={notChosen} onClick={() => { if (deploy()) game.setViewOption('wizard', 'open'); }}>Guide me through it</button>
+        <button id="btn-guide" className="wz-go" disabled={onSiteStep && notChosen} onClick={guide}>{!onSiteStep ? 'Guide me through it' : notChosen ? 'Needs a ready map first' : 'Defend here and carry on'}</button>
         <button id="btn-deploy" disabled={notChosen} onClick={deploy}>{notChosen ? 'Choose where to defend' : 'I know the game, just deploy'}</button>
         {openDock && <button id="btn-load-saved" className="quiet" disabled={notChosen} onClick={() => { if (deploy()) openDock('saved'); }}>Load a saved laydown</button>}
       </div>

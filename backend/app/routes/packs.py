@@ -4,18 +4,24 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import FileResponse
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.schemas import Strict
-from app.services.packs import BuildBusy, PackBuilder, PackLibrary
+from app.services.packs import BuildBusy, PackBuilder, PackLibrary, on_a_grid
 
 router = APIRouter(prefix="/api/v1/packs")
 
 
 class BuildRequest(Strict):
-    east: Annotated[int, Field(ge=0, lt=700_000)]
-    north: Annotated[int, Field(ge=0, lt=1_300_000)]
+    east: Annotated[int, Field(ge=0, lt=1_000_000)]
+    north: Annotated[int, Field(ge=0, lt=10_000_000)]
     lidar: bool
+
+    @model_validator(mode="after")
+    def is_on_a_grid(self) -> "BuildRequest":
+        if not on_a_grid(self.east, self.north):
+            raise ValueError("That position is outside the maps this can build.")
+        return self
 
 
 def library(request: Request) -> PackLibrary:
@@ -33,6 +39,11 @@ Builder = Annotated[PackBuilder, Depends(builder)]
 @router.get("")
 def list_packs(packs: Library) -> list[dict[str, Any]]:
     return packs.list()
+
+
+@router.get("/downloads")
+def downloads(packs: Library) -> dict[str, Any]:
+    return packs.downloads()
 
 
 @router.get("/build")

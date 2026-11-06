@@ -1,4 +1,4 @@
-"""Lat/long is worked out once, here, with full OSTN15 accuracy. The pack stores a small polynomial, so the browser needs no projection library."""
+"""Lat/long is worked out once, here, with full OSTN15 accuracy in Great Britain. The pack stores a small polynomial, so the browser needs no projection library."""
 
 import numpy as np
 import pyproj
@@ -38,8 +38,18 @@ def best_transformer(source: str | int, target: str | int):
     return group.transformers[0]
 
 
-def geo_fit(window: Window) -> dict:
-    to_wgs = best_transformer(27700, 4326)
+def geoid_separation(window: Window, crs: int, to_wgs) -> float:
+    """How far the ellipsoid is below the map's heights at the middle of the window."""
+    if crs == 27700:
+        to_height = best_transformer("EPSG:7405", "EPSG:4979")  # British National Grid + ODN height, to WGS 84 with ellipsoid height
+        return to_height.transform(window.east, window.north, 0.0)[2]
+    # shortcut: EGM2008 stands in for Estonia's own height system, as PROJ has no grid for it. Only the altitude SAPIENT reports uses this. Upgrade if PROJ gains one.
+    lon, lat = to_wgs.transform(window.east, window.north)
+    return best_transformer("EPSG:4326+3855", "EPSG:4979").transform(lon, lat, 0.0)[2]
+
+
+def geo_fit(window: Window, crs: int = 27700) -> dict:
+    to_wgs = best_transformer(crs, 4326)
     grid = np.linspace(-window.half, window.half, SAMPLES)
     east, north = np.meshgrid(window.east + grid, window.north + grid)
     east, north = east.ravel(), north.ravel()
@@ -47,8 +57,7 @@ def geo_fit(window: Window) -> dict:
     lon_fit, lat_fit, error = fit_to_coefficients(east, north, np.asarray(lon), np.asarray(lat), window)
     if error > MAX_ERROR_M:
         raise SystemExit(f"The position fit is out by {error:.2f} m, over the {MAX_ERROR_M} m limit.")
-    to_height = best_transformer("EPSG:7405", "EPSG:4979")  # British National Grid + ODN height, to WGS 84 with ellipsoid height
-    _, _, ellipsoid = to_height.transform(window.east, window.north, 0.0)
+    ellipsoid = geoid_separation(window, crs, to_wgs)
     if not np.isfinite(ellipsoid):
         raise SystemExit("The geoid model did not give a height here.")
     return {"lonFit": lon_fit, "latFit": lat_fit, "fitErrorM": round(error, 3), "geoidSeparation": round(float(ellipsoid), 2)}

@@ -92,6 +92,11 @@ export function createPackStore({ api, idb = globalThis.indexedDB, fetchFile = (
     return { packs: [...found.values()], serverDown };
   }
 
+  // Which OS downloads this computer already has, or null if the save server cannot say.
+  async function downloads() {
+    try { return await api.packs.downloads(); } catch { return null; }
+  }
+
   // The whole pack file, wherever it is kept.
   async function fileOf(entry) {
     if (entry.source === 'browser') {
@@ -126,5 +131,5 @@ export function createPackStore({ api, idb = globalThis.indexedDB, fetchFile = (
     return entry;
   }
 
-  return { list, load, fileOf, importFile, get: (hash) => loaded.get(hash) || null };
+  return { list, downloads, load, fileOf, importFile, get: (hash) => loaded.get(hash) || null };
 }

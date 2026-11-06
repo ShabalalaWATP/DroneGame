@@ -33,7 +33,7 @@ export function useHotkeys() {
         if (e.key === 'm' || e.key === 'M') {
           const next = nextBaseMap(view.baseMap, game.mapSource(game.sim.state.terrainSeed));
           game.setViewOption('baseMap', next);
-          game.toast(`Map: ${mapName(next)}`);
+          game.toast(`Map: ${mapName(next, game.sim.state.terrainSeed)}`);
           return;
         }
       } else if (e.key === 'm' || e.key === 'M') { game.setViewOption('osm', !view.osm); return; }

@@ -24,6 +24,7 @@ warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
 SEARCH = "https://earth-search.aws.element84.com/v1/search"
 SCENE_HOST = "https://sentinel-cogs.s3.us-west-2.amazonaws.com/"
 SATELLITE_M = 10
+BRITISH_CRS = 27700
 MAX_SCENES = 5
 MIN_SCENES = 2
 
@@ -57,8 +58,8 @@ def os_map(data_root: str, window: Window, say) -> list[dict]:
     return pictures
 
 
-def scenes_for(window: Window, years: list[int]) -> list[dict]:
-    to_wgs = Transformer.from_crs(27700, 4326, always_xy=True)
+def scenes_for(window: Window, years: list[int], crs: int = BRITISH_CRS) -> list[dict]:
+    to_wgs = Transformer.from_crs(crs, 4326, always_xy=True)
     west, south = to_wgs.transform(window.west, window.south)
     east, north = to_wgs.transform(window.right, window.top)
     found = {}
@@ -81,18 +82,18 @@ def composite(layers: list[np.ndarray]) -> np.ndarray:
         return np.nan_to_num(np.nanmedian(cube, axis=0), nan=0).clip(0, 255).astype("uint8")
 
 
-def satellite(window: Window, years: list[int], say) -> tuple[list[dict], int | None]:
+def satellite(window: Window, years: list[int], say, crs: int = BRITISH_CRS) -> tuple[list[dict], int | None]:
     """Returns the picture, and the year to credit. If too few scenes are clear, the pack simply has no satellite layer."""
     os.environ.update(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR", CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".tif", GDAL_HTTP_MAX_RETRY="3", GDAL_HTTP_RETRY_DELAY="2", PROJ_NETWORK="ON")
     size = 2 * window.half // SATELLITE_M
     transform = from_origin(window.west, window.top, SATELLITE_M, SATELLITE_M)
     layers, latest = [], None
     seen = None
-    for item in scenes_for(window, years):
+    for item in scenes_for(window, years, crs):
         href = item["assets"]["visual"]["href"]
         if not href.startswith(SCENE_HOST):
             raise SystemExit(f"unexpected host for a scene: {href}")
-        with rasterio.open(href) as source, WarpedVRT(source, crs="EPSG:27700", transform=transform, width=size, height=size, resampling=Resampling.bilinear, nodata=0) as vrt:
+        with rasterio.open(href) as source, WarpedVRT(source, crs=f"EPSG:{crs}", transform=transform, width=size, height=size, resampling=Resampling.bilinear, nodata=0) as vrt:
             data = vrt.read()
         filled = data.sum(axis=0) > 0
         if filled.mean() < 0.25:

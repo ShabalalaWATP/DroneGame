@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import shapely
 
-from mapbuild import features, fit, packfile, pictures, terrain
+from mapbuild import estonia, estonia_files, features, fit, packfile, pictures, terrain
 from mapbuild.grid import Window, parse_grid_ref, square_letters
 
 
@@ -188,3 +188,283 @@ def test_the_composite_ignores_missing_data_and_outliers():
     picture = pictures.composite([a, b, c])
     assert picture[0, 0, 1] == 110
     assert picture[0, 0, 0] == 177  # the median of 100 and 255: two scenes alone cannot rule a cloud out
+
+
+def test_estonian_cells_average_the_ground_and_ignore_gaps():
+    fine = np.array([[1, 3, 10, 10], [1, 3, 10, 10], [np.nan, np.nan, 2, np.nan], [np.nan, np.nan, np.nan, np.nan]], "float32")
+    means = estonia.cell_mean(fine, 2)
+    assert means[0, 0] == 2 and means[0, 1] == 10 and means[1, 1] == 2 and np.isnan(means[1, 0])
+
+
+def test_estonian_cells_take_the_90th_percentile_and_can_ask_for_enough_pixels():
+    fine = np.zeros((8, 8), "float32")
+    fine[0:4, 0:4] = np.arange(16).reshape(4, 4)
+    fine[4:8, :] = np.nan
+    fine[4, 4] = 7
+    high = estonia.cell_high(fine, 4)
+    assert high[0, 0] == 14  # the 90th percentile of 0 to 15, so the single tallest pixel does not count
+    assert np.isnan(high[1, 0]) and high[1, 1] == 7
+    assert np.isnan(estonia.cell_high(fine, 4, minimum=2)[1, 1])  # one pixel is not enough to call a cell a building
+
+
+def test_estonian_road_types_become_the_games_classes_and_multilines_split():
+    lines = np.array([shapely.LineString([(0, 0), (1, 1)]), shapely.MultiLineString([[(0, 0), (1, 0)], [(2, 0), (3, 0)]]), shapely.LineString([(0, 0), (0, 1)])], dtype=object)
+    parts, fields = estonia.road_rows(lines, np.array([10, 50, 999]))
+    assert [p.geom_type for p in parts] == ["LineString"] * 3
+    assert list(fields["CLASSIFICA"]) == ["Primary", "Local", "Local"]  # the unknown type is left out
+
+
+def test_the_estonian_tile_grid_covers_the_window_exactly():
+    columns, rows = estonia.tile_numbers(Window(611000, 6570000, 15000))
+    x0, y0 = estonia.TILE_ORIGIN
+    assert x0 + columns[0] * estonia.TILE_M <= 596000 and x0 + (columns[-1] + 1) * estonia.TILE_M >= 626000
+    assert y0 + (rows[0] + 1) * estonia.TILE_M >= 6585000 and y0 + rows[-1] * estonia.TILE_M <= 6555000
+    assert list(rows) == sorted(rows, reverse=True)  # north first, as a picture runs
+
+
+def test_the_estonian_base_map_is_cut_into_pieces_placed_on_the_grid():
+    def tile(x, y):
+        return None if x % 2 else np.full((3, 256, 256), 100, "uint8")
+    pieces = estonia.base_map(Window(611000, 6570000, 8000), lambda _: None, tile=tile, pause=0)
+    columns, rows = estonia.tile_numbers(Window(611000, 6570000, 8000))
+    x0, y0 = estonia.TILE_ORIGIN
+    assert pieces[0]["west"] == x0 + columns[0] * estonia.TILE_M and pieces[0]["top"] == y0 + (rows[0] + 1) * estonia.TILE_M
+    assert pieces[0]["type"] == "image/jpeg" and pieces[0]["layer"] == "osmap" and pieces[0]["data"][:2] == b"\xff\xd8"
+    assert sum(p["width"] * p["height"] for p in pieces) == len(columns) * len(rows) * estonia.TILE_M ** 2
+
+
+def test_estonian_credits_name_the_owner_and_carry_the_licence():
+    found = estonia.credits(30, 2026)
+    assert "Land and Spatial Development Board" in found["osmap"] and estonia.LICENCE in found["osmap"]
+    assert "2020-2023" in found["lidar"] and "2020-2023" not in estonia.credits(0, 2026)["lidar"]
+
+
+def test_no_estonian_download_is_trusted_if_it_is_a_web_page(tmp_path, monkeypatch):
+    class Reply:
+        status, headers = 200, {"Content-Type": "text/html", "Content-Length": "5"}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+    monkeypatch.setattr(estonia_files.urllib.request, "urlopen", lambda *a, **k: Reply())
+    with pytest.raises(SystemExit, match="web page"):
+        estonia_files._fetch(estonia.BUILDINGS, str(tmp_path), lambda _: None)
+    assert not (tmp_path / estonia.BUILDINGS).exists()
+
+
+def test_an_estonian_download_resumes_and_a_finished_file_is_kept(tmp_path, monkeypatch):
+    import io
+    import zipfile
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as z:
+        z.writestr("a.txt", "hello")
+    whole = buffer.getvalue()
+    (tmp_path / f"{estonia.BUILDINGS}.part").write_bytes(whole[:10])
+    asked = []
+
+    class Reply(io.BytesIO):
+        status = 206
+        headers = {"Content-Type": "application/zip", "Content-Length": str(len(whole) - 10)}
+
+    def opened(request, timeout):
+        asked.append(request.get_header("Range"))
+        return Reply(whole[10:])
+
+    monkeypatch.setattr(estonia_files.urllib.request, "urlopen", opened)
+    estonia_files._fetch(estonia.BUILDINGS, str(tmp_path), lambda _: None)
+    assert asked == ["bytes=10-"] and (tmp_path / estonia.BUILDINGS).read_bytes() == whole
+    estonia_files._fetch(estonia.BUILDINGS, str(tmp_path), lambda _: None)  # already there, so nothing is asked for
+    assert len(asked) == 1
+
+
+def test_lidar_is_only_fetched_for_estonia_when_asked(tmp_path, monkeypatch):
+    got = []
+    monkeypatch.setattr(estonia_files, "_fetch", lambda name, folder, say: got.append(name))
+    estonia_files.ensure(str(tmp_path), False, lambda _: None)
+    assert estonia.SURFACE not in got and estonia.HEIGHTS in got
+    estonia_files.ensure(str(tmp_path), True, lambda _: None)
+    assert estonia.SURFACE in got
+
+
+def _a_zip() -> bytes:
+    import io
+    import zipfile
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as z:
+        z.writestr("a.txt", "hello")
+    return buffer.getvalue()
+
+
+def test_a_complete_part_file_is_finished_rather_than_asked_for_forever(tmp_path, monkeypatch):
+    (tmp_path / f"{estonia.BUILDINGS}.part").write_bytes(_a_zip())
+
+    def opened(request, timeout):
+        raise estonia_files.urllib.error.HTTPError(request.full_url, 416, "Range Not Satisfiable", {}, None)
+
+    monkeypatch.setattr(estonia_files.urllib.request, "urlopen", opened)
+    estonia_files._fetch(estonia.BUILDINGS, str(tmp_path), lambda _: None)
+    assert (tmp_path / estonia.BUILDINGS).read_bytes() == _a_zip()
+
+
+def test_a_download_with_no_stated_length_still_works_and_a_damaged_one_is_thrown_away(tmp_path, monkeypatch):
+    import io
+    whole = _a_zip()
+
+    class Reply(io.BytesIO):
+        status = 200
+        headers = {"Content-Type": "application/zip"}
+
+    monkeypatch.setattr(estonia_files.urllib.request, "urlopen", lambda request, timeout: Reply(whole))
+    estonia_files._fetch(estonia.BUILDINGS, str(tmp_path), lambda _: None)
+    assert (tmp_path / estonia.BUILDINGS).read_bytes() == whole
+    monkeypatch.setattr(estonia_files.urllib.request, "urlopen", lambda request, timeout: Reply(b"not a zip"))
+    with pytest.raises(SystemExit, match="did not download correctly"):
+        estonia_files._fetch(estonia.LAND, str(tmp_path), lambda _: None)
+    assert not list(tmp_path.glob(f"{estonia.LAND}*"))
+
+
+def test_a_download_longer_than_promised_is_refused(tmp_path, monkeypatch):
+    import io
+
+    class Reply(io.BytesIO):
+        status = 200
+        headers = {"Content-Type": "application/zip", "Content-Length": "4"}
+
+    monkeypatch.setattr(estonia_files.urllib.request, "urlopen", lambda request, timeout: Reply(b"x" * 100))
+    with pytest.raises(SystemExit, match="longer than"):
+        estonia_files._fetch(estonia.BUILDINGS, str(tmp_path), lambda _: None)
+    assert not list(tmp_path.iterdir())
+
+
+def test_estonian_maps_ask_for_room_first(tmp_path, monkeypatch):
+    monkeypatch.setattr(estonia_files.shutil, "disk_usage", lambda _: type("U", (), {"free": 1})())
+    with pytest.raises(SystemExit, match="GB free"):
+        estonia_files.ensure(str(tmp_path), True, lambda _: None)
+
+
+def _estonian_tif(path, west, top, cell, values):
+    """A small GeoTIFF on the Estonian grid, as the agency's files are."""
+    import rasterio
+    from rasterio.transform import from_origin
+    with rasterio.open(path, "w", driver="GTiff", width=values.shape[1], height=values.shape[0], count=1, dtype="float32", crs="EPSG:3301", transform=from_origin(west, top, cell, cell)) as tif:
+        tif.write(values.astype("float32"), 1)
+
+
+def test_estonian_lidar_sheets_land_where_their_names_say(tmp_path):
+    import zipfile
+    sheet = tmp_path / "sheet.tif"
+    with zipfile.ZipFile(tmp_path / estonia.SURFACE, "w", zipfile.ZIP_DEFLATED) as z:
+        _estonian_tif(sheet, 611000, 6571000, 5, np.full((200, 200), 12))  # the square km from E 611, N 6570
+        z.write(sheet, "570611_ndsm_5m.tif")
+        _estonian_tif(sheet, 610000, 6571000, 5, np.full((200, 200), 3))  # the one to its west
+        z.write(sheet, "570610_ndsm_5m.tif")
+    window = Window(611000, 6570000, 1000)
+    fine = estonia.surface_pixels(str(tmp_path), window)
+    assert fine.shape == (window.side * 4, window.side * 4)
+    row, col = 10 // 5 + 1000 // 5 - 1, 10 // 5 + 1000 // 5  # the pixel just north east of the window's middle
+    assert fine[row, col] == 12 and fine[row, col - 1] == 3
+    assert np.isnan(fine[0, 0]) and np.isnan(fine[-1, -1])  # no sheet north or south of that row of squares
+
+
+def test_an_oversized_estonian_lidar_sheet_is_refused(tmp_path, monkeypatch):
+    import zipfile
+    with zipfile.ZipFile(tmp_path / estonia.SURFACE, "w") as z:
+        z.writestr("570611_ndsm_5m.tif", b"x" * 100)
+    monkeypatch.setattr(estonia, "MAX_SHEET_BYTES", 10)
+    with pytest.raises(SystemExit, match="far larger"):
+        estonia.surface_pixels(str(tmp_path), Window(611000, 6570000, 1000))
+
+
+def test_estonian_ground_is_averaged_into_posts_and_stops_where_the_data_stops(tmp_path):
+    values = np.full((202, 202), 40.0)
+    values[:, 101:] = 50.0
+    _estonian_tif(tmp_path / estonia.HEIGHTS, 609990, 6571010, 10, values)  # reaches 10 m past the window, as the edge posts need
+    window = Window(611000, 6570000, 1000)
+    ground = estonia.ground_posts(str(tmp_path), window)
+    assert ground.shape == (window.side, window.side)
+    assert ground[50, 0] == 40 and ground[50, -1] == 50 and ground[50, 50] == 45  # the middle post's cell straddles the step
+    _estonian_tif(tmp_path / estonia.HEIGHTS, 609990, 6571010, 10, values[:, :101])  # the data stops halfway, like a border
+    ground = estonia.ground_posts(str(tmp_path), window)
+    assert ground[50, 0] == 40 and np.isnan(ground[50, -1])
+
+
+def test_estonian_ground_must_sit_on_the_expected_grid(tmp_path):
+    _estonian_tif(tmp_path / estonia.HEIGHTS, 609993, 6571010, 10, np.zeros((10, 10)))
+    with pytest.raises(SystemExit, match="10 m grid"):
+        estonia.ground_posts(str(tmp_path), Window(611000, 6570000, 1000))
+
+
+def test_a_zip_only_gdal_can_read_is_checked_by_reading_sheets(tmp_path, monkeypatch):
+    import zipfile
+    path = tmp_path / "a.zip"
+    with zipfile.ZipFile(path, "w") as z:
+        for i in range(3):
+            z.writestr(f"{i}.tif", b"x")
+    monkeypatch.setattr(estonia_files, "DEFLATE64", zipfile.ZIP_STORED)  # Python cannot write the real thing
+    asked = []
+    monkeypatch.setattr(estonia_files, "_readable", lambda address: asked.append(address) or True)
+    assert estonia_files._is_whole_zip(str(path)) is True
+    assert len(asked) == 3 and asked[0] == f"/vsizip/{{{path}}}/0.tif"
+    monkeypatch.setattr(estonia_files, "_readable", lambda address: False)
+    assert estonia_files._is_whole_zip(str(path)) is False
+
+
+def test_a_real_sheet_can_be_read_through_a_zip_with_an_odd_name(tmp_path):
+    import zipfile
+    sheet = tmp_path / "sheet.tif"
+    _estonian_tif(sheet, 611000, 6571000, 5, np.full((4, 4), 1))
+    path = tmp_path / "a.zip.part"
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.write(sheet, "570611_ndsm_5m.tif")
+    assert estonia_files._readable(f"/vsizip/{{{path}}}/570611_ndsm_5m.tif") is True
+    assert estonia_files._readable(f"/vsizip/{{{path}}}/missing.tif") is False
+
+
+def test_lidar_gives_trees_and_buildings_only_inside_its_reach(tmp_path):
+    import zipfile
+    sheet = tmp_path / "sheet.tif"
+    values = np.full((200, 200), 2.0)
+    values[100:140, 100:140] = 9.0  # a 200 m block of tall cover in the south east quarter
+    _estonian_tif(sheet, 611000, 6571000, 5, values)
+    with zipfile.ZipFile(tmp_path / estonia.SURFACE, "w", zipfile.ZIP_DEFLATED) as z:
+        z.write(sheet, "570611_ndsm_5m.tif")
+    window = Window(611500, 6570500, 8000 // 16)  # half a km each way: entirely inside the sheet
+    ground = np.full((window.side, window.side), 30.0, "float32")
+    house = shapely.box(611500, 6570300, 611700, 6570500)  # the same block
+    full = estonia.lidar(str(tmp_path), window, 500, ground, np.array([house], dtype=object))
+    middle = window.side // 2
+    assert full["ground"][middle, middle] == 30 and full["tall"][1, 1] == 2
+    assert full["houses"][middle + 5, middle + 5] == 9 and np.isnan(full["houses"][1, 1])
+    near = estonia.lidar(str(tmp_path), window, 100, ground, np.array([], dtype=object))
+    assert np.isnan(near["ground"][1, 1]) and near["ground"][middle, middle] == 30  # outside the reach, the assumed heights stand
+
+
+def _etak_theme(tmp_path, theme, layer, field, values):
+    """A theme zip with one small shapefile in it, laid out as the agency's are."""
+    import zipfile
+    from pyogrio.raw import write
+    folder = tmp_path / "shapes"
+    folder.mkdir(exist_ok=True)
+    shapes = np.array([shapely.to_wkb(shapely.LineString([(611000 + i, 6570000), (611010 + i, 6570010)])) for i in range(len(values))], dtype=object)
+    write(str(folder / f"{layer}.shp"), shapes, [np.array(values, "int32")], fields=[field], driver="ESRI Shapefile", geometry_type="LineString", crs="EPSG:3301")
+    with zipfile.ZipFile(tmp_path / theme, "w", zipfile.ZIP_DEFLATED) as z:
+        for part in folder.glob(f"{layer}.*"):
+            z.write(part, part.name)
+
+
+def test_a_filtered_etak_layer_really_is_filtered(tmp_path):
+    _etak_theme(tmp_path, estonia.UTILITIES, "E_601_elektriliin_j", "nimipinge", [10, 35, 110, 330])
+    etak = estonia.Etak(str(tmp_path), Window(611000, 6570000, 1000))
+    shapes, fields = etak.read(estonia.UTILITIES, "E_601_elektriliin_j", ["nimipinge"], f"nimipinge >= {estonia.MIN_LINE_KV}")
+    assert len(shapes) == 3 and sorted(fields["nimipinge"]) == [35, 110, 330]
+    assert all(s.geom_type == "LineString" for s in shapes)
+    assert len(etak.read(estonia.UTILITIES, "E_601_elektriliin_j")[0]) == 4  # no filter, and no columns asked for
+
+
+def test_an_etak_layer_only_gives_what_is_in_the_window(tmp_path):
+    _etak_theme(tmp_path, estonia.UTILITIES, "E_601_elektriliin_j", "nimipinge", [110])
+    far_away = estonia.Etak(str(tmp_path), Window(500000, 6500000, 1000))
+    assert len(far_away.read(estonia.UTILITIES, "E_601_elektriliin_j")[0]) == 0

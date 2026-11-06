@@ -199,6 +199,22 @@ Measuring each country's drones against the Mixed laydown showed how much a game
 
 Alex chose to lift it for the Sting and the P1-SUN, leaving the small net carrier limited to small, slow drones. Hit chance already falls as the target gets faster, so a Shahed is a fair shot and a jet a hard one. Against Mixed, Iran's waves then lasted to wave 11 or 12 instead of 2, China's to 4 or 5 and Russia's to 8 or 9. The generic game got easier too: Mixed held to wave 15 to 17 instead of 9 or 10, and eight interceptors with three compact radars to 14 to 16 instead of 4. Generic waves may want strengthening to match.
 
+## Choosing a site
+
+Alex found choosing a site clunky, and could not tell how to do it. The start buttons were below the fold, the map opened zoomed into one pack with no sign of the others, the ways to choose were scattered around the card, and **Guide me through it** stayed disabled until a site was already chosen, so the guide could not help with the choice.
+
+The start card now lays out three numbered ways beside a bigger map, with the buttons always in reach, and all of it works without the guide. **Guide me through it** now starts on the card, and says what to do next from what has been chosen. The map highlights map packs, the lidar inside them, and the 100 km squares of OS data already downloaded. Choosing somewhere with no map lists what a build would use and what it would download. That comparison happens in the browser against a list of squares from the backend, so looking at a spot sends nothing anywhere. The map only zooms for a choice the player made.
+
+Alex then asked how to switch map tiles, because hiding Leaflet's layer list behind its icon had made it hard to find, and suggested a world map with obvious overlays for loaded data. So the map now opens on the world, with a dot of a fixed size for each pack, which can be clicked from any zoom. Buttons above the map choose the style, and tick boxes below it control the loaded data and double as its legend.
+
+Alex also asked to select anywhere in the world. The map can move there, but real maps are not global: packs need OS open data, and real-world coordinates are on the national grid. So a spot outside Great Britain is refused plainly, and global maps are recorded as a project of their own.
+
+## Estonia
+
+Alex asked whether Estonia had topographic maps, around Narva or Tapa. It does, and they are free to use, so Estonia became the first real maps outside Great Britain, starting with Tapa, because Estonian data stops at the Russian border and leaves half of Narva empty.
+
+The saving grace was that northings on the two grids never overlap, so a position says which grid it is on, and nothing that carries an easting and northing needed to change. The builder gained a second set of sources. Whole-country files were chosen over asking for one area at a time, because downloading them gives nothing away about the site, even though it costs about 7 GB once.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

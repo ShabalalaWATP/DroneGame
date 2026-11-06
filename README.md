@@ -243,13 +243,13 @@ Everything is under `/api/v1`, with the schema at `/api/v1/openapi.json`.
 | `/laydowns` | `GET`, `POST`, and `GET`, `PUT`, `DELETE` by ID |
 | `/runs` | `GET`, `POST`, and `GET`, `DELETE` by ID |
 | `/figure-sets` | `GET`, `POST`, and `GET`, `DELETE` by ID |
-| `/packs` | `GET` the list, `GET` a pack file by name, and `GET`, `POST` `/packs/build` |
+| `/packs` | `GET` the list, `GET` a pack file by name, `GET` `/packs/downloads` for the OS data already here, and `GET`, `POST` `/packs/build` |
 
 There is no sign-in, so the service binds to this machine only, and refuses other hosts and cross-site writes. See the [security notes](docs/SECURITY_NOTES.md), which also say what would be needed before hosting it.
 
 ## Real maps
 
-The start screen opens with a real map ready, if map packs are installed, so you can deploy straight away. To defend somewhere else, click the Leaflet map, type a position, or press **Use my location**. The map's layer list has street, light, dark, satellite and hybrid styles, plus offline OS and satellite pictures from the packs. Satellite and hybrid come from EOxCloudless, which is free for non-commercial use only (CC BY-NC-SA 4.0), at 10 m per pixel. Positions can be a grid reference, decimal latitude and longitude (51.39, -1.68), or eastings and northings (422000 166000). Most laptops have no GPS chip and estimate from Wi-Fi, so the app shows how good the position is. If there is no map there yet, the app offers to build one.
+The start screen opens with a real map ready, if map packs are installed, so you can deploy straight away. To defend somewhere else, use any of three ways, all on the start card: press **Use my location**, move the map and click a spot, or type a position. **Guide me through it** starts by helping with this choice, and nothing needs the guide. The map opens on the world, with what this computer already has marked on it: a blue dot or square for each map pack ready to play (click a dot to go there), green for lidar heights inside them, and dashed orange for 100 km squares of OS data already downloaded. **My maps** zooms to your packs, and **World** zooms back out. Tick boxes under the map turn each of these on and off, and add the offline OS and satellite pictures from the packs. Choose somewhere with no map and the card lists what a build would use from this computer, and what it would download. You can move around the whole world, but real maps only cover Great Britain and Estonia so far, so a spot elsewhere is refused. Buttons above the map switch between street, light, dark, satellite and hybrid styles, or **No live map**. Satellite and hybrid come from EOxCloudless, which is free for non-commercial use only (CC BY-NC-SA 4.0), at 10 m per pixel. Positions can be a grid reference, decimal latitude and longitude (51.39, -1.68), or eastings and northings (422000 166000). Most laptops have no GPS chip and estimate from Wi-Fi, so the app shows how good the position is. If there is no map there yet, the app offers to build one.
 
 In the game, the buttons beside the minimap open the map switcher, centre on your location, centre on the site, draw the area to defend, and change between 3D and plan view. The switcher shows a preview of each map: OS, light, dark, satellite, hybrid, topographic, shaded relief and live OpenStreetMap. M moves to the next one. The topographic map uses the world's own heights, with height colours, hill shading and labelled contours. Contours (C), roads and names, and the national grid (G) can be added to any map. If your location is outside the current world, **Open a map here** goes back to the start screen on that spot, and **Change world** switches between generated ground and real maps. A typed grid reference moves there, or places the system you have picked.
 
@@ -259,9 +259,10 @@ Maps live in `~/site-guard-maps` (set `SITE_GUARD_MAPS` to move them), which hol
 
 ```bash
 uv --directory tools/mapbuild run python -m mapbuild --centre "SU 22 66" --name "Savernake" --data ~/site-guard-maps/os --out ~/site-guard-maps/packs/savernake.sgmap --fetch
+uv --directory tools/mapbuild run python -m mapbuild --centre 611700,6570700 --name "Tapa" --data ~/site-guard-maps/estonia --out ~/site-guard-maps/packs/tapa.sgmap --fetch --lidar-km 30
 ```
 
-Real ground plays differently from generated ground. Lidar covers England only, and elsewhere the ground uses OS Terrain 50 with assumed tree and building heights. Map data is under the Open Government Licence, satellite pictures contain modified Copernicus Sentinel data, and live tiles are © OpenStreetMap contributors.
+Real ground plays differently from generated ground. In Great Britain, lidar covers England only, and elsewhere the ground uses OS Terrain 50 with assumed tree and building heights. In Estonia, lidar covers the whole country, and a position can also be typed as eastings and northings on the Estonian grid (611700 6570700). Estonian data stops at the national border, so at Narva about half of a world around the city counts as water. Estonian maps download 6.8 GB of national files the first time, and come from the [Land and Spatial Development Board](https://geoportaal.maaruum.ee/opendata-licence). British map data is under the Open Government Licence, satellite pictures contain modified Copernicus Sentinel data, and live tiles are © OpenStreetMap contributors.
 
 ## Saved data
 
