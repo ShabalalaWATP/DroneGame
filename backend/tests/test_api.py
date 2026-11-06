@@ -199,8 +199,8 @@ class TestUnitSettings:
         assert system["settings"] == {"mount": 35, "threshold": "low"}
         assert (system["name"], system["callsign"]) == ("North mast", "NORTH-1")
 
-    def test_keeps_a_radar_beam_below_the_horizon_and_its_blanking_arcs(self, client):
-        settings = {"elevLow": -10, "blank": [[40, 80], [350, 10]], "clutter": "high"}
+    def test_keeps_a_radar_beam_below_the_horizon_its_arc_and_its_blanking_arcs(self, client):
+        settings = {"elevLow": -10, "arc": 30, "blank": [[40, 80], [350, 10]], "clutter": "high"}
         made = client.post(f"{API}/laydowns", json=_laydown_with(settings=settings))
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings

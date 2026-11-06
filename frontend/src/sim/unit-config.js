@@ -54,6 +54,13 @@ export const UNIT_FIELDS = [
     help: 'Each panel adds its arc beside the others, at the price of another radar head.',
   },
   {
+    // A panel steers its beam, so a narrower arc spends the same scan on less sky: range goes with the fourth root (search radar
+    // equation). A rotating radar's dish turns all round whatever it is told, so only fixed panels have this.
+    key: 'arc', label: 'Arc per panel', unit: '°', step: 5, base: (c) => c.arc, direct: 'arc', limits: Object.fromEntries(Object.keys(PANELLED).map((id) => [id, [30, STRUCTURES[id].arc]])),
+    range: (v, c) => Math.pow(c.arc / v, 0.25),
+    help: 'Narrower searches less, so it reaches further: a quarter of the arc gains about 40%. It sees nothing outside it.',
+  },
+  {
     // No standard value: left unset, it faces away from what is being defended, wherever that is (laydown.js).
     key: 'facing', label: 'Facing', unit: '°', step: 5, base: () => null, limits: { ...Object.fromEntries(Object.keys(PANELLED).map((id) => [id, [0, 355]])), ...each(JAMMERS, [0, 355]) },
     help: 'The compass bearing the middle of its arc points along. Reset, it faces away from what you defend.',

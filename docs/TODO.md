@@ -27,7 +27,7 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] A4 part 1: coverage arcs and elevation for every radar, panels and facing on fixed-panel radars, drawn in every view. Small radars now see 120° per panel
 - [x] A4 part 2: tracker timing scaled to each sensor's update interval, so a radar's scan period now goes up to 5 s
 - [x] A4 part 3: 2D radars, band, clutter filter, the beam's low and top edges, blanking arcs and micro-Doppler
-- [ ] A4 left over: a narrower azimuth arc that gains range
+- [x] A4 left over: arc per panel on fixed-panel radars. A narrower arc reaches further: a quarter of the arc gains about 40%
 - [x] A5: conditions (clear day, dusk, night, rain and haze) for cameras by channel, radar by band and lasers, and camera optics: pixels on target, zoom on a cue, channels, resolution, lens, rangefinder, search arc and slew
 - [ ] A5 left over: rain noise for acoustic sensors, thermal diffraction with the F-number, and a camera that names the drone's model when identified, not only its airframe
 - [x] A6 part 1: radio detection. Drones are heard on the bands of their own links, a detector hears only bands it covers, your own jamming deafens it on the bands it jams, and classifier libraries, sensitivity and direction finding are fields
