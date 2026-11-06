@@ -6,6 +6,7 @@ import { STRUCTURES } from './config/index.js';
 import { BANDS, CLUTTER, arcsText, bandOf, bandRange, bandSharpness, beamGain, lowestEdge, parseArcs } from './sensor-model.js';
 import { CHANNELS, PIXELS } from './camera-model.js';
 import { weatherRange } from './conditions.js';
+import { LIBRARIES } from './rf-model.js';
 
 const each = (ids, limits) => Object.fromEntries(ids.map((id) => [id, limits]));
 const RADARS = ['radar_s', 'radar_a400', 'radar', 'radar_a800', 'radar_giraffe', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_auds', 'jammer_l'], ACOUSTICS = ['acoustic_s', 'acoustic', 'acoustic_l'];
@@ -16,6 +17,8 @@ const FLAT_PRICE = 0.3, MICRO_DOPPLER_PRICE = 0.15; // share of the system's pri
 const ZOOMS = { camera: [2.5, 10], camera_l: [0.5, 7.1] }; // what each zoom lens can do, wide and narrow, in degrees
 const RES_PRICE = 0.3, LENS_PRICE = 0.1, SLEW_PRICE = 0.1; // share of a camera's price per doubling of pixels, per doubling of light, and per extra slew rate
 const RANGEFINDER_PRICE = 20000, RANGEFINDER_ERROR = 5; // dollars, and metres: assumptions
+const SENSITIVITY_PRICE = 0.5, DF_PRICE = 0.5; // share of a detector's price per doubling of reach, and for angle of arrival over a sector
+const DF_ERROR = { sector: 30, aoa: 5 }; // bearing error a detector switched to this gets, in degrees: the listed sector, and an older Dedrone's ±5°
 const choicesOf = (table) => Object.fromEntries(Object.entries(table).map(([k, v]) => [k, v.label]));
 const MAST_PRICE = 0.015, RELOAD_PRICE = 0.1; // share of the system's price, per metre and per second
 const THRESHOLD = { low: { range: 1.1, falseAlarm: 2 }, high: { range: 0.9, falseAlarm: 0.5 } };
@@ -81,6 +84,23 @@ export const UNIT_FIELDS = [
     key: 'clutter', label: 'Clutter filter', base: () => 'medium', limits: each(RADARS, true), choices: choicesOf(CLUTTER),
     lowRange: (v) => CLUTTER[v].lowRange, falseAlarm: (v) => CLUTTER[v].falseAlarm,
     help: 'Low sees low flyers further, with more false alarms. High is the reverse, and misses slow and crossing drones.',
+  },
+  {
+    key: 'library', label: 'Classifier library', base: (c) => c.library, direct: 'library', limits: each(RFS, true), choices: choicesOf(LIBRARIES),
+    price: (v, c) => (LIBRARIES[v].price - LIBRARIES[c.library].price) * c.cost, falseAlarm: (v) => (LIBRARIES[v].knows ? 1 : 2),
+    help: 'It names the airframe of a radio link it knows, and takes any other for a drone. With none it hears energy only, and has twice the false alarms.',
+  },
+  {
+    // Free-space reach doubles for every 6 dB.
+    key: 'sensitivity', label: 'Receiver sensitivity', unit: 'dBm', step: 1, base: (c) => c.sensitivity,
+    limits: Object.fromEntries(RFS.map((id) => [id, [STRUCTURES[id].sensitivity - 6, STRUCTURES[id].sensitivity + 6]])),
+    range: (v, c) => 2 ** ((c.sensitivity - v) / 6), price: (v, c) => (2 ** ((c.sensitivity - v) / 6) - 1) * SENSITIVITY_PRICE * c.cost,
+    help: 'Every 6 dB lower hears twice as far, at a price.',
+  },
+  {
+    key: 'df', label: 'Direction finding', base: (c) => c.df, direct: 'df', limits: each(RFS, true), choices: { sector: 'Sector, ±30°', aoa: 'Angle of arrival' },
+    price: (v, c) => ((v === 'aoa') - (c.df === 'aoa')) * DF_PRICE * c.cost,
+    help: 'Angle of arrival gives a bearing good enough to cross with another detector\'s. A sector only says roughly which way.',
   },
   {
     key: 'threshold', label: 'Detection threshold', base: () => 'normal', limits: { ...each(RADARS, true), ...each(RFS, true), ...each(CAMERAS, true), ...each(ACOUSTICS, true) },
@@ -201,6 +221,7 @@ export function unitDef(id, settings = {}) {
     Object.defineProperty(def, 'emits', { get: () => (settings.band ? [{ label: `${BANDS[settings.band].label} radar`, f: BANDS[settings.band].f }] : c.emits) });
   }
   if (c.kind === 'camera') Object.defineProperty(def.sapient.noise, 'range', { get: () => (def.rangefinder === 'yes' ? RANGEFINDER_ERROR : undefined), enumerable: true });
+  if (c.kind === 'rf') Object.defineProperty(def.sapient.noise, 'az', { get: () => (settings.df ? DF_ERROR[settings.df] : c.sapient.noise.az), enumerable: true });
   return def;
 }
 

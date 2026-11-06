@@ -7,14 +7,15 @@ export const DRONES = {
   // evade: 1 = no manoeuvrability, lower = harder to hit. It lowers a shot's hit chance and slows a laser's burn.
   // adapt: how strongly this type gets better at evading/resisting each wave (see ADAPT).
   // sound: how much further it is heard than a small FPV, an assumption. A piston-engined fixed-wing drone is far louder than a quadcopter.
-  // rfEmitter: has an active radio link an RF detector can hear. airframe is what a camera classifies it as.
+  // rfEmitter: has an active radio link an RF detector can hear, on the bands of its control and video links. airframe is what a camera classifies it as.
+  // protocol: the family of its radio link, which an RF detector's classifier library may know (rf-model.js).
   // cost: what one drone costs the attacker in dollars, with the evidence in costRef.
   // casualtyRadius: how far from its blast an unprotected person can become a casualty (m). An assumption, not weapons data.
   // label: the tag drawn over it on the map.
   spotter: {
     name: 'Fixed-wing spotter drone', label: 'Fixed-wing spotter', role: 'spotter', model: 'fw', hp: 50, speed: 30, damage: 0, scale: 1.3, evade: 0.9,
     links: { control: 'control900', video: 'video58', gnss: true }, // radio dependencies, for jamming
-    color: 0xffd600, alt: [400, 500], jamResist: 0.75, adapt: 0.5, rfEmitter: true, airframe: 'Fixed wing',
+    color: 0xffd600, alt: [400, 500], jamResist: 0.75, adapt: 0.5, rfEmitter: true, protocol: 'tactical', airframe: 'Fixed wing',
     loiterDist: 2500, loiterTime: 60, // orbit radius (m) and seconds on station before it leaves
     spotBonus: 0.5,                   // each spotter on station adds this to strike damage
     bank: 0.35,                       // bank angle (radians) while orbiting
@@ -43,7 +44,7 @@ export const DRONES = {
   fpv: {
     name: 'First-person-view strike drone', label: 'First-person-view', model: 'quad', hp: 20, speed: 30, damage: 12, scale: 0.7, evade: 0.6,
     links: { control: 'control24', video: 'video58' }, seeksEmitters: true, // goes for the loudest emitter it can find
-    rfEmitter: true, airframe: 'Multirotor', color: 0xff1744, alt: [30, 90], minAgl: 15, jamResist: 0, adapt: 1,
+    rfEmitter: true, protocol: 'hobby', airframe: 'Multirotor', color: 0xff1744, alt: [30, 90], minAgl: 15, jamResist: 0, adapt: 1,
     cost: 400, rcs: 0.01, size: 0.35, rfPower: 1, casualtyRadius: 25, sound: 1,
     costRef: {
       note: 'Ukrainian FPV strike drones are reported at about $400 each (some makers claim under $400 before the warhead; forum estimates run $500–$1,500). Game uses $400.',

@@ -51,26 +51,24 @@ export function updateWaves(w, dt, beginRun) {
   }
 }
 
-// Returns [{ t, type, bearing, jitter, altFrac, freq }] sorted by spawn time (seconds into the wave).
+// Returns [{ t, type, bearing, jitter, altFrac }] sorted by spawn time (seconds into the wave).
 // `rng` is the wave's own seeded stream (rng.js waveStream), so a wave looks the same however it is reached. `mix` is the drone types
 // ticked (attack-mix.js): each slot's drones take turns, starting at a different one each wave so every one is seen.
 export function makeWave(n, rng, mix = DEFAULT_MIX) {
   const slots = slotsFor(mix), take = (list, i) => list[(i + n) % list.length];
   const out = [];
+  const plan = (spawn) => { rng(); out.push(spawn); }; // each drone once rolled a radio band here; it now comes from its links, but the roll stays so every wave flies as before
   const groups = Math.min(1 + Math.floor(n / 3), 3);
   const bearings = Array.from({ length: groups }, () => rng() * Math.PI * 2);
   const add = (slot, count, start, span) => {
     const list = slots[slot];
     for (let i = 0; i < count && list.length; i++) {
-      out.push({
-        t: start + (span * i) / Math.max(count, 1), type: take(list, i), bearing: bearings[i % groups],
-        jitter: (rng() - 0.5) * 0.3, altFrac: rng(), freq: rng() < 0.5 ? 2.4e9 : 5.8e9,
-      });
+      plan({ t: start + (span * i) / Math.max(count, 1), type: take(list, i), bearing: bearings[i % groups], jitter: (rng() - 0.5) * 0.3, altFrac: rng() });
     }
   };
   // first-person-view strikes, or what stands in for them, arrive one at a time, each from its own direction, WAVES.fpvGap seconds apart
   for (let i = 0; i < 3 + n * 2; i++) {
-    out.push({ t: i * WAVES.fpvGap, type: take(slots.fpv, i), bearing: rng() * Math.PI * 2, jitter: 0, altFrac: rng(), freq: rng() < 0.5 ? 2.4e9 : 5.8e9 });
+    plan({ t: i * WAVES.fpvGap, type: take(slots.fpv, i), bearing: rng() * Math.PI * 2, jitter: 0, altFrac: rng() });
   }
   if (n >= 2) add('fw', Math.ceil((n - 1) / 2), 4, 14);
   if (n >= 3) add('fo', Math.floor((n - 1) / 2), 2, 10);

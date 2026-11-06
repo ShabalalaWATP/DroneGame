@@ -19,7 +19,7 @@ It is not built to be hosted. See [Before hosting](#before-hosting).
 | DNS rebinding | Only `localhost` and `127.0.0.1` are accepted as hosts | `TrustedHostMiddleware` in `main.py` |
 | Cross-site writes | Writes must be `application/json`, and no CORS is offered, so a browser refuses the cross-site request | `RequestGuard` in `security.py` |
 | Large requests | 1 MB limit, counting what actually arrives, so chunked bodies can't dodge it | `RequestGuard` |
-| Bad input | Pydantic: known names only, coordinates in the world, finite numbers, length limits, capped lists, unknown fields refused. A unit's settings are checked for shape only (numbers from -90, lowercase choices, up to 3 pairs of whole-degree bearings); the game clamps each to its own limits when it loads them | `schemas.py`, `frontend/src/sim/unit-config.js` |
+| Bad input | Pydantic: known names only, coordinates in the world, finite numbers, length limits, capped lists, unknown fields refused. A unit's settings are checked for shape only (numbers from -150, for a receiver's sensitivity in dBm, lowercase choices, up to 3 pairs of whole-degree bearings); the game clamps each to its own limits when it loads them | `schemas.py`, `frontend/src/sim/unit-config.js` |
 | SQL injection | Bound parameters only, with a test that checks the source | `db/stores.py` |
 | Script injection | React escapes everything, and a test bans `innerHTML` and similar in `ui/` | `tests/boundary.test.js` |
 | Loading other scripts | Content Security Policy with no inline scripts and same-origin connections only | `security.py` |

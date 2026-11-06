@@ -256,7 +256,7 @@ describe('playing on a real world', () => {
     tall.grids = { ...tall.grids, ground: tall.grids.ground.map((v, k) => (Math.floor(k / 801) < 150 ? 1500 : v)) };
     sim.registerPack(tall);
     sim.commands.deploy('1', id);
-    const d = sim.spawnDrone('spotter', -Math.PI / 2, { jitter: 0, altFrac: 0, freq: 2.4e9 }); // from the north, over the tall ground
+    const d = sim.spawnDrone('spotter', -Math.PI / 2, { jitter: 0, altFrac: 0 }); // from the north, over the tall ground
     for (let i = 0; i < 400 && !d.dead; i++) {
       sim.step();
       expect(d.pos.y).toBeGreaterThan(hereU(d.pos.x, d.pos.z));

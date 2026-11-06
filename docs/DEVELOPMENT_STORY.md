@@ -265,6 +265,14 @@ Cameras now follow their optics. A drone covers 4 pixels at the edge of a camera
 
 Over six seeds of the mixed laydown, a clear day ended much as before, 411 kills and 2 leaks against 413 and 6, and rain was harder, 397 kills and 6 leaks. Dusk and night played the same as a clear day there, because its cameras have a thermal channel; only a visible camera is blind at night, which is the saving it buys. The reference digests were re-recorded, because every sensor status now carries the conditions and cameras name only what covers 8 pixels. `GAME_VERSION` moved to 0.8.0.
 
+## Radio detection
+
+Stage A6 began with what a radio detector hears. A drone used to roll a radio band at random, 2.4 or 5.8 GHz, whatever its links were, and a detector heard it on any band. Now a drone radiates on the bands of its own control and video links, and a detector hears it only on a band it covers: the small detector, which listens at 2.4 and 5.8 GHz, no longer hears an Orlan-10 on 900 MHz, while the medium one hears a spotter on 900 MHz, which carries further than its video. The path is worked out on the lowest band it hears, and the report carries that band's frequency. A jammer likewise works out each link it jams on that link's own band, which removes an old shortcut. The wave still draws the old band roll, so every wave flies as before.
+
+Your own jammer now deafens your detectors: while it jams, a detector within its range cannot hear the bands it fills, as it already cuts your own links. A detector carries a classifier library. Every catalogue detector comes with the commercial one, which knows DJI and Autel links and so names those quadcopters; a hobby library names the FPV, a tactical one the spotter, and with none it hears energy and nothing more, with twice the false alarms. A library that does not know a link still reports a drone, as before. Receiver sensitivity doubles its reach for every 6 dB, and direction finding by angle of arrival gives a bearing good enough to cross with another, where a sector gives only a rough one. All three are paid hardware.
+
+The mixed laydown over twelve seeds ended at 781 kills and 11 leaks, against 814 and 5 before. That looked like a loss until the same comparison was run on the old code with one extra dice roll per scan, which changes no rule: it ended at 793 kills and 12 leaks. Every leak was a fixed-wing strike drone, which emits nothing, so these runs mostly measure chance, and the six-seed comparison in A5 can say no more than this. The reference digests were re-recorded, and only the mixed laydowns changed. `GAME_VERSION` moved to 0.9.0.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

@@ -7,6 +7,7 @@ import { terrainState } from '../terrain.js';
 import { errorScale, inClutter, reachFor, reachOnPath } from '../site-range.js';
 import { blindSpeed, classifiesAt, coverArc, elevationBand, inCover, outwardFrom } from '../sensor-model.js';
 import { airframeConfidence, hasZoom, pixelsOn } from '../camera-model.js';
+import { LIBRARIES, bandGhz, covers, heardBand, libraryKnows } from '../rf-model.js';
 import { RB_UNITS, rbDatum, round, clamp } from './core.js';
 
 export { reachFor };
@@ -32,10 +33,23 @@ export function createSensors(core, feed) {
     return daz <= half && del <= half;
   }
 
-  // How far this sensor reaches along the real path to this drone.
+  // The bands a radio detector cannot hear now: those your own jammers are filling within their reach of it, as they cut your own links
+  // in comms.js. shortcut: deaf or not, by the jammer's own range; a jammer's leakage falling off with distance would need a power model.
+  function deafTo(s) {
+    const deaf = new Set();
+    for (const j of nodes.values()) {
+      if (j.def.kind !== 'jammer' || j.mode !== 'Jam' || Math.hypot(j.pos.x - s.pos.x, j.pos.z - s.pos.z) * mpu() >= j.def.range) continue;
+      for (const b of j.jamBands) deaf.add(b);
+    }
+    return deaf;
+  }
+  const bandOn = (s, d) => heardBand(s.def, d.def, deafTo(s)); // the band a detector hears this drone on now, or null
+
+  // How far this sensor reaches along the real path to this drone. A radio detector works it out on the band it hears it on.
   function reachTo(s, d) {
-    const m = mpu();
-    return reachOnPath(s.def, d.def, terrainState.data, { x: s.pos.x * m, y: antennaM(s), z: s.pos.z * m }, { x: d.pos.x * m, y: d.pos.y * m, z: d.pos.z * m }, d.freq);
+    const m = mpu(), band = s.def.kind === 'rf' && bandOn(s, d);
+    if (band === null) return 0;
+    return reachOnPath(s.def, d.def, terrainState.data, { x: s.pos.x * m, y: antennaM(s), z: s.pos.z * m }, { x: d.pos.x * m, y: d.pos.y * m, z: d.pos.z * m }, band && bandGhz(band));
   }
 
   // The chance that this sensor detects this drone on one scan. It depends on:
@@ -82,8 +96,9 @@ export function createSensors(core, feed) {
       return [{ type: 'Air Vehicle', confidence: 0.95, sub_class: [sub('UAV', 0.9, 1, named ? sub(d.def.airframe, named, 2) : null)] }];
     }
     if (id === 'acoustic') return [{ type: 'Air Vehicle', confidence: 0.7, sub_class: [sub('UAV', 0.6, 1)] }]; // it sounds like a drone, not which one
-    if (id === 'rf') { // a radio emitter is recognised as a UAV link, but not as an airframe type
-      return [{ type: 'Air Vehicle', confidence: 0.85, sub_class: [sub('UAV', 0.8, 1)] }];
+    if (id === 'rf') { // its library names the airframe of a link it knows, and takes any other moving emitter for a drone; with none, it is energy
+      if (!LIBRARIES[s.def.library].knows) return [{ type: 'Unknown', confidence: 0.5 }];
+      return [{ type: 'Air Vehicle', confidence: 0.85, sub_class: [sub('UAV', 0.8, 1, libraryKnows(s.def, d.def) ? sub(d.def.airframe, 0.9, 2) : null)] }];
     }
     if (classifiesAt(s.def, rng, reach)) return [{ type: 'Air Vehicle', confidence: 0.8, sub_class: [sub('UAV', 0.7, 1, sub(d.def.airframe, 0.6, 2))] }]; // rotors or wings, by micro-Doppler
     return [{ type: 'Air Vehicle', confidence: 0.7, sub_class: [sub('UAV', 0.55, 1)] }];
@@ -142,10 +157,11 @@ export function createSensors(core, feed) {
       range_bearing: rb, detection_confidence: round(conf, 2),
       classification: classification(s, d, r.rng, reach),
     };
-    if (def.sapient.signal) {
+    if (def.sapient.signal) { // the band it heard the drone on, or for a false alarm any band it covers
+      const bands = covers(def), band = d ? bandOn(s, d) : bands[Math.floor(rand() * bands.length)];
       report.signal = [{
         amplitude: round(-45 - 20 * Math.log10(Math.max(r.rng, 100) / 100) + gauss() * 2, 1),
-        centre_frequency: d ? d.freq || 2.4e9 : rand() < 0.5 ? 2.4e9 : 5.8e9,
+        centre_frequency: Math.round(bandGhz(band) * 1e9),
       }];
     }
     let vel = null;

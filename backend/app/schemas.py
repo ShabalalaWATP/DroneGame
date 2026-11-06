@@ -49,7 +49,7 @@ Money = Annotated[float, Field(ge=-1e10, le=1e10)]
 FigureKey = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_]{1,32}$")]
 Figure = Annotated[float, Field(ge=0, le=1e12)]
 SettingChoice = Annotated[str, StringConstraints(pattern=r"^[a-z]{1,16}$")]
-SettingNumber = Annotated[float, Field(ge=-90, le=1e12)]  # a radar beam's low edge sits below the horizon
+SettingNumber = Annotated[float, Field(ge=-150, le=1e12)]  # a radar beam's low edge sits below the horizon, and a receiver's sensitivity is in dBm
 Bearing = Annotated[int, Field(ge=0, lt=360)]
 SettingArcs = Annotated[list[Annotated[list[Bearing], Field(min_length=2, max_length=2)]], Field(max_length=3)]  # blanking arcs, [from, to]
 UnitName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40), AfterValidator(_no_control_characters)]

@@ -9,6 +9,7 @@
 export const blast = (warheadKg) => Math.round(9.5 * Math.cbrt(warheadKg));
 
 const COMMERCIAL_LINKS = { control: 'control24', video: 'video58', gnss: true }; // 2.4 and 5.8 GHz in the maker's figures, plus satellite navigation
+const COMMERCIAL = { links: COMMERCIAL_LINKS, protocol: 'commercial' }; // a maker's own link, which a commercial library knows
 const NO_PRICE = 'No price found on any page opened, so the game uses the price of its type. Attack cost sums involving it are rough.';
 
 export const REAL_DRONES = {
@@ -32,7 +33,7 @@ export const REAL_DRONES = {
   lancet3: {
     variantOf: 'fw', origin: 'Russia', name: 'Lancet-3 (loitering munition)', label: 'Lancet-3',
     speed: 26, size: 1, rcs: 0.05, sound: 1, damage: blast(4), cost: 35000, seeksEmitters: true,
-    links: { control: 'control900', gnss: true }, rfEmitter: true,
+    links: { control: 'control900', gnss: true }, rfEmitter: true, protocol: 'tactical',
     usedBy: 'Russia.',
     published: 'Cruise 80 to 110 km/h (game uses 95). Ceiling about 5,000 m. Range about 40 km, about 40 minutes. 12 kg. Warhead 3 to 5 kg (game uses 4). Electric. 868 to 928 MHz reported for ZALA drones generally. Typical height and wingspan are not public, so height is its type’s and size is assumed. Press figures.',
     costRef: {
@@ -244,7 +245,7 @@ export const REAL_DRONES = {
   // ---------- commercial drones reported carrying munitions. Flight figures are the maker's, for the unmodified aircraft. ----------
   mavic3: {
     variantOf: 'fpv', origin: 'Commercial off the shelf', name: 'DJI Mavic 3 with a small munition', label: 'Mavic 3',
-    speed: 15, size: 0.38, evade: 0.8, links: COMMERCIAL_LINKS, damage: blast(0.5), cost: 2199,
+    speed: 15, size: 0.38, evade: 0.8, ...COMMERCIAL, damage: blast(0.5), cost: 2199,
     usedBy: 'Reported on the Russia-Ukraine battlefield. Which side flies which model is not confirmed.',
     published: 'Cruise about 54 km/h, top about 76 km/h. Up to 46 minutes. 0.38 m across, 0.9 kg. 2.4 and 5.8 GHz links, with satellite navigation. No source gives a munition mass: the game assumes 0.5 kg.',
     costRef: {
@@ -259,7 +260,7 @@ export const REAL_DRONES = {
   },
   matrice30t: {
     variantOf: 'fpv', origin: 'Commercial off the shelf', name: 'DJI Matrice 30T with a munition', label: 'Matrice 30T',
-    speed: 23, size: 0.67, evade: 0.8, links: COMMERCIAL_LINKS, damage: blast(1), cost: 6800,
+    speed: 23, size: 0.67, evade: 0.8, ...COMMERCIAL, damage: blast(1), cost: 6800,
     usedBy: 'Bought for Ukrainian forces. Munition use is not confirmed on any page opened.',
     published: 'Top speed about 83 km/h. Up to 41 minutes. 0.67 m across, 3.8 kg. 2.4 and 5.8 GHz links, with satellite navigation. No source gives a munition mass: the game assumes 1 kg.',
     costRef: {
@@ -273,7 +274,7 @@ export const REAL_DRONES = {
   },
   matrice300: {
     variantOf: 'fpv', origin: 'Commercial off the shelf', name: 'DJI Matrice 300 RTK with a munition', label: 'Matrice 300',
-    speed: 17, size: 0.9, evade: 0.8, rcs: 0.02, links: COMMERCIAL_LINKS, damage: blast(2), cost: 6800,
+    speed: 17, size: 0.9, evade: 0.8, rcs: 0.02, ...COMMERCIAL, damage: blast(2), cost: 6800,
     usedBy: 'One 2022 report of Ukrainian forces carrying munitions on it, with no mass given.',
     published: 'Cruise about 61 km/h, top about 83 km/h. Up to 55 minutes. 0.9 m across, 6.3 kg. 2.4 and 5.8 GHz links, with satellite navigation. The game assumes a 2 kg munition.',
     costRef: {
@@ -288,7 +289,7 @@ export const REAL_DRONES = {
   },
   agrast30: {
     variantOf: 'fpv', origin: 'Commercial off the shelf', name: 'DJI Agras T30 as a heavy bomber', label: 'Agras T30',
-    speed: 10, size: 2.1, evade: 0.95, rcs: 0.1, sound: 3, links: COMMERCIAL_LINKS, damage: blast(20), cost: 23000,
+    speed: 10, size: 2.1, evade: 0.95, rcs: 0.1, sound: 3, ...COMMERCIAL, damage: blast(20), cost: 23000,
     usedBy: 'A farm drone. Ukrainian use with added weapons is reported, naming the T30.',
     published: 'Top speed 36 km/h, working speed about 25 km/h. Up to about 20 minutes. 2.1 m across, 78 kg fully loaded. Crop load 30 kg. 2.4 and 5.8 GHz links. The 20 kg bomb load the game uses is reported for an unnamed farm hexacopter, not confirmed for this model.',
     costRef: {
@@ -304,7 +305,7 @@ export const REAL_DRONES = {
   },
   evomax4t: {
     variantOf: 'fpv', origin: 'Commercial off the shelf', name: 'Autel EVO Max 4T with a small munition', label: 'EVO Max 4T',
-    speed: 23, size: 0.46, evade: 0.8, links: COMMERCIAL_LINKS, damage: blast(0.5), cost: 5400,
+    speed: 23, size: 0.46, evade: 0.8, ...COMMERCIAL, damage: blast(0.5), cost: 5400,
     usedBy: 'Bought for Ukrainian forces. A Russian link rests on one Bloomberg report, which Autel denies. Munition use is not confirmed on any page opened.',
     published: 'Top speed about 83 km/h, from a reseller. Up to 42 minutes. 0.46 m across, 1.6 kg. 2.4 and 5.8 GHz links among others, with satellite navigation. No source gives a munition mass: the game assumes 0.5 kg.',
     costRef: {

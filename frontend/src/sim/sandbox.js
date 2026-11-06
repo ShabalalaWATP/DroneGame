@@ -28,7 +28,7 @@ export function launchSandboxAttack(w, { type, count, bearingDeg, gap }) {
   const { state } = w;
   for (let i = 0; i < count; i++) {
     const bearing = (bearingDeg === 'rand' ? rand() * 360 : Number(bearingDeg)) * Math.PI / 180 - Math.PI / 2; // compass bearing to a scene angle
-    state.sbQueue.push({ t: state.sbTime + i * gap, type, bearing, jitter: 0, altFrac: rand(), freq: rand() < 0.5 ? 2.4e9 : 5.8e9 });
+    state.sbQueue.push({ t: state.sbTime + i * gap, type, bearing, jitter: 0, altFrac: rand() });
   }
   state.sbQueue.sort(byTime);
 }

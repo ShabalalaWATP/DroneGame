@@ -251,7 +251,7 @@ describe('drones and effectors', () => {
   it('fibre drones ignore jammers and go for the loudest emitter', () => {
     setUp(sim, { seed: '1', laydown: [['radar', 600, 0], ['jammer', 500, 300]] });
     sim.state.sandbox = true;
-    const fo = sim.spawnDrone('fo', 0, { jitter: 0, altFrac: 0.5, freq: 2.4e9 });
+    const fo = sim.spawnDrone('fo', 0, { jitter: 0, altFrac: 0.5 });
     sim.run(4000);
     expect(fo.jamT).toBe(0);
     expect(fo.dead || fo.targetStructure).toBeTruthy();
@@ -303,7 +303,7 @@ describe('drones and effectors', () => {
   it('a strike that breaks through damages the site, and spotters add to it', () => {
     setUp(sim, { seed: '1', laydown: [] });
     sim.state.wave = 1;
-    sim.spawnDrone('fw', 0, { jitter: 0, altFrac: 0.5, freq: 2.4e9 });
+    sim.spawnDrone('fw', 0, { jitter: 0, altFrac: 0.5 });
     sim.run(4000);
     expect(sim.state.leaks).toBe(1);
     expect(sim.state.health).toBe(100 - DRONES.fw.damage);

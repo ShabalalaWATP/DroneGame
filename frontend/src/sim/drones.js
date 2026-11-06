@@ -3,6 +3,7 @@
 import { Vector3 } from 'three';
 import { WORLD, SITE, DRONES, ADAPT } from './config/index.js';
 import { antennaHeight, reachOnPath } from './site-range.js';
+import { bandGhz } from './rf-model.js';
 import { terrainState } from './terrain.js';
 import { rand, gauss } from './rng.js';
 import { u, hdist, clamp, groundM, hereU, onMap } from './units.js';
@@ -28,7 +29,6 @@ export function spawnDrone(w, type, bearing, rolls = {}) {
   // chance is pre-rolled by the wave's seeded stream; ad-hoc spawns (console, tests) draw from the sim stream
   const jitter = rolls.jitter ?? (rand() - 0.5) * 0.3;
   const altFrac = rolls.altFrac ?? rand();
-  const freq = rolls.freq ?? (rand() < 0.5 ? 2.4e9 : 5.8e9);
   const a = bearing + jitter;
   const { x: sx, z: sz } = launchPoint(w.state.zoneCentre, a);
   const agl = def.alt[0] + altFrac * (def.alt[1] - def.alt[0]); // metres above the ground at the spawn point
@@ -41,7 +41,7 @@ export function spawnDrone(w, type, bearing, rolls = {}) {
     hp: def.hp, evade, jamResist, jamT: 0, detected: false, dead: false,
     agl0: agl, h0: aim ? Math.max(Math.hypot(sx - aim.x, sz - aim.z), 1) : Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
     mode: 'approach', angle: 0, orbitT: 0, bank: 0, heading: 0, // spotter state
-    vel: new Vector3(), freq, track: null, nav: 0, videoJammed: false, targetStructure: null, aim,
+    vel: new Vector3(), track: null, nav: 0, videoJammed: false, targetStructure: null, aim,
   };
   w.drones.push(d);
   w.rec.event('launch', `${def.name} launched`, d.uid);
@@ -136,28 +136,30 @@ function moveStrike(w, d, spd) {
   return true;
 }
 
-export function jamReaches(s, d) {
+// Does this jammer reach the drone on this band? It needs a radio path, the same as a radio detector, worked out on that band.
+export function jamReaches(s, d, band) {
   const dist = s.pos.distanceTo(d.pos);
   if (dist > u(s.def.range)) return false;
-  // A jammer needs a radio path, the same as a radio detector. shortcut: it uses the drone's one reported band, not each link it jams.
   const m = WORLD.metresPerUnit;
   const from = { x: s.pos.x * m, y: s.pos.y * m + antennaHeight(s.def), z: s.pos.z * m }, to = { x: d.pos.x * m, y: d.pos.y * m, z: d.pos.z * m };
-  return dist <= u(reachOnPath(s.def, d.def, terrainState.data, from, to, d.freq));
+  return dist <= u(reachOnPath(s.def, d.def, terrainState.data, from, to, bandGhz(band)));
 }
 
-// Jamming. Each jammer that is on and in range jams the bands it is set to, and what that does depends on what the
-// drone relies on: a jammed control link slows it and eventually crashes it, a jammed video link does the same more
+// Jamming. Each jammer that is on jams the bands it is set to, where it reaches the drone on that band, and what that does depends
+// on what the drone relies on: a jammed control link slows it and eventually crashes it, a jammed video link does the same more
 // slowly (it is flying blind), and jammed GNSS makes a navigating drone drift off course (and the drift stays).
 // Returns the speed multiplier, or null if the drone crashed.
 function applyJamming(w, d, dt) {
   const links = d.def.links || {};
   let ctrl = false, vid = false, gnss = false, killTime = Infinity, ctrlSlow = 1;
   for (const s of w.structures) {
-    if (s.def.kind !== 'jammer' || s.mode !== 'Jam' || !jamReaches(s, d)) continue;
-    if (links.control && s.jamBands.has(links.control)) { ctrl = true; ctrlSlow = Math.min(ctrlSlow, s.def.slow); }
-    if (links.video && s.jamBands.has(links.video)) vid = true;
-    if (links.gnss && s.jamBands.has('gnss')) gnss = true;
-    killTime = Math.min(killTime, s.def.killTime);
+    if (s.def.kind !== 'jammer' || s.mode !== 'Jam') continue;
+    const jams = (band) => band && s.jamBands.has(band) && jamReaches(s, d, band);
+    const c = jams(links.control), v = jams(links.video), g = links.gnss && jams('gnss');
+    if (c) { ctrl = true; ctrlSlow = Math.min(ctrlSlow, s.def.slow); }
+    if (v) vid = true;
+    if (g) gnss = true;
+    if (c || v || g) killTime = Math.min(killTime, s.def.killTime);
   }
   const eff = 1 - d.jamResist;
   let slow = 1;

@@ -398,11 +398,12 @@ Pixels on target are `drone size / (pixel pitch / focal length x range)`. Detect
 | Library | Recognises | Result |
 |---|---|---|
 | None | Energy in the band only | Type unknown, double false alarms |
+| Commercial (the standard one) | DJI and Autel links | Names the commercial quadcopters |
 | FPV and hobby | ELRS, Crossfire, analogue video | Identifies the FPV |
 | Tactical | Long-range control and digital video | Identifies the spotter |
-| Full | Both | Costs the most |
+| Full | All three | Costs the most |
 
-FO Strike and FW Strike emit nothing, so no library helps against them. There is no DJI-style commercial library, because nothing in the drone roster would trigger it.
+FO Strike and FW Strike emit nothing, so no library helps against them. The real commercial quadcopters joined the roster after this table was first drawn, so there is a commercial library after all, and every catalogue detector comes with it. A library that does not know a link still reports a drone, as today's detectors do.
 
 #### RF jammer
 
@@ -427,7 +428,7 @@ FO Strike and FW Strike emit nothing, so no library helps against them. There is
 Three new effects:
 
 - **Distance from the operator:** a control link is easier to jam the further the drone is from its operator, so that distance scales the jam range. The launch point stands in for the operator's position. GNSS is unaffected.
-- **Self-interference:** an active jammer deafens your own RF detectors in the same band, as it already degrades your comms in `sim/comms.js`.
+- **Self-interference:** an active jammer deafens your own RF detectors in the same band, as it already degrades your comms in `sim/comms.js`. **Done in A6 part 1,** within the jammer's own range.
 - **Receiver blanking:** a receiver cannot listen while its jammer transmits, so reactive mode needs short listening gaps.
 
 **Known simplification:** a video receiver sits with the operator, not on the drone, so jamming it at the drone in `sim/drones.js` is not accurate. It stays for readability, marked with a `shortcut:` comment.
@@ -445,7 +446,7 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 | Tracks cannot confirm if the scan period is over 2.5 s, and flicker to coasting over 1.6 s. Bearings expire after 3 s, so a slow RF revisit could never triangulate, and sources older than 3 s drop out of fused reports. | `TRACKER` in `sim/tracker.js`, `confirmedTracks` and `fusedReport` in `sim/network/fusion.js` | Scale timeouts and `candidateLife` to the sensor's update interval. **Done in A4 part 2.** |
 | A 2D radar would be placed at antenna height with false precision. Since Phase 4, an effector only finds a drone within 300 m of the track in 3D, so a track with the wrong height could miss a spotter at 400-500 m or a FW Strike at 150-300 m. | `asMeasurement` in `sim/tracker.js`, `droneAt` in `sim/network/fusion.js`, `distToTrack` in `sim/network/core.js` | Treat height as unknown when there is no elevation, and compare horizontal distance only for those tracks | **Done in A4 part 3.**
 | `def.fov` is used to mean "this is a camera", and the view is square. False alarms use it too, and would appear inside blanked radar arcs. | `sim/network/sensors.js` including `falseGeometry`, `registration.js`, `index.js`, `tasking.js`, `ui/dock/plan-canvas.js` | Check `kind`, use separate names for radar arcs, and use separate horizontal and vertical values | False alarms in blanked arcs: **done in A4 part 3.**
-| The RF model never checks frequency, and a drone's reported frequency is random rather than taken from its links. The Spectrum tab shows one fixed detector range. | `pd` in `sim/network/sensors.js`, `sim/waves.js`, `sim/sandbox.js`, `SPECTRUM.detectorListens` in `ui/dock/spectrum-canvas.js` | Derive frequencies from `links`, test them against monitored bands, and show each unit's own bands |
+| The RF model never checks frequency, and a drone's reported frequency is random rather than taken from its links. The Spectrum tab shows one fixed detector range. | `pd` in `sim/network/sensors.js`, `sim/waves.js`, `sim/sandbox.js`, `SPECTRUM.detectorListens` in `ui/dock/spectrum-canvas.js` | Derive frequencies from `links`, test them against monitored bands, and show each unit's own bands. Frequencies and band matching: **done in A6 part 1.** The Spectrum tab already shows each type's own bands; per unit waits for monitored bands. |
 | The Cost tab multiplies catalogue price by count, and its "Each" column assumes one price per type. Refunds and the saved-laydown price check use the catalogue price. | `LaydownTable` in `ui/dock/CostTab.jsx`, `sell`, `restoreLaydown` and `costProblem` in `sim/laydown.js` | Use each unit's own price, and show totals where units of a type differ |
 | Custom names are new untrusted text | Registration, alerts, labels and panels | Trim, limit length and require unique callsigns, including against later automatic numbering. React and `textContent` already escape them on output. |
 | The coverage map will not refresh on edits, and rings are always full circles | `coverageGrid` and the drawing in `ui/dock/plan-canvas.js`, `render/structure-view.js`, `render/placement.js`, `ui/minimap.js` | Include unit settings in the cache key, and draw arcs in all four views |
@@ -468,7 +469,8 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 | A4 part 3 (built) | Radar fields in `sim/unit-config.js`, with their rules in `sim/sensor-model.js`. 2D on Medium and Large radars, 30% cheaper: no height, so its tracks are flat, compared across the ground, and a cued camera looks at the guessed height, then steps up a view at a time. Band: angle error goes with wavelength, small drones are seen a little further higher up, and the Spectrum tab shows it. The beam's low and top edges, up to 3 blanking arcs, and a clutter filter that can miss slow and crossing drones. Micro-Doppler names multirotor or fixed wing inside half the reach, standard on the IRIS and A400. The API's settings allow negative numbers and lists of arcs. | Digests re-baselined: micro-Doppler changes the messages of every laydown with an IRIS, the mixed laydown on seed 1 kills one more drone for $600k less, and on seed 7 ends the same for $400k more. `GAME_VERSION` is 0.7.0. |
 | A4, left over | A narrower azimuth arc that gains range. Rain loss by band came with A5. | |
 | A5 (built) | Conditions in `sim/conditions.js`: clear day, dusk, night, or rain and haze, chosen on the start card or in the control panel until the first wave, saved with the laydown, reported as `STATUS_TYPE_ILLUMINATION` and `STATUS_TYPE_WEATHER`, and lighting the scene. They scale a unit's own range: a camera by its better channel and its lens, radar in rain by band, and lasers in rain. Camera optics in `sim/camera-model.js`: 4 pixels detect, 8 name the airframe, 13 name it surely. A zoom camera searches at its wide view, zooms to its track view on a cue, and widens again when half its dwell finds nothing. Fields for channels, resolution, F-number, rangefinder, track view, search arc, sweep and slew. | Tests confirm the pixel maths, the zoom, night and rain behaviour, saving and replay. Digests re-baselined: sensor statuses carry the conditions, and cameras now name only what covers 8 pixels. `GAME_VERSION` is 0.8.0. |
-| A6 | RF, libraries and jammer physics | Tests confirm band matching, jam range and self-interference |
+| A6 part 1 (built) | Radio detection in `sim/rf-model.js`. A drone radiates on the bands of its control and video links, and one with a radio but no known band is taken as 2.4 GHz. A detector hears it only on a band it covers, works out the path on the lowest such band, and reports that band's frequency. Your own jammer, while jamming, deafens a detector within its range on the bands it jams. A jammer works out each link on that link's own band. Fields for a classifier library (none, commercial, FPV and hobby, tactical, full), receiver sensitivity and direction finding (sector or angle of arrival). | Tests confirm band matching, the reported band, self-interference, libraries, sensitivity and direction finding. Digests re-baselined: only the mixed laydowns changed, as reports now carry real bands. Over twelve seeds of the mixed laydown it ended at 781 kills and 11 leaks against 814 and 5, but HEAD with one extra dice roll per scan ended at 793 and 12, so that is within chance. `GAME_VERSION` is 0.9.0. |
+| A6 part 2 | Jammer physics: bands fitted, power per band, sector antennas, a receiver and library, barrage or reactive, the trigger, distance from the operator, and receiver blanking | Tests confirm jam range by antenna and operator distance |
 | A7 | Balance using `tools/balance.js`. Optionally, later waves move to non-standard bands such as 3.3 GHz, as reported in Ukraine. | Results are recorded and the game is playable |
 
 **Which drones attack:** `sim/attack-mix.js` holds the ticked mix, `state.attack`, and `makeWave` fills each type's place from it. It saves in the laydown's `spec` only when changed, and the backend checks its shape alone. `ui/AttackMix.jsx` is the picker. `config/real-drones-extra.js` holds the Geran-3, ASN-301 and Wing Loong II, and `antiRadar` with `seekRange` in `targeting.js` sends the ASN-301 after radars.
@@ -484,13 +486,13 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 | Kind | Fields |
 |---|---|
 | Radar | Mast height (paid), transmit power, scan period 0.5–5 s, detection threshold, band (paid), micro-Doppler (paid), low and top edge of the beam, up to 3 blanking arcs, clutter filter, 2D on Medium and Large (cheaper), and on fixed-panel radars, panels (paid) and facing |
-| RF detector | Mast height (paid), detection threshold |
+| RF detector | Mast height (paid), classifier library (paid), receiver sensitivity (paid), direction finding (paid), detection threshold |
 | EO/IR camera | Mast height (paid), channels (paid), resolution (paid), lens F-number (paid), laser rangefinder (paid), slew rate (paid), search view and track view (medium and large), search arc, sweep rate, dwell, detection threshold |
 | RF jammer | Transmit power, and active bands, which stay live during a run |
 | Interceptor, missile | Time between shots (paid) |
 | Laser | Beam damage (paid) |
 
-Radar 2D or 3D, band, blanking arcs, elevation edges, clutter filter and micro-Doppler came in A4 part 3. Camera channels, resolution, lens, rangefinder, zoom, search arc and slew came in A5; a different lens is not offered, so each camera keeps its own zoom range. RF bands, sensitivity, direction finding and libraries, and jammer antennas, technique and trigger, wait for A6. Each needs rules that do not exist yet, so editing it now would change nothing.
+Radar 2D or 3D, band, blanking arcs, elevation edges, clutter filter and micro-Doppler came in A4 part 3. Camera channels, resolution, lens, rangefinder, zoom, search arc and slew came in A5; a different lens is not offered, so each camera keeps its own zoom range. RF libraries, sensitivity and direction finding came in A6 part 1. Monitored bands and instantaneous bandwidth are not offered yet, as they need a list setting and a revisit model. Jammer antennas, technique and trigger wait for A6 part 2. Each needs rules that do not exist yet, so editing it now would change nothing.
 
 **Left out:** track capacity limits, GNSS spoofing and protocol takeover, operator geolocation, separating drones that are very close together, reusable custom presets, and changing hardware during a run.
 

@@ -205,6 +205,12 @@ class TestUnitSettings:
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings
 
+    def test_keeps_a_detectors_sensitivity_library_and_direction_finding(self, client):
+        settings = {"sensitivity": -106, "library": "commercial", "df": "sector"}
+        made = client.post(f"{API}/laydowns", json=_laydown_with(settings=settings))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings
+
     def test_keeps_the_conditions_and_refuses_unknown_ones(self, client):
         spec = copy.deepcopy(SPEC) | {"conditions": "night"}
         made = client.post(f"{API}/laydowns", json=laydown(spec=spec))
@@ -219,7 +225,7 @@ class TestUnitSettings:
         assert not {"settings", "name", "callsign"} & set(system)
 
     @pytest.mark.parametrize("bad", [
-        {"settings": {"mount": -91}},
+        {"settings": {"mount": -151}},
         {"settings": {"blank": [[0, 10]] * 4}},
         {"settings": {"blank": [[0, 360]]}},
         {"settings": {"blank": [[0, 10, 20]]}},

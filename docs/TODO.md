@@ -30,7 +30,9 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [ ] A4 left over: a narrower azimuth arc that gains range
 - [x] A5: conditions (clear day, dusk, night, rain and haze) for cameras by channel, radar by band and lasers, and camera optics: pixels on target, zoom on a cue, channels, resolution, lens, rangefinder, search arc and slew
 - [ ] A5 left over: rain noise for acoustic sensors, thermal diffraction with the F-number, and a camera that names the drone's model when identified, not only its airframe
-- [ ] A6: RF detector, libraries and jammer physics
+- [x] A6 part 1: radio detection. Drones are heard on the bands of their own links, a detector hears only bands it covers, your own jamming deafens it on the bands it jams, and classifier libraries, sensitivity and direction finding are fields
+- [ ] A6 part 2: jammer physics: bands fitted, sector antennas, a receiver and library, barrage or reactive, the trigger, and distance from the operator
+- [ ] A6 left over: monitored bands and instantaneous bandwidth on RF detectors, which need a list setting and a revisit model
 - [ ] A7: balance pass. This is the place to fix five lasers never losing.
 
 **Feature B: magazine depth**

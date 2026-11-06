@@ -114,6 +114,7 @@ export const SENSORS = {
   rf: {
     product: 'Dedrone RF-360 / RF-160', size: 'M', name: 'Medium RF detector', short: 'RF', cost: 40000, shotCost: 0, color: 0x00e676, role: 'sensor', kind: 'rf', published: 3500, mount: 9, senses: 'rf', falseAlarm: 0.05,
     health: 30, signature: 0.05, emits: [], listens: [[0.07, 6]], // passive
+    library: 'commercial', sensitivity: -90, df: 'aoa', // as in its range basis; the library is an assumption (rf-model.js)
     desc: 'Passive RF sensor. Direction finding only (no range). Cannot hear a drone with no radio link.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
@@ -140,6 +141,7 @@ export const SENSORS = {
   rf_s: {
     product: 'MyDefence Wingman 103/105', size: 'S', name: 'Small RF detector', short: 'RFS', model: 'rf', modelScale: 0.7, cost: 10000, shotCost: 0, color: 0x69f0ae, role: 'sensor', kind: 'rf', published: 2000, mount: 9, senses: 'rf', falseAlarm: 0.08,
     health: 30, signature: 0.05, emits: [], listens: [[2.4, 2.4835], [5.15, 5.925]], // without its optional wideband antenna
+    library: 'commercial', sensitivity: -85, df: 'sector',
     desc: 'Wearable passive RF detector. Cheap and short range, and its bearing is only a rough sector, so it warns of a drone more than it locates one.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
@@ -163,6 +165,7 @@ export const SENSORS = {
   rf_elysion: {
     product: 'Hensoldt Elysion RF DF', variantOf: 'rf', size: 'M', name: 'Elysion RF detector', short: 'ELY', model: 'rf', cost: 30000, shotCost: 0, color: 0x1de9b6, role: 'sensor', kind: 'rf', published: 3500, mount: 9, senses: 'rf', falseAlarm: 0.05,
     health: 30, signature: 0.05, emits: [], listens: [[2.4, 2.4835], [5.15, 5.925]],
+    library: 'commercial', sensitivity: -90, df: 'sector',
     desc: 'Passive RF sensor with a rough bearing. It warns of a drone more than it locates one. Cannot hear a drone with no radio link.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
@@ -181,6 +184,7 @@ export const SENSORS = {
   rf_l: {
     product: 'Aaronia AARTOS', size: 'L', name: 'Large RF detector', short: 'RFL', model: 'rf', modelScale: 1.4, cost: 400000, shotCost: 0, color: 0x00a152, role: 'sensor', kind: 'rf', published: 14000, mount: 9, senses: 'rf', falseAlarm: 0.03,
     health: 30, signature: 0.05, emits: [], listens: [[0.02, 8]],
+    library: 'commercial', sensitivity: -100, df: 'aoa',
     desc: 'Fixed wideband RF detection system. It hears furthest and gives the best bearing, at a much higher price. It still cannot hear a drone with no radio link.',
     sapient: {
       nodeType: 'NODE_TYPE_PASSIVE_RF', subType: ['Direction finding', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,

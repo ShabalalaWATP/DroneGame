@@ -9,6 +9,7 @@ import { burnTime, hitChance } from '../sim/hit-chance.js';
 import { ERROR_AT_LIMIT, predictRange, reachFor, usesPath } from '../sim/site-range.js';
 import { arcsText, coverArc, elevationBand } from '../sim/sensor-model.js';
 import { CHANNELS, IDENTIFY_PX, RECOGNISE_PX, hasZoom } from '../sim/camera-model.js';
+import { LIBRARIES, covers } from '../sim/rf-model.js';
 import { terrainState } from '../sim/terrain.js';
 import { fmtTime, hex, useGame, useTick } from './hooks.js';
 import { stateWord } from './dock/NetworkSide.jsx';
@@ -162,7 +163,7 @@ function Odds({ def }) {
           return [<span key={d.id}>{d.name}{hits > 1 ? `, ${hits} hits` : ''}</span>, <span key={`${d.id}-near`}>{cell(d, 0)}</span>, <span key={`${d.id}-far`}>{cell(d, def.range)}</span>];
         })}
       </span>
-      <span className="muted">{beam ? 'Drones that evade take longer, and they get better at it each wave. Rain and haze are not modelled.' : 'On a good track. A poor track lowers it, and drones get harder to hit each wave.'}</span>
+      <span className="muted">{beam ? 'Drones that evade take longer, and they get better at it each wave. Rain and haze shorten its reach.' : 'On a good track. A poor track lowers it, and drones get harder to hit each wave.'}</span>
     </Row>
   );
 }
@@ -174,6 +175,7 @@ function limitsOf(def) {
   if (def.lowAlt) return `${looks ? `${looks}. ` : ''}Below ${def.lowAlt} m, unreliable beyond about ${def.lowRange} m (ground clutter)`;
   if (def.fov) return `${def.fov}° search view${hasZoom(def) ? `, ${def.trackFov}° on a cue` : ''}, so it must be pointed. Another sensor cues it. ${CHANNELS[def.channels].label}${def.channels === 'both' ? ' channels' : ' only'}`;
   if (def.fire === 'beam') return 'Needs a clear line of sight, and engages one target at a time';
+  if (def.kind === 'rf') return `Hears ${covers(def).map((b) => SPECTRUM.bands[b].label).join(', ')}, but not a band your own jammer is jamming within its range`;
   return null;
 }
 
@@ -186,6 +188,7 @@ function measuresOf(def) {
   if (def.sapient.velocity) out.push('velocity');
   if (def.kind === 'camera') out.push(`airframe type once the drone covers ${RECOGNISE_PX} pixels, surely at ${IDENTIFY_PX}`);
   if (def.microDoppler === 'yes') out.push('multirotor or fixed wing, close in');
+  if (def.kind === 'rf') out.push(LIBRARIES[def.library].knows ? `the airframe, where its ${LIBRARIES[def.library].name} library knows the link` : 'energy in the band, not what it is');
   const text = out.join(', ');
   return text[0].toUpperCase() + text.slice(1);
 }

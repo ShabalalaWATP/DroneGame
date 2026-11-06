@@ -4,13 +4,14 @@
 import { SENSING, TERRAIN } from './config/index.js';
 import { earthBulge, freeSpaceLoss, fresnelRadius, pathLoss, reachFactor } from './propagation.js';
 import { coverKey, inCover } from './sensor-model.js';
+import { bandGhz, heardBand } from './rf-model.js';
 
 // How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
 // the radar's low-flyer range is multiplied by this.
 const COVER_CLUTTER = [1.5, 0.7, 0.5, 0.5, 1.5]; // the last is water: open, so low flyers over it are easy to see
 const BUILT_UP = 2;
 const ACOUSTIC = { hillLoss: 0.5, noiseLoss: 0.5 }; // share of its reach kept behind a hill and in a built-up area: assumptions
-const REFERENCE_RF_GHZ = 2.4;    // a drone's radio band when there is no real drone to read it from
+const REFERENCE_RF_GHZ = 2.4;    // a jammer's band in a prediction, which has no one link to read it from
 
 // Quoted accuracy is what a system does on a strong signal. Error from noise grows as the signal weakens: angle error goes with 1 / sqrt(SNR)
 // for a monopulse radar, and range error likewise. EDGE_ERROR is that noise at the limit of reach, as a multiple of the quoted figure: an assumption.
@@ -28,7 +29,7 @@ export const antennaHeight = (def) => def.mount ?? (def.fire === 'beam' ? 4 : 0)
 // How far this sensor reaches for this type of drone in an open field, before terrain and clutter. 0 means it can never detect it.
 export function reachFor(def, droneDef) {
   const kind = def.kind || def.id;
-  if (def.senses === 'rf' && !droneDef.rfEmitter) return 0;
+  if (def.senses === 'rf' && !heardBand(def, droneDef)) return 0; // silent, or on no band it covers (rf-model.js)
   if (kind === 'radar') return def.range * Math.pow((droneDef.rcs ?? SENSING.refRcs) / SENSING.refRcs, 0.25);
   if (kind === 'camera') return def.range * ((droneDef.size ?? SENSING.refSize) / SENSING.refSize);
   if (kind === 'rf') return def.range * Math.sqrt(droneDef.rfPower ?? 1);
@@ -36,13 +37,19 @@ export function reachFor(def, droneDef) {
   return def.range;
 }
 
-const pathGhz = (def, freqHz) => (def.kind === 'radar' ? (def.emits[0].f[0][0] + def.emits[0].f[0][1]) / 2 : freqHz ? freqHz / 1e9 : REFERENCE_RF_GHZ);
+// The frequency a path is worked out at: the radar's own band, the band a detector hears the drone on, or the band given.
+function pathGhz(def, droneDef, ghz) {
+  if (ghz) return ghz;
+  if (def.kind === 'radar') return (def.emits[0].f[0][0] + def.emits[0].f[0][1]) / 2;
+  const band = def.kind === 'rf' && heardBand(def, droneDef);
+  return band ? bandGhz(band) : REFERENCE_RF_GHZ;
+}
 
-// How far this system reaches along the path from a to b ({ x, y, z } in metres).
-export function reachOnPath(def, droneDef, world, a, b, freqHz) {
+// How far this system reaches along the path from a to b ({ x, y, z } in metres). ghz: the band, where the caller knows it.
+export function reachOnPath(def, droneDef, world, a, b, ghz) {
   const open = reachFor(def, droneDef);
   if (!open || !usesPath(def)) return open;
-  if (isRadio(def)) return open * reachFactor(pathLoss(world, a, b, pathGhz(def, freqHz)).loss);
+  if (isRadio(def)) return open * reachFactor(pathLoss(world, a, b, pathGhz(def, droneDef, ghz)).loss);
   const sight = world.los(a.x, a.y, a.z, b.x, b.y, b.z);
   if (def.kind === 'acoustic') { // sound carries over hills and through trees, but hills weaken it and a noisy place drowns it
     const noisy = world.coverAt(a.x, a.z) === BUILT_UP;
@@ -117,7 +124,7 @@ export function pathReport(def, droneDef, world, x, z, bearing, alt = typicalAlt
   let D = Math.max(open > alt ? Math.sqrt(open * open - alt * alt) : 0, world.cell * 2);
   while (D > world.cell && (Math.abs(x + east * D) > world.R || Math.abs(z + south * D) > world.R)) D -= world.cell;
   const n = Math.min(120, Math.ceil(D / world.cell));
-  const ghz = isRadio(def) ? pathGhz(def) : null;
+  const ghz = isRadio(def) ? pathGhz(def, droneDef) : null;
   const a = { x, y: world.groundAt(x, z) + antennaHeight(def), z };
   const b = { x: x + east * D, z: z + south * D, y: 0 };
   b.y = world.groundAt(b.x, b.z) + alt;

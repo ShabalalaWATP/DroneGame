@@ -51,7 +51,7 @@ describe('the UK systems', () => {
 describe('a jammer needs a radio path', () => {
   const at = (x, y = 0) => ({ x, y, z: 0, distanceTo(o) { return Math.hypot(x - o.x, y - o.y, o.z); } });
   const jammer = { def: STRUCTURES.jammer, pos: at(0) }; // 1 km in an open field
-  const drone = (m, agl = 60) => ({ def: DRONES.fpv, freq: 2.4e9, pos: at(u(m), u(agl)) });
+  const drone = (m, agl = 60) => ({ def: DRONES.fpv, pos: at(u(m), u(agl)) });
   // Flat ground, with a bank of ground or trees running north to south from 200 m east.
   function ground({ ridge = 0, trees = 0 } = {}) {
     const R = 2000, cell = 20, N = Math.round((2 * R) / cell) + 1, heights = new Float32Array(N * N), canopy = new Uint8Array(N * N);
@@ -65,18 +65,25 @@ describe('a jammer needs a radio path', () => {
 
   it('reaches its open-field range with a clear path, and no further', () => {
     ground();
-    expect(jamReaches(jammer, drone(900))).toBe(true);
-    expect(jamReaches(jammer, drone(1100))).toBe(false);
+    expect(jamReaches(jammer, drone(900), 'control24')).toBe(true);
+    expect(jamReaches(jammer, drone(1100), 'control24')).toBe(false);
   });
 
   it('is cut short by a hill', () => {
     ground({ ridge: 150 });
-    expect(jamReaches(jammer, drone(900, 20))).toBe(false);
+    expect(jamReaches(jammer, drone(900, 20), 'control24')).toBe(false);
   });
 
   it('is cut short by trees when the drone flies low behind them', () => {
     ground({ trees: 20 });
-    expect(jamReaches(jammer, drone(900, 60))).toBe(true);
-    expect(jamReaches(jammer, drone(900, 10))).toBe(false);
+    expect(jamReaches(jammer, drone(900, 60), 'control24')).toBe(true);
+    expect(jamReaches(jammer, drone(900, 10), 'control24')).toBe(false);
+  });
+
+  it('works out each band on its own, and a lower band gets through trees that stop a higher one', () => {
+    ground({ trees: 20 });
+    const furthest = (band) => Math.max(0, ...Array.from({ length: 20 }, (_, i) => 50 * (i + 1)).filter((r) => jamReaches(jammer, drone(r, 25), band)));
+    expect(furthest('video58')).toBeGreaterThan(0);
+    expect(furthest('control900')).toBeGreaterThan(furthest('video58'));
   });
 });
