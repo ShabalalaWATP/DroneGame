@@ -18,15 +18,19 @@ function emitterScore(s) {
 
 const SITE_AIM = { x: 0, z: 0, structure: null };
 
+// An anti-radar drone only hears what radiates: a radar, or a jammer that is on. It goes for the strongest, wherever it is within reach.
+const radiates = (s) => (s.def.kind === 'radar' || (s.def.kind === 'jammer' && s.mode === 'Jam') ? s.def.signature || 0 : 0);
+
 export function pickTarget(w, d) {
   if (!d.def.seeksEmitters) return d.aim || SITE_AIM;
   if (d.targetStructure && w.structures.includes(d.targetStructure)) return { x: d.targetStructure.pos.x, z: d.targetStructure.pos.z, structure: d.targetStructure };
   d.targetStructure = null;
   let best = null, bs = 0.3;
+  const reach = u(d.def.seekRange ?? 3000);
   for (const s of w.structures) {
     const dist = hdist(s.pos, d.pos);
-    if (dist > u(3000)) continue;
-    const score = emitterScore(s) / (1 + dist / u(1500));
+    if (dist > reach) continue;
+    const score = d.def.antiRadar ? radiates(s) : emitterScore(s) / (1 + dist / u(1500));
     if (score > bs) { bs = score; best = s; }
   }
   if (!best) return d.aim || SITE_AIM;

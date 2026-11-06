@@ -12,6 +12,7 @@ import { createNetwork } from './network/index.js';
 import { createRecorder, takeSnapshot, SNAPSHOT_EVERY } from './recorder.js';
 import { runRecord } from './run-record.js';
 import { SITE_POS, u } from './units.js';
+import { DEFAULT_MIX } from './attack-mix.js';
 import { affordable, createLedger, resetLedger } from './economy.js';
 import * as laydown from './laydown.js';
 import { spawnDrone, removeDrone, updateDrones, spotterBonus } from './drones.js';
@@ -35,7 +36,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
 
   const state = {
     seed, terrainSeed, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, time: 0, warnedWire: false,
-    started: false, over: false, autoStart: false, zone: null, zoneCentre: SITE_POS,
+    started: false, over: false, autoStart: false, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX,
     waveActive: false, queue: [], waveTime: 0, autoTimer: -1,
     sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, // sandbox: attacks without consequences, before the first wave
   };
@@ -85,7 +86,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     w.missiles.length = 0;
     Object.assign(state, {
       health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, time: 0, warnedWire: false, over: false,
-      waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, zone: null, zoneCentre: SITE_POS,
+      waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX,
     });
     resetLedger(w.ledger);
     w.rec.clear(); stepCount = 0; w.droneUid = 0;
@@ -166,6 +167,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     deploy,
     leave,
     setZone: (points) => laydown.setZone(w, points),
+    setAttack: (ids) => laydown.setAttack(w, ids),
     place: (id, x, z, settings) => laydown.place(w, id, x, z, settings),
     sell: (x, z) => laydown.sell(w, x, z),
     resupply: () => resupply(w),

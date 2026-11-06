@@ -1,10 +1,11 @@
 // Top right: starting waves, game speed, view toggles, engagement authority, and opening the other panels.
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { FUSION } from '../sim/config/index.js';
 import { view } from '../render/view.js';
 import { useArmed, useGame, useTick } from './hooks.js';
 import { ResupplyButton } from './ResupplyButton.jsx';
+import { AttackMix, mixLabel } from './AttackMix.jsx';
 
 const SPEEDS = [[0, '❚❚', 'Pause (Space)'], [1, '1x'], [2, '2x'], [3, '3x']];
 
@@ -17,12 +18,14 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
   useEffect(() => { document.body.classList.toggle('track-hi', view.trackHi); });
 
   const clear = useArmed(); // it throws the laydown away
+  const [mixOpen, setMixOpen] = useState(false);
 
   const toggle = (id, key, label, title) => (
     <label title={title}><input type="checkbox" id={id} checked={view[key]} onChange={(e) => game.setViewOption(key, e.target.checked)} /> {label}</label>
   );
 
   return (
+    <>
     <div id="hud-top-right" className="panel">
       <button id="btn-wave" className="primary" disabled={state.waveActive || state.over || state.sandbox} onClick={() => commands.startWave()}>
         {state.sandbox ? 'Exit sandbox to start' : state.waveActive ? `Wave ${state.wave} in progress` : `Start wave ${state.wave + 1}`}
@@ -43,6 +46,7 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
           <option value="auto">Automatic</option><option value="costly">Ask for costly shots</option><option value="all">Ask for every engagement</option>
         </select>
       </label>
+      <button id="btn-attack" title="Choose which drones the waves send. Locked once the first wave starts." aria-expanded={mixOpen} onClick={() => setMixOpen((o) => !o)}>Attack: {mixLabel(state.attack)}</button>
       <button id="btn-sandbox" title="Try attacks against your laydown without risking the site" onClick={() => { if (state.sandbox) commands.exitSandbox(); else { commands.enterSandbox(); onSandbox(); } }}>
         {state.sandbox ? 'Exit sandbox' : 'Sandbox'}
       </button>
@@ -53,5 +57,7 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
       <button id="btn-sapient" onClick={onToggleDock}>SAPIENT</button>
       <button id="btn-tuning" onClick={onToggleTuning}>Tuning</button>
     </div>
+    {mixOpen && <AttackMix onClose={() => setMixOpen(false)} />}
+    </>
   );
 }

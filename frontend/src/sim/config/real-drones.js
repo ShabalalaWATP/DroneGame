@@ -6,7 +6,7 @@
 
 // Damage to the site is a game rule. Blast grows with the cube root of the charge, scaled so the generic types keep their values:
 // 2 kg gives the first-person-view drone's 12, and 30 kg gives the fixed-wing strike drone's 30.
-const blast = (warheadKg) => Math.round(9.5 * Math.cbrt(warheadKg));
+export const blast = (warheadKg) => Math.round(9.5 * Math.cbrt(warheadKg));
 
 const COMMERCIAL_LINKS = { control: 'control24', video: 'video58', gnss: true }; // 2.4 and 5.8 GHz in the maker's figures, plus satellite navigation
 const NO_PRICE = 'No price found on any page opened, so the game uses the price of its type. Attack cost sums involving it are rough.';

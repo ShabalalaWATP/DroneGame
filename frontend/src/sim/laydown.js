@@ -6,6 +6,7 @@ import { WORLD, BUILD, COMMS, ECONOMY, STRUCTURES } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { SITE_POS, u, hdist, hereU } from './units.js';
 import { cleanZone, zoneCentre } from './attack-area.js';
+import { cleanMix, hasStrike, isDefaultMix } from './attack-mix.js';
 import { buyTerminal, money } from './economy.js';
 import { fillMagazine } from './magazine.js';
 import { cleanCallsign, cleanName, cleanSettings, fieldsFor, setSetting, unitCost, unitDef } from './unit-config.js';
@@ -77,6 +78,7 @@ export function captureLaydown(w) {
       .sort((a, b) => a.id.localeCompare(b.id) || a.x - b.x || a.z - b.z),
     fusionUplinks: [...w.net.fusion.uplinks], fusionCell: w.net.fusion.cellBand,
     ...(w.state.zone ? { zone: w.state.zone } : {}),
+    ...(isDefaultMix(w.state.attack) ? {} : { attack: w.state.attack }),
   };
 }
 
@@ -101,6 +103,15 @@ export function restoreLaydown(w, spec) {
   for (const k of spec.fusionUplinks) { w.net.fusion.uplinks.add(k); w.ledger.terminals[k]++; charge(COMMS[k].cost); }
   w.net.fusion.cellBand = spec.fusionCell;
   applyZone(w, cleanZone(spec.zone));
+  w.state.attack = cleanMix(spec.attack);
+}
+
+// Which drone types the waves send. Like the laydown, it is locked once the first wave starts. Returns why not, or null.
+export function setAttack(w, ids) {
+  if (designLocked(w)) return 'The attack is locked once the first wave starts';
+  if (!hasStrike(ids)) return 'Tick at least one drone that strikes: spotters alone attack nothing';
+  w.state.attack = cleanMix(ids);
+  return null;
 }
 
 function applyZone(w, points) {
