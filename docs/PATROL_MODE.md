@@ -10,7 +10,7 @@ The player clicks waypoints on the ground, as when drawing the area to defend, a
 
 The route is checked on the ground every 20 m along each leg. It is refused if it:
 
-- leaves the build zone (2.5 km from the station), so drones that appear 6 km out still have room to fly in;
+- leaves the map. Attacks start out from the patrol, as they do from a drawn area, so it needs no ring around the station to leave them room;
 - crosses water;
 - crosses ground steeper than the build rule allows (a slope of 0.4), the same test as for placing a system or a group of people;
 - goes through a building outline.
@@ -83,7 +83,7 @@ As designed, a run would be won by walking a set number of laps, and lost when c
 - Spotter-cued targeting with a stale fix: drones know where the patrol is at all times.
 - Choosing the escort systems, their places in the column and their road speeds.
 - Penalties for sensing on the move, and stopping to sweep.
-- Open routes, routes along mapped roads, and routes outside the 2.5 km build zone.
+- Open routes, and routes along mapped roads.
 - Win by laps, and loss by casualties or by losing both escorts.
 - Escort positions in replay snapshots.
 - A hotkey and a toolbar button for the patrol: it is in the Area to defend panel only.

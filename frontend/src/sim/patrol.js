@@ -2,9 +2,9 @@
 // drones attack the patrol in place of the station. Nothing here draws a random number, so a patrol walks the same way on every run,
 // and a laydown without one runs none of this. See docs/PATROL_MODE.md.
 
-import { BUILD, COMMS, PATROL, STRUCTURES, WORLD } from './config/index.js';
+import { COMMS, PATROL, STRUCTURES, WORLD } from './config/index.js';
 import { terrainState } from './terrain.js';
-import { SITE_POS, hereU, u } from './units.js';
+import { SITE_POS, hereU, onMap, u } from './units.js';
 import { buyTerminal, money } from './economy.js';
 import { addStructure, designLocked, removeStructure, wireFusion, wireNode } from './laydown.js';
 import { addGroup } from './people.js';
@@ -17,7 +17,7 @@ const isPoint = (p) => Array.isArray(p) && p.length === 2 && p.every(Number.isFi
 
 function groundProblem(x, z) {
   const xm = x * WORLD.metresPerUnit, zm = z * WORLD.metresPerUnit, data = terrainState.data;
-  if (Math.hypot(x, z) > u(BUILD.maxDist)) return `The route must stay within ${BUILD.maxDist} m of the station`;
+  if (!onMap(x, z)) return 'The route goes off the map';
   if (data.coverAt(xm, zm) === 4) return 'The route crosses water';
   if (data.slope(xm, zm) > 0.4) return 'The route crosses ground too steep to walk';
   if (data.onBuilding(xm, zm)) return 'The route goes through a building';

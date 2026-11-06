@@ -5,6 +5,7 @@ import { BUILD, PEOPLE, PEOPLE_LIMITS, SITE, WORLD } from './config/index.js';
 import { hashSeed, mulberry32 } from './rng.js';
 import { terrainState } from './terrain.js';
 import { clamp, hereU, u } from './units.js';
+import { reachProblem } from './attack-area.js';
 
 const SPACING = 1.5; // metres between people standing in a group
 const FLOOR_SPACE = 1.5; // square metres a person takes up in a bunker
@@ -58,7 +59,8 @@ export function peopleProblem(w, x, z, protection) {
   if (!Object.hasOwn(PEOPLE, protection)) return 'Choose a level of protection';
   if (BUILD.lockAfterStart && w.state.wave > 0) return LOCKED;
   if (w.people.length >= PEOPLE_LIMITS.groups) return `No more than ${PEOPLE_LIMITS.groups} groups`;
-  if (Math.hypot(x, z) > u(BUILD.maxDist)) return `Outside the build zone (maximum ${BUILD.maxDist} m)`;
+  const far = reachProblem(w, x, z);
+  if (far) return far;
   const xm = x * WORLD.metresPerUnit, zm = z * WORLD.metresPerUnit, data = terrainState.data;
   if (protection === 'building') return data.onBuilding(xm, zm) ? null : 'Click on a building to put a group inside it';
   if (data.onBuilding(xm, zm)) return 'There is a building here. Choose In a building to put them inside it';

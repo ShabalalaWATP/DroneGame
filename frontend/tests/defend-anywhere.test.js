@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { BUILD, DRONES, STRUCTURES, WORLD, resetAllFigures } from '../src/sim/config/index.js';
 import { inZone, launchPoint } from '../src/sim/attack-area.js';
+import { routeProblem } from '../src/sim/patrol.js';
 import { createSimulation } from '../src/sim/simulation.js';
 import { SITE_POS, hdist, onMap, u } from '../src/sim/units.js';
 import { suggestSpot } from '../src/ui/assistant/spots.js';
@@ -104,5 +105,45 @@ describe('with nothing drawn', () => {
     sim.commands.setZone(null);
     expect(sim.state.zoneCentre).toBe(SITE_POS);
     expect(sim.commands.place('radar', FAR, 0)).toMatch(/Outside the build zone/);
+  });
+});
+
+describe('one reach rule for systems, people and patrols', () => {
+  const OFFSETS = [[0, 0], [20, 0], [-20, 0], [0, 20], [0, -20], [20, 20], [-20, -20], [40, 0], [0, 40], [-40, 0], [0, -40]];
+  const near = (fn, x, z) => OFFSETS.some(([dx, dz]) => !fn(x + dx, z + dz)); // true once the ground allows one of the spots
+  // A short loop far from the station that the ground allows: no water, steep ground or buildings on it.
+  const farRoute = () => {
+    for (let cx = 250; cx <= 320; cx += 10) for (let cz = -120; cz <= 120; cz += 20) if (!routeProblem(square(cx, cz, 10))) return square(cx, cz, 10);
+    return null;
+  };
+
+  it('lets people stand far from the station once an area is drawn, and not before', () => {
+    expect(sim.commands.placePeople(FAR, 0, 5, 'open')).toMatch(/build zone/);
+    sim.commands.setZone(square(FAR, 0));
+    expect(near((x, z) => sim.commands.placePeople(x, z, 5, 'open'), FAR, 0)).toBe(true);
+    expect(sim.commands.placePeople(400, 0, 5, 'open')).toMatch(/off the map/);
+  });
+  it('lets a patrol walk far from the station, with systems placed beside it', () => {
+    const route = farRoute();
+    expect(route).not.toBeNull();
+    expect(sim.commands.setPatrol(route)).toBeNull();
+    expect(sim.siteIsFree()).toBe(true);
+    const [[x, z]] = route;
+    expect(near((px, pz) => sim.commands.place('rf', px, pz), x, z + 30)).toBe(true);
+    expect(routeProblem(square(345, 0, 10))).toMatch(/off the map/);
+  });
+  it('will not have an area and a patrol at once, whichever comes first', () => {
+    const route = farRoute();
+    sim.commands.setPatrol(route);
+    expect(sim.commands.setZone(square(FAR, 0))).toMatch(/Clear the patrol first/);
+    expect(sim.state.zone).toBeNull();
+    sim.commands.setPatrol(null);
+    expect(sim.commands.setZone(square(FAR, 0))).toBeNull();
+    expect(sim.commands.setPatrol(route)).toMatch(/Clear the area to defend first/);
+    expect(sim.getPatrol()).toBeNull();
+  });
+  it('keeps the station rules with neither', () => {
+    expect(sim.siteIsFree()).toBe(false);
+    expect(sim.commands.placePeople(u(BUILD.maxDist + 100), 0, 5, 'open')).toMatch(/build zone/);
   });
 });

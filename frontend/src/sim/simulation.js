@@ -15,6 +15,7 @@ import { SITE_POS, u } from './units.js';
 import { DEFAULT_MIX } from './attack-mix.js';
 import { affordable, createLedger, resetLedger } from './economy.js';
 import * as laydown from './laydown.js';
+import { siteIsFree } from './attack-area.js';
 import * as people from './people.js';
 import { setPatrol, updatePatrol } from './patrol.js';
 import { spawnDrone, removeDrone, updateDrones, spotterBonus } from './drones.js';
@@ -227,6 +228,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   return {
     registerPack(pack) { packs.set(pack.hash, pack); },
     getPatrol: () => w.patrol,
+    siteIsFree: () => siteIsFree(w), // a drawn area or a patrol: the station's rings no longer apply
     state, drones: w.drones, structures: w.structures, missiles: w.missiles, people: w.people, peopleRev: () => w.peopleRev, ledger: w.ledger, net: w.net, rec: w.rec, bus,
     commands, log, on, off, step, digest, endRun, stepCount: () => stepCount,
     currentLaydown: () => w.startLaydown || laydown.captureLaydown(w),

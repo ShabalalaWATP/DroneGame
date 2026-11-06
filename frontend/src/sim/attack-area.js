@@ -1,7 +1,16 @@
 // The area the player is defending, which is what the enemy attacks once one is drawn. Points are [x, z] in scene units.
 
-import { WORLD } from './config/index.js';
-import { u } from './units.js';
+import { BUILD, WORLD } from './config/index.js';
+import { onMap, u } from './units.js';
+
+// A drawn area or a patrol is the site, so the old station's build ring no longer limits anything.
+export const siteIsFree = (w) => !!(w.state.zone || w.patrol);
+
+// Why a spot is out of reach for anything placed, or null: off the map once the site is free, otherwise outside the station's build ring.
+export function reachProblem(w, x, z) {
+  if (siteIsFree(w)) return onMap(x, z) ? null : 'That is off the map';
+  return Math.hypot(x, z) > u(BUILD.maxDist) ? `Outside the build zone (maximum ${BUILD.maxDist} m). Draw an area to defend anywhere on the map` : null;
+}
 
 const EDGE_MARGIN = 200; // metres: drones start this far inside the edge of the map
 const MIN_RUN = 2000; // metres: an attack with less room than this to fly in comes from somewhere else

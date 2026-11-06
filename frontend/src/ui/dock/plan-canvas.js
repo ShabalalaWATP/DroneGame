@@ -62,7 +62,7 @@ export function createPlanCanvas(cv, sim) {
       g.fillText(r / 1000 + ' km', w / 2 + r * k + 2, h / 2 - 2);
     }
     g.setLineDash([4, 4]); g.strokeStyle = '#3a527e';
-    if (!sim.state.zone) { g.beginPath(); g.arc(w / 2, h / 2, BUILD.maxDist * k, 0, Math.PI * 2); g.stroke(); }
+    if (!sim.siteIsFree()) { g.beginPath(); g.arc(w / 2, h / 2, BUILD.maxDist * k, 0, Math.PI * 2); g.stroke(); }
     g.setLineDash([]);
     if (view.zone) { // the area to defend
       g.beginPath();
@@ -86,8 +86,8 @@ export function createPlanCanvas(cv, sim) {
       g.beginPath(); g.moveTo(X(n.pos.x * mpu()), Y(-n.pos.z * mpu())); g.lineTo(w / 2, h / 2); g.stroke();
     }
     g.lineWidth = 1;
-    g.fillStyle = sim.state.zone ? '#9fb2cf' : '#ff5252'; g.beginPath(); g.arc(w / 2, h / 2, sim.state.zone ? 5 : Math.max(SITE.radius * k, 5), 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#fff'; g.fillText(sim.state.zone ? 'FUSION' : 'FUSION / SITE', w / 2 + 8, h / 2 + 14);
+    g.fillStyle = sim.siteIsFree() ? '#9fb2cf' : '#ff5252'; g.beginPath(); g.arc(w / 2, h / 2, sim.siteIsFree() ? 5 : Math.max(SITE.radius * k, 5), 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.fillText(sim.siteIsFree() ? 'FUSION' : 'FUSION / SITE', w / 2 + 8, h / 2 + 14);
     for (const n of nodes) { // nodes
       const x = X(n.pos.x * mpu()), y = Y(-n.pos.z * mpu());
       g.fillStyle = hex(n.def.color);

@@ -18,9 +18,10 @@ afterEach(() => resetAllFigures());
 
 describe('the route', () => {
   it('accepts a loop on open ground', () => expect(routeProblem(ROUTE)).toBeNull());
-  it('refuses water, the far side of the build zone and malformed waypoints', () => {
+  it('refuses water, the edge of the map and malformed waypoints', () => {
     expect(routeProblem(WET)).toMatch(/water/);
-    expect(routeProblem(square(130, 0, 10))).toMatch(/within 2500 m/);
+    expect(routeProblem(square(130, 0, 10)) ?? '').not.toMatch(/station|build zone/); // fine, or refused for the ground, never the distance
+    expect(routeProblem(square(345, 0, 10))).toMatch(/off the map/);
     expect(routeProblem([[1, 1]])).toMatch(/2 to 32/);
     expect(routeProblem([[1, 1], [2, 'x']])).toMatch(/2 to 32/);
     expect(routeProblem([[1, 1], [1, 1]])).toMatch(/no length/);

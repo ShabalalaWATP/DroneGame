@@ -26,6 +26,7 @@ const PANEL_INTERVAL = 100; // ms between panel refreshes: panels never update p
 export const cleanSeed = (text) => (text || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 64) || '1';
 
 const ZONE_LOCKED = 'The area to defend is locked once the first wave starts';
+const PATROL_FIRST = 'Clear the patrol first: with a patrol, the patrol is what the enemy attacks';
 
 export function createGame({ seed, terrainSeed, api = createApi(), storage = globalThis.localStorage }) {
   const sim = createSimulation({ seed, terrainSeed });
@@ -148,6 +149,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     if (tool === 'patrol') { patrolClick(x, z); return; }
     if (tool === 'zone') {
       if (sim.designLocked()) toast(ZONE_LOCKED);
+      else if (sim.getPatrol()) toast(PATROL_FIRST);
       else {
         view.zone = addZonePoint(view.zone, x, z);
         syncZone();
@@ -278,6 +280,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     // settings shared with the 3D view
     setViewOption(key, value) {
       if (key === 'zone' && sim.designLocked()) { toast(ZONE_LOCKED); return; }
+      if (key === 'zone' && value && sim.getPatrol()) { toast(PATROL_FIRST); return; }
       view[key] = value;
       if (key === 'zone') syncZone();
       if (key === 'rings' && gameView) gameView.structures.setRingsVisible(value);
