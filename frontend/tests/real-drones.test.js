@@ -87,7 +87,8 @@ describe('the rules of a type apply to its real drones', () => {
     const interceptor = STRUCTURES.interceptor;
     expect(answer(DRONES.kvn, interceptor)).toBe(answer(DRONES.fo, interceptor));
     expect(answer(DRONES.mavic3, interceptor)).toBe(answer(DRONES.fpv, interceptor));
-    expect(answer(DRONES.geran2, interceptor)).toBe('No');
+    expect(answer(DRONES.geran2, interceptor)).toBe(answer(DRONES.fw, interceptor));
+    expect(answer(DRONES.geran2, STRUCTURES.interceptor_s)).toBe('No');
   });
   it('an interceptor really does engage a real drone of a type it can take', () => {
     const sim = createSimulation({ seed: '1', terrainSeed: '1' });

@@ -238,7 +238,7 @@ describe('the panel', () => {
     expect(panel().textContent).toContain('In storage24 rounds');
     expect(panel().textContent).toContain('30 s to fill the magazine, 3 s between shots');
     expect(panel().textContent).toContain('Per round$5,000');
-    expect(panel().textContent).toContain('First-person-view strike drone, Fibre-optic strike drone');
+    expect(panel().textContent).toContain('EngagesAny drone');
     act(() => { unit('interceptor').cd = 1.2; game.bump(); });
     expect(panel().textContent).toContain('Next shot in 1.2 s');
     act(() => { game.sim.state.budget = 0; game.bump(); });

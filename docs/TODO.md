@@ -67,7 +67,10 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [ ] Jamming strength that falls with distance: inside its reach a jammer works fully, then stops. Real jamming depends on how far the drone is from its own controller too
 - [ ] Use the bands a detector listens on: `listens` is only drawn on the Spectrum tab, so it does not limit what is heard. Each jammed link should use its own band
 - [ ] A radar that classifies by micro-Doppler, as the IRIS and A400 do. Only cameras identify an airframe now
-- [ ] The Sting is built to hit Shahed-type drones, but a game rule says interceptors cannot catch fixed-wing drones
+- [x] Geran-3 jet, ASN-301 anti-radar drone and Wing Loong II added to the real drones
+- [x] Waves send any ticked mix of drone types, saved with the laydown
+- [x] Interceptor drones may take fixed-wing drones, as the Sting is built to, with hit chance falling for faster targets. The small net carrier still only takes small, slow drones
+- [ ] Wave sizes were set for cheap first-person-view drones. When a mix has none, the same number of Shaheds take their place, which may be too many
 - [ ] Check the path model offline against NTIA ITM, and against any real measurements
 - [ ] Rain and haze for lasers and cameras, and ground reflection lobes for radar
 

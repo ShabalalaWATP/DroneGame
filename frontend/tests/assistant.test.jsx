@@ -308,8 +308,9 @@ describe('following the game', () => {
     expect(title()).toBe('Something is offline');
     act(() => { game.commands.autoWire(); });
     expect(title()).toBe('Ready to commit?');
-    const missile = game.sim.structures.find((s) => s.def.id === 'missile');
-    act(() => { game.commands.sell(missile.pos.x, missile.pos.z); });
+    // interceptors take fixed-wing drones too now, so take away every launcher to leave a drone type unanswered
+    const launchers = game.sim.structures.filter((s) => s.def.id === 'missile' || s.def.id === 'interceptor');
+    act(() => { for (const s of launchers) game.commands.sell(s.pos.x, s.pos.z); });
     expect(title()).toBe('A drone type has no answer now');
   });
   it('starts over on a new laydown', () => {
