@@ -195,6 +195,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     setCellBand: (s, band) => laydown.setCellBand(w, s, band),
     setFusionCellBand: (band) => laydown.setFusionCellBand(w, band),
     toggleJamBand: (s, band, on) => laydown.toggleJamBand(w, s, band, on),
+    setJamming: (s, on) => laydown.setJamming(w, s, on),
     configureUnit: (s, key, value) => laydown.configureUnit(w, s, key, value),
     renameUnit: (s, name, callsign) => laydown.renameUnit(w, s, name, callsign),
     autoWire: () => laydown.autoWire(w),

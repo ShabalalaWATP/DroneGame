@@ -5,9 +5,10 @@ import { SENSING } from '../config/index.js';
 import { rand, gauss } from '../rng.js';
 import { terrainState } from '../terrain.js';
 import { errorScale, inClutter, reachFor, reachOnPath } from '../site-range.js';
-import { blindSpeed, classifiesAt, coverArc, elevationBand, inArcOf, inCover, outwardFrom } from '../sensor-model.js';
+import { blindSpeed, classifiesAt, coverArc, elevationBand, inCover, outwardFrom } from '../sensor-model.js';
 import { airframeConfidence, hasZoom, pixelsOn } from '../camera-model.js';
 import { LIBRARIES, bandGhz, covers, heardBand, libraryKnows } from '../rf-model.js';
+import { deafAt } from '../jamming.js';
 import { RB_UNITS, rbDatum, round, clamp } from './core.js';
 
 export { reachFor };
@@ -33,17 +34,7 @@ export function createSensors(core, feed) {
     return daz <= half && del <= half;
   }
 
-  // The bands a radio detector cannot hear now: those your own jammers are filling within their reach of it, as they cut your own links
-  // in comms.js. shortcut: deaf or not, by the jammer's own range; a jammer's leakage falling off with distance would need a power model.
-  function deafTo(s) {
-    const deaf = new Set();
-    for (const j of nodes.values()) {
-      if (j.def.kind !== 'jammer' || j.mode !== 'Jam' || Math.hypot(j.pos.x - s.pos.x, j.pos.z - s.pos.z) * mpu() >= j.def.range || !inArcOf(j.def, j.pos, s.pos)) continue;
-      for (const b of j.jamBands) deaf.add(b);
-    }
-    return deaf;
-  }
-  const bandOn = (s, d) => heardBand(s.def, d.def, deafTo(s)); // the band a detector hears this drone on now, or null
+  const bandOn = (s, d) => heardBand(s.def, d.def, deafAt(s, nodes.values())); // the band a detector hears this drone on now, not through your own jamming, or null
 
   // How far this sensor reaches along the real path to this drone. A radio detector works it out on the band it hears it on.
   function reachTo(s, d) {

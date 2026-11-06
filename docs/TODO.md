@@ -32,8 +32,8 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [ ] A5 left over: rain noise for acoustic sensors, thermal diffraction with the F-number, and a camera that names the drone's model when identified, not only its airframe
 - [x] A6 part 1: radio detection. Drones are heard on the bands of their own links, a detector hears only bands it covers, your own jamming deafens it on the bands it jams, and classifier libraries, sensitivity and direction finding are fields
 - [x] A6 part 2: how far a jammer reaches: bands fitted as paid modules, an omni or sector antenna with its facing, a control link easier to jam the further the drone is from its operator, and a louder jammer for each band it jams
-- [ ] A6 part 3: the jammer's own receiver and library, barrage or reactive, the trigger, and receiver blanking
-- [ ] A6 left over: monitored bands and instantaneous bandwidth on RF detectors, which need a list setting and a revisit model
+- [x] A6 part 3: the jammer's own receiver and library, barrage or reactive, what switches it on (the fusion node, its own receiver or you), and receiver blanking
+- [ ] A6 left over: monitored bands and instantaneous bandwidth on RF detectors, which need a revisit model, and a sensitivity for a jammer's receiver, which hears only as far as the jammer reaches
 - [ ] A7: balance pass. This is the place to fix five lasers never losing.
 
 **Feature B: magazine depth**
@@ -76,8 +76,8 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] Hit chance for guided rounds, by weapon, evasion, target speed, range and track quality. Launchers shoot, look and shoot while there is time, salvo when there is not, and move to the next target while rounds fly
 - [x] A beam's damage falls with distance, and sensor error grows as the signal weakens
 - [ ] Better figures for hit chance: 8 of 11 are assumptions, because no rate is published. Only the Sting, P1-SUN and DroneHunter have reported figures
-- [ ] Jamming strength that falls with distance: inside its reach a jammer works fully, then stops. Real jamming depends on how far the drone is from its own controller too
-- [ ] Use the bands a detector listens on: `listens` is only drawn on the Spectrum tab, so it does not limit what is heard. Each jammed link should use its own band
+- [ ] Jamming strength that falls with distance: inside its reach a jammer works fully, then stops. The drone's distance from its operator sets that reach since A6 part 2
+- [x] Use the bands a detector listens on, and work out each jammed link on its own band (A6 part 1)
 - [x] A radar that classifies by micro-Doppler: standard on the IRIS and A400, and a paid option on the others
 - [x] Geran-3 jet, ASN-301 anti-radar drone and Wing Loong II added to the real drones
 - [x] Waves send any ticked mix of drone types, saved with the laydown

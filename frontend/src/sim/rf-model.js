@@ -37,8 +37,8 @@ export function radiates(droneDef) {
   return bands.length ? bands : [UNKNOWN_BAND];
 }
 
-// The drone bands this detector covers.
-export const covers = (def) => LINK_BANDS.filter((b) => overlaps(SPECTRUM.bands[b].f, def.listens || []));
+// The drone bands this detector covers, or a jammer's receiver: the link bands it is fitted for.
+export const covers = (def) => LINK_BANDS.filter((b) => (def.kind === 'jammer' ? def.fitted.includes(b) : overlaps(SPECTRUM.bands[b].f, def.listens || [])));
 
 // The band a detector hears this drone on, or null: the lowest it can, because that carries furthest. deaf: bands it cannot hear now.
 export function heardBand(def, droneDef, deaf) {

@@ -22,6 +22,9 @@ const DF_ERROR = { sector: 30, aoa: 5 }; // bearing error a detector switched to
 const BAND_PRICE = 0.15; // share of a jammer's price saved for each band module left out: an assumption
 // A sector antenna: 10 dB of gain over 60°, about what a panel antenna gives, so range goes up by the square root of 10. Price share assumed.
 const SECTOR = { arc: 60, gain: 10, price: 0.2 };
+// A jammer's receiver costs what a Small RF detector does with the same library, and reactive jamming, sending only while a link it
+// follows is up, is this much quieter to emitter-seeking drones. Both assumptions.
+const RECEIVER_LIKE = 'rf_s', REACTIVE_QUIET = 0.5;
 const choicesOf = (table) => Object.fromEntries(Object.entries(table).map(([k, v]) => [k, v.label]));
 const MAST_PRICE = 0.015, RELOAD_PRICE = 0.1; // share of the system's price, per metre and per second
 const THRESHOLD = { low: { range: 1.1, falseAlarm: 2 }, high: { range: 0.9, falseAlarm: 0.5 } };
@@ -63,6 +66,22 @@ export const UNIT_FIELDS = [
     key: 'antenna', label: 'Antenna', base: () => 'omni', direct: 'antenna', limits: each(JAMMERS, true), choices: { omni: 'Omni, all round', sector: `Sector, ${SECTOR.arc}°` },
     range: (v) => (v === 'sector' ? Math.sqrt(SECTOR.gain) : 1), price: (v, c) => (v === 'sector' ? SECTOR.price * c.cost : 0),
     help: 'A sector antenna reaches about three times as far, but only through its arc, which faces away from what you defend unless turned.',
+  },
+  {
+    key: 'receiver', label: 'Receiver', base: () => 'off', limits: each(JAMMERS, true),
+    choices: { off: 'None', ...Object.fromEntries(Object.entries(LIBRARIES).map(([k, v]) => [k, `Fitted, ${v.name} library`])) },
+    price: (v) => (v === 'off' ? 0 : STRUCTURES[RECEIVER_LIKE].cost * (1 + LIBRARIES[v].price)),
+    help: 'Hears drones on the bands it is fitted for, as far as it can jam them, but not through its own barrage. Needed to jam reactively or switch itself on.',
+  },
+  {
+    key: 'technique', label: 'Technique', base: () => 'barrage', direct: 'technique', limits: each(JAMMERS, true), choices: { barrage: 'Barrage', reactive: 'Reactive' },
+    signature: (v) => (v === 'reactive' ? REACTIVE_QUIET : 1),
+    help: 'Barrage fills its bands for every drone. Reactive follows only the links its receiver hears and its library knows: it breaks them twice as fast at half the noise, and leaves GNSS and every other drone alone.',
+  },
+  {
+    key: 'trigger', label: 'Switched on by', base: () => 'track', direct: 'trigger', limits: each(JAMMERS, true),
+    choices: { track: 'Fusion node, on a track', receiver: 'Its own receiver', manual: 'You, by hand' },
+    help: 'Its own receiver works with the network down, but cannot hear a drone that sends nothing, and a barrage has to stop for 1 s in every 4 to listen. By hand, it jams only while you switch it on.',
   },
   {
     key: 'dims', label: 'Height', base: (c) => c.dims ?? 'full', direct: 'dims', limits: each(MEDIUM_UP, true), choices: { full: '3D, measures height', flat: '2D, no height' },
@@ -236,8 +255,9 @@ export function unitDef(id, settings = {}) {
   }
   if (c.kind === 'camera') Object.defineProperty(def.sapient.noise, 'range', { get: () => (def.rangefinder === 'yes' ? RANGEFINDER_ERROR : undefined), enumerable: true });
   if (c.kind === 'rf') Object.defineProperty(def.sapient.noise, 'az', { get: () => (settings.df ? DF_ERROR[settings.df] : c.sapient.noise.az), enumerable: true });
-  if (c.kind === 'jammer') { // only fitted bands can be jammed, and a sector antenna covers its arc only
+  if (c.kind === 'jammer') { // only fitted bands can be jammed, a sector antenna covers its arc only, and a receiver carries a library
     Object.defineProperty(def, 'fitted', { get: () => settings.fitted ?? JAM_BANDS });
+    Object.defineProperty(def, 'library', { get: () => settings.receiver }); // none fitted is the standard, so never saved
     Object.defineProperty(def, 'bands', { get: () => c.bands.filter((b) => def.fitted.includes(b)) });
     Object.defineProperty(def, 'arc', { get: () => (def.antenna === 'sector' ? SECTOR.arc : undefined) });
   }

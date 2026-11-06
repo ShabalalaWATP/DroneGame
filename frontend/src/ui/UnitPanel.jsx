@@ -9,7 +9,7 @@ import { burnTime, hitChance } from '../sim/hit-chance.js';
 import { ERROR_AT_LIMIT, predictRange, reachFor, usesPath } from '../sim/site-range.js';
 import { arcsText, coverArc, elevationBand } from '../sim/sensor-model.js';
 import { CHANNELS, IDENTIFY_PX, RECOGNISE_PX, hasZoom } from '../sim/camera-model.js';
-import { LIBRARIES, covers } from '../sim/rf-model.js';
+import { LIBRARIES, covers, libraryKnows } from '../sim/rf-model.js';
 import { terrainState } from '../sim/terrain.js';
 import { fmtTime, hex, useGame, useTick } from './hooks.js';
 import { stateWord } from './dock/NetworkSide.jsx';
@@ -100,11 +100,12 @@ function Stores({ s, now, state, frame }) {
 
 // What this jammer's active bands do to one type of drone.
 function jamEffect(s, drone) {
-  const links = drone.links || {};
+  const links = drone.links || {}, reactive = s.def.technique === 'reactive';
+  if (reactive && !libraryKnows(s.def, drone)) return 'not known to its library';
   const hit = [];
   if (links.control && s.jamBands.has(links.control)) hit.push('control');
   if (links.video && s.jamBands.has(links.video)) hit.push('video');
-  if (links.gnss && s.jamBands.has('gnss')) hit.push('navigation');
+  if (links.gnss && s.jamBands.has('gnss') && !reactive) hit.push('navigation');
   if (!hit.length || drone.jamResist >= 1) return 'not affected';
   return hit.join(', ') + (drone.jamResist > 0 ? `, resists ${Math.round(drone.jamResist * 100)}%` : '');
 }
@@ -168,6 +169,15 @@ function Odds({ def }) {
   );
 }
 
+function jammerLimits(def, arc) {
+  const lib = def.library && LIBRARIES[def.library];
+  const out = [arc < 360 ? `Jams only through ${arc}° facing ${def.facing ?? 0}°` : 'Jams all round', 'A control link is easier to jam the further the drone is from its operator'];
+  if (def.technique === 'reactive') out.push(lib?.knows ? `Reactive: only drones its ${lib.name} library knows, while its receiver hears them` : 'Reactive with no library to follow links by, so it jams nothing');
+  if (def.trigger === 'receiver') out.push(lib ? 'Switches itself on when its receiver hears a drone, even with the network down' : 'It has no receiver, so it never switches itself on');
+  if (def.trigger === 'manual') out.push('Jams only while you switch it on');
+  return out.join('. ');
+}
+
 function limitsOf(def) {
   const band = elevationBand(def), arc = coverArc(def);
   const edge = (e) => (e < 0 ? `${-e}° below the horizon` : e > 0 ? `${e}° up` : 'the horizon');
@@ -175,7 +185,7 @@ function limitsOf(def) {
   if (def.lowAlt) return `${looks ? `${looks}. ` : ''}Below ${def.lowAlt} m, unreliable beyond about ${def.lowRange} m (ground clutter)`;
   if (def.fov) return `${def.fov}° search view${hasZoom(def) ? `, ${def.trackFov}° on a cue` : ''}, so it must be pointed. Another sensor cues it. ${CHANNELS[def.channels].label}${def.channels === 'both' ? ' channels' : ' only'}`;
   if (def.fire === 'beam') return 'Needs a clear line of sight, and engages one target at a time';
-  if (def.kind === 'jammer') return `${arc < 360 ? `Jams only through ${arc}° facing ${def.facing ?? 0}°` : 'Jams all round'}. A control link is easier to jam the further the drone is from its operator`;
+  if (def.kind === 'jammer') return jammerLimits(def, arc);
   if (def.kind === 'rf') return `Hears ${covers(def).map((b) => SPECTRUM.bands[b].label).join(', ')}, but not a band your own jammer is jamming within its range`;
   return null;
 }

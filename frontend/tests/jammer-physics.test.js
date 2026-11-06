@@ -4,7 +4,7 @@
 import { Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DRONES, WORLD, resetAllFigures } from '../src/sim/config/index.js';
-import { fromOperator, jamReaches } from '../src/sim/drones.js';
+import { fromOperator, jamReaches } from '../src/sim/jamming.js';
 import { JAM_BANDS } from '../src/sim/rf-model.js';
 import { predictRange, BEARINGS } from '../src/sim/site-range.js';
 import { createSimulation } from '../src/sim/simulation.js';

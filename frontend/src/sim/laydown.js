@@ -78,6 +78,7 @@ export function captureLaydown(w) {
     // sorted, so the order systems were placed in cannot change the run
     structures: w.structures.filter((s) => !s.escort).map((s) => ({ // the patrol's escort is rebuilt from its route
       id: s.def.id, x: s.pos.x, z: s.pos.z, uplink: s.uplink || null, cellBand: s.cellBand, jam: s.jamBands ? [...s.jamBands] : null,
+      ...(s.jamOn && s.def.trigger === 'manual' ? { on: true } : {}), // switched on by hand
       ...(Object.keys(s.def.settings).length ? { settings: { ...s.def.settings } } : {}),
       ...(s.custom?.name ? { name: s.custom.name } : {}),
       ...(s.custom?.callsign ? { callsign: s.custom.callsign } : {}),
@@ -109,6 +110,7 @@ export function restoreLaydown(w, spec) {
     if (l.uplink) { s.uplink = l.uplink; w.ledger.terminals[l.uplink]++; charge(COMMS[l.uplink].cost); }
     s.cellBand = l.cellBand;
     if (l.jam && s.jamBands) s.jamBands = new Set(l.jam.filter((b) => s.def.fitted.includes(b)));
+    if (l.on === true && s.jamBands) s.jamOn = true;
   }
   for (const k of spec.fusionUplinks) { w.net.fusion.uplinks.add(k); w.ledger.terminals[k]++; charge(COMMS[k].cost); }
   w.net.fusion.cellBand = spec.fusionCell;
@@ -227,3 +229,4 @@ export function clearWires(w) {
   for (const s of w.net.nodes.values()) if (isNode(s) && s.uplink) wireNode(w, s, null);
   wireFusion(w, 'starlink', false); wireFusion(w, 'cellular', false);
 }
+export function setJamming(w, s, on) { if (s.jamBands) s.jamOn = !!on; } // a jammer switched by hand: also allowed any time

@@ -104,6 +104,7 @@ export function UnitEditor({ s, game }) {
           {def.fitted.map((id) => (
             <label key={id}><input type="checkbox" checked={s.jamBands.has(id)} onChange={(e) => commands.toggleJamBand(s, id, e.target.checked)} /> {SPECTRUM.bands[id].label}</label>
           ))}
+          {def.trigger === 'manual' && <label><input id="unit-jam-on" type="checkbox" checked={!!s.jamOn} onChange={(e) => commands.setJamming(s, e.target.checked)} /> <b>Jamming on</b></label>}
         </fieldset>
       )}
       {!locked && <button id="unit-sell" onClick={sell.confirm('sell', () => commands.sell(s.pos.x, s.pos.z))}>{sell.armed ? 'Sure? Click again' : `Sell for ${money(refund)}`}</button>}

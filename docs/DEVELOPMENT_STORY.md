@@ -281,6 +281,12 @@ A control link is now easier to jam the further the drone is from its operator, 
 
 Over twelve seeds the jammer laydown killed 223 drones against 217, and the mixed laydown 768 with 11 leaks against 781 and 11, which is within chance. The mixed laydown's jammers, 800 m out, killed 120 drones against 142: a drone meets them while still nearer its operator, which is the rule doing what it should, and a reason to keep jammers close in. The reference digests were re-recorded and `GAME_VERSION` moved to 0.10.0.
 
+## A jammer's own ears
+
+The last part of A6 gave a jammer a receiver of its own. It is paid hardware, priced as a Small RF detector with the same classifier library, and it hears a drone on the link bands the jammer is fitted for, as far as the jammer reaches. It cannot hear through noise on those bands: its own barrage fills them, and so do your other jammers nearby, by the same rule that deafens your detectors. That rule now lives in `sim/jamming.js` with the rest of a jammer's reach, shared by drones, detectors and the fusion node.
+
+The receiver opens two choices. Reactive jamming follows only the links its receiver hears and its library knows, and breaks them twice as fast at half the noise, but it leaves GNSS and every other drone alone. And a jammer can now be switched on by its own receiver instead of the fusion node, which keeps it working when its link to the network is down, though it cannot hear a drone that sends nothing. A barrage switched that way is deaf to the bands it fills, so after hearing nothing for a while it stops to listen: 1 s in every 4. A jammer can also be switched by hand, from the Unit panel, and a saved laydown keeps the switch. Every new setting's standard is the old behaviour, so the reference digests did not change.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

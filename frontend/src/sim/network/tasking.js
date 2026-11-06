@@ -5,6 +5,12 @@ import { FUSION, DRONES } from '../config/index.js';
 import { canFire } from '../magazine.js';
 import { zoomMax } from '../camera-model.js';
 import { inArcOf } from '../sensor-model.js';
+import { libraryKnows } from '../rf-model.js';
+import { hears } from '../jamming.js';
+
+// s: a jammer on its own receiver that has heard nothing for this long stops to listen. It switches once a second, so a barrage, deaf to
+// the bands it fills, jams 3 s in every 4: an assumption.
+const LOOK = 2.5;
 
 // Would this effector ever take this airframe? Unknown tracks are offered, and the effector can reject them.
 const takesAirframe = (def, airframe) => !def.engages || !airframe || airframe === 'Unknown' || def.engages.some((t) => DRONES[t].airframe === airframe);
@@ -102,22 +108,40 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
     }
   }
 
+  // Does this jammer's own receiver hear a drone it would jam? Through its own barrage it hears nothing on the bands it fills, so having
+  // heard nothing for LOOK seconds it switches off to listen, and back on at once if something is still there.
+  function hearsThreat(s) {
+    const all = [...nodes.values()];
+    if (ctx.drones.some((d) => (s.def.technique !== 'reactive' || libraryKnows(s.def, d.def)) && hears(s, d, all))) s.heardAt = T();
+    return T() - (s.heardAt ?? -Infinity) < LOOK;
+  }
+
+  // A jammer is switched on by the fusion node for a track it reaches and faces, by its own receiver, or by hand. The last two need no
+  // link to the fusion node, and report the change when they can.
+  function switchJammer(s, live) {
+    const by = s.def.trigger;
+    if (by === 'receiver' || by === 'manual') {
+      const want = (by === 'manual' ? s.jamOn : hearsThreat(s)) ? 'Jam' : 'Standby';
+      if (s.mode !== want) { s.mode = want; s.modePending = null; sendStatus(s, true); }
+      return;
+    }
+    if (s.offline) return; // a jammer we have lost contact with can't be switched
+    const want = live.some((tr) => distToTrack(s, tr) <= s.def.range && faces(s, tr)) ? 'Jam' : 'Standby';
+    if (s.mode !== want && s.modePending !== want) {
+      const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { mode_change: want } }, `Mode ${want}`, `Switch ${s.name} to ${want}`);
+      if (!res.dropped) {
+        s.modePending = want;
+        deliver(res, () => { s.mode = want; s.modePending = null; sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED'); sendStatus(s, true); });
+      }
+    }
+  }
+
   function tasking() {
     const live = confirmedTracks();
     cueCameras(live);
     for (const s of nodes.values()) {
+      if (s.def.kind === 'jammer') { switchJammer(s, live); continue; }
       if (s.def.role !== 'effector' || s.offline) continue; // an effector we have lost contact with can't be tasked
-      if (s.def.kind === 'jammer') {
-        const want = live.some((tr) => distToTrack(s, tr) <= s.def.range && faces(s, tr)) ? 'Jam' : 'Standby';
-        if (s.mode !== want && s.modePending !== want) {
-          const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { mode_change: want } }, `Mode ${want}`, `Switch ${s.name} to ${want}`);
-          if (!res.dropped) {
-            s.modePending = want;
-            deliver(res, () => { s.mode = want; s.modePending = null; sendTaskAck(s, id, 'TASK_STATUS_ACCEPTED'); sendStatus(s, true); });
-          }
-        }
-        continue;
-      }
       // Out of rounds or reloading: give the target up so another launcher can take it, and offer this one nothing for now.
       // shortcut: the fusion node reads the magazine directly. Report it in SAPIENT status if a lost launcher should be able to look armed.
       if (!canFire(s)) {

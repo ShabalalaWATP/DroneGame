@@ -217,6 +217,13 @@ class TestUnitSettings:
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings
 
+    def test_keeps_a_jammers_receiver_technique_and_trigger_and_its_hand_switch(self, client):
+        settings = {"receiver": "hobby", "technique": "reactive", "trigger": "manual"}
+        made = client.post(f"{API}/laydowns", json=_laydown_with(settings=settings, on=True))
+        assert made.status_code == 201
+        system = client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]
+        assert (system["settings"], system["on"]) == (settings, True)
+
     def test_keeps_the_conditions_and_refuses_unknown_ones(self, client):
         spec = copy.deepcopy(SPEC) | {"conditions": "night"}
         made = client.post(f"{API}/laydowns", json=laydown(spec=spec))
@@ -228,7 +235,7 @@ class TestUnitSettings:
         made = client.post(f"{API}/laydowns", json=_laydown_with())
         assert made.status_code == 201
         system = client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]
-        assert not {"settings", "name", "callsign"} & set(system)
+        assert not {"settings", "name", "callsign", "on"} & set(system)
 
     @pytest.mark.parametrize("bad", [
         {"settings": {"mount": -151}},
@@ -239,6 +246,8 @@ class TestUnitSettings:
         {"settings": {"fitted": ["wifi"]}},
         {"settings": {"fitted": ["gnss"] * 5}},
         {"settings": {"mount": 1e13}},
+        {"on": False},
+        {"on": "yes"},
         {"settings": {"bad key": 1}},
         {"settings": {"threshold": "<script>"}},
         {"settings": {f"k{i}": 1 for i in range(17)}},

@@ -68,6 +68,7 @@ class PlacedSystem(Strict):
     uplink: Uplink | None
     cellBand: CellBand
     jam: list[JamBand] | None = Field(max_length=4)
+    on: Literal[True] | None = Field(default=None, exclude_if=lambda v: v is None)  # a jammer switched on by hand
     # Shape and coarse bounds only: class limits belong to the game, which clamps to them when it loads a laydown.
     settings: dict[FigureKey, SettingNumber | SettingChoice | SettingArcs | SettingBands] | None = Field(default=None, max_length=MAX_UNIT_SETTINGS, exclude_if=lambda v: v is None)
     name: UnitName | None = Field(default=None, exclude_if=lambda v: v is None)

@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { DRONES, STRUCTURES, TOOLBAR, resetAllFigures } from '../src/sim/config/index.js';
-import { jamReaches } from '../src/sim/drones.js';
+import { jamReaches } from '../src/sim/jamming.js';
 import { reachFor } from '../src/sim/network/sensors.js';
 import { terrainState } from '../src/sim/terrain.js';
 import { u } from '../src/sim/units.js';
