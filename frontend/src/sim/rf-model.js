@@ -22,11 +22,11 @@ export const libraryKnows = (def, droneDef) => !!LIBRARIES[def.library]?.knows?.
 
 export const bandGhz = (id) => (SPECTRUM.bands[id].f[0][0] + SPECTRUM.bands[id].f[0][1]) / 2;
 
-// Every band a jammer can be fitted for. A list of them, as typed or saved, made clean: known bands, once each, in this order, at least one.
+// Every band a jammer can be fitted for. A list of bands, as typed or saved, made clean: from those allowed, once each, in their order, at least one.
 export const JAM_BANDS = Object.keys(SPECTRUM.bands);
-export function parseBands(value) {
-  if (!Array.isArray(value) || !value.length || !value.every((b) => JAM_BANDS.includes(b))) return undefined;
-  return JAM_BANDS.filter((b) => value.includes(b));
+export function parseBands(value, allowed = JAM_BANDS) {
+  if (!Array.isArray(value) || !value.length || !value.every((b) => allowed.includes(b))) return undefined;
+  return allowed.filter((b) => value.includes(b));
 }
 
 // The bands a drone radiates on.
@@ -37,8 +37,8 @@ export function radiates(droneDef) {
   return bands.length ? bands : [UNKNOWN_BAND];
 }
 
-// The drone bands this detector covers, or a jammer's receiver: the link bands it is fitted for.
-export const covers = (def) => LINK_BANDS.filter((b) => (def.kind === 'jammer' ? def.fitted.includes(b) : overlaps(SPECTRUM.bands[b].f, def.listens || [])));
+// The drone bands this detector covers and monitors, or a jammer's receiver: the link bands it is fitted for.
+export const covers = (def) => LINK_BANDS.filter((b) => (def.kind === 'jammer' ? def.fitted.includes(b) : overlaps(SPECTRUM.bands[b].f, def.listens || []) && (!def.monitored || def.monitored.includes(b))));
 
 // The band a detector hears this drone on, or null: the lowest it can, because that carries furthest. deaf: bands it cannot hear now.
 export function heardBand(def, droneDef, deaf) {

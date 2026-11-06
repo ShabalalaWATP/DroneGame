@@ -33,7 +33,7 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] A6 part 1: radio detection. Drones are heard on the bands of their own links, a detector hears only bands it covers, your own jamming deafens it on the bands it jams, and classifier libraries, sensitivity and direction finding are fields
 - [x] A6 part 2: how far a jammer reaches: bands fitted as paid modules, an omni or sector antenna with its facing, a control link easier to jam the further the drone is from its operator, and a louder jammer for each band it jams
 - [x] A6 part 3: the jammer's own receiver and library, barrage or reactive, what switches it on (the fusion node, its own receiver or you), and receiver blanking
-- [ ] A6 left over: monitored bands and instantaneous bandwidth on RF detectors, which need a revisit model, and a sensitivity for a jammer's receiver, which hears only as far as the jammer reaches
+- [x] A6 left over: monitored bands and instantaneous bandwidth on RF detectors. A sensitivity for a jammer's receiver is not offered: hearing further than it can jam would change nothing
 - [ ] A7: balance pass. This is the place to fix five lasers never losing.
 
 **Feature B: magazine depth**

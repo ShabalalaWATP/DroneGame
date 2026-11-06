@@ -206,7 +206,7 @@ class TestUnitSettings:
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings
 
     def test_keeps_a_detectors_sensitivity_library_and_direction_finding(self, client):
-        settings = {"sensitivity": -106, "library": "commercial", "df": "sector"}
+        settings = {"sensitivity": -106, "library": "commercial", "df": "sector", "monitored": ["control24", "video58"], "ibw": "narrow"}
         made = client.post(f"{API}/laydowns", json=_laydown_with(settings=settings))
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings

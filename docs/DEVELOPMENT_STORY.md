@@ -287,6 +287,8 @@ The last part of A6 gave a jammer a receiver of its own. It is paid hardware, pr
 
 The receiver opens two choices. Reactive jamming follows only the links its receiver hears and its library knows, and breaks them twice as fast at half the noise, but it leaves GNSS and every other drone alone. And a jammer can now be switched on by its own receiver instead of the fusion node, which keeps it working when its link to the network is down, though it cannot hear a drone that sends nothing. A barrage switched that way is deaf to the bands it fills, so after hearing nothing for a while it stops to listen: 1 s in every 4. A jammer can also be switched by hand, from the Unit panel, and a saved laydown keeps the switch. Every new setting's standard is the old behaviour, so the reference digests did not change.
 
+The last of A6 went to radio detectors: the bands they monitor and how much they take in at once. A detector can drop bands its hardware covers, hearing nothing there but cutting the false alarms each band brings. A narrow receiver costs a quarter less and takes in one band at a time, so it reports once per band it monitors: a Medium detector on all three bands comes round every 3 s, and on one band every second, as now. A real receiver steps through bands far faster than that, so the game stretches it to make the choice felt. A sensitivity for the jammer's receiver was dropped from the list, as hearing further than a jammer can reach would change nothing.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

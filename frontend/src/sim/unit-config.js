@@ -6,7 +6,7 @@ import { STRUCTURES } from './config/index.js';
 import { BANDS, CLUTTER, arcsText, bandOf, bandRange, bandSharpness, beamGain, lowestEdge, parseArcs } from './sensor-model.js';
 import { CHANNELS, PIXELS } from './camera-model.js';
 import { weatherRange } from './conditions.js';
-import { JAM_BANDS, LIBRARIES, parseBands } from './rf-model.js';
+import { JAM_BANDS, LIBRARIES, covers, parseBands } from './rf-model.js';
 
 const each = (ids, limits) => Object.fromEntries(ids.map((id) => [id, limits]));
 const RADARS = ['radar_s', 'radar_a400', 'radar', 'radar_a800', 'radar_giraffe', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_auds', 'jammer_l'], ACOUSTICS = ['acoustic_s', 'acoustic', 'acoustic_l'];
@@ -19,6 +19,7 @@ const RES_PRICE = 0.3, LENS_PRICE = 0.1, SLEW_PRICE = 0.1; // share of a camera'
 const RANGEFINDER_PRICE = 20000, RANGEFINDER_ERROR = 5; // dollars, and metres: assumptions
 const SENSITIVITY_PRICE = 0.5, DF_PRICE = 0.5; // share of a detector's price per doubling of reach, and for angle of arrival over a sector
 const DF_ERROR = { sector: 30, aoa: 5 }; // bearing error a detector switched to this gets, in degrees: the listed sector, and an older Dedrone's ±5°
+const NARROW_PRICE = 0.25; // share of a detector's price saved by a receiver that takes in one band at a time: an assumption
 const BAND_PRICE = 0.15; // share of a jammer's price saved for each band module left out: an assumption
 // A sector antenna: 10 dB of gain over 60°, about what a panel antenna gives, so range goes up by the square root of 10. Price share assumed.
 const SECTOR = { arc: 60, gain: 10, price: 0.2 };
@@ -58,7 +59,7 @@ export const UNIT_FIELDS = [
     help: 'The compass bearing the middle of its arc points along. Reset, it faces away from what you defend.',
   },
   {
-    key: 'fitted', label: 'Bands fitted', base: () => JAM_BANDS, limits: each(JAMMERS, true), bands: true, parse: parseBands,
+    key: 'fitted', label: 'Bands fitted', base: () => JAM_BANDS, limits: each(JAMMERS, true), bands: true, options: () => JAM_BANDS, parse: (v) => parseBands(v),
     price: (v, c) => (v.length - JAM_BANDS.length) * BAND_PRICE * c.cost,
     help: 'Each band is a module. Leave one out to save its price: it can then never be jammed.',
   },
@@ -135,6 +136,18 @@ export const UNIT_FIELDS = [
     help: 'Angle of arrival gives a bearing good enough to cross with another detector\'s. A sector only says roughly which way.',
   },
   {
+    // Each band monitored brings its own false alarms, from other emitters there.
+    key: 'monitored', label: 'Bands monitored', base: (c) => covers(c), direct: 'monitored', limits: each(RFS, true), bands: true,
+    options: (id) => covers(STRUCTURES[id]), parse: (v, id) => parseBands(v, covers(STRUCTURES[id])), falseAlarm: (v, c) => v.length / covers(c).length,
+    help: 'It hears only the bands it monitors. Fewer give fewer false alarms, and a narrow receiver comes back to each sooner.',
+  },
+  {
+    // A real receiver steps far faster; here a narrow one takes one report interval per band, so the band count is felt.
+    key: 'ibw', label: 'Instantaneous bandwidth', base: () => 'wide', direct: 'ibw', limits: each(RFS, true), choices: { wide: 'Wide, all its bands at once', narrow: 'Narrow, one band at a time' },
+    price: (v, c) => (v === 'narrow' ? -NARROW_PRICE * c.cost : 0),
+    help: 'Narrow is cheaper, but takes in one band at a time, so it hears each band only once per band it monitors.',
+  },
+  {
     key: 'threshold', label: 'Detection threshold', base: () => 'normal', limits: { ...each(RADARS, true), ...each(RFS, true), ...each(CAMERAS, true), ...each(ACOUSTICS, true) },
     choices: { low: 'Low', normal: 'Normal', high: 'High' },
     range: (v) => THRESHOLD[v]?.range ?? 1, falseAlarm: (v) => THRESHOLD[v]?.falseAlarm ?? 1,
@@ -202,7 +215,7 @@ export const fieldsFor = (id) => UNIT_FIELDS.filter((f) => f.limits[id]);
 
 // A value made safe to use for this field on this system, or undefined if it cannot be used at all.
 function cleanValue(field, id, value) {
-  if (field.arcs || field.bands) return field.parse(value);
+  if (field.arcs || field.bands) return field.parse(value, id);
   if (field.choices) return Object.hasOwn(field.choices, value) ? value : undefined;
   if (!Number.isFinite(value)) return undefined;
   const [min, max] = field.limits[id];
@@ -254,7 +267,10 @@ export function unitDef(id, settings = {}) {
     Object.defineProperty(def, 'emits', { get: () => (settings.band ? [{ label: `${BANDS[settings.band].label} radar`, f: BANDS[settings.band].f }] : c.emits) });
   }
   if (c.kind === 'camera') Object.defineProperty(def.sapient.noise, 'range', { get: () => (def.rangefinder === 'yes' ? RANGEFINDER_ERROR : undefined), enumerable: true });
-  if (c.kind === 'rf') Object.defineProperty(def.sapient.noise, 'az', { get: () => (settings.df ? DF_ERROR[settings.df] : c.sapient.noise.az), enumerable: true });
+  if (c.kind === 'rf') { // direction finding sets its bearing error, and a narrow receiver comes back to each band it monitors in turn
+    Object.defineProperty(def.sapient.noise, 'az', { get: () => (settings.df ? DF_ERROR[settings.df] : c.sapient.noise.az), enumerable: true });
+    Object.defineProperty(def.sapient, 'interval', { get: () => c.sapient.interval * (def.ibw === 'narrow' ? covers(def).length : 1), enumerable: true });
+  }
   if (c.kind === 'jammer') { // only fitted bands can be jammed, a sector antenna covers its arc only, and a receiver carries a library
     Object.defineProperty(def, 'fitted', { get: () => settings.fitted ?? JAM_BANDS });
     Object.defineProperty(def, 'library', { get: () => settings.receiver }); // none fitted is the standard, so never saved

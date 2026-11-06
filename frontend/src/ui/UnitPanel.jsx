@@ -186,7 +186,7 @@ function limitsOf(def) {
   if (def.fov) return `${def.fov}° search view${hasZoom(def) ? `, ${def.trackFov}° on a cue` : ''}, so it must be pointed. Another sensor cues it. ${CHANNELS[def.channels].label}${def.channels === 'both' ? ' channels' : ' only'}`;
   if (def.fire === 'beam') return 'Needs a clear line of sight, and engages one target at a time';
   if (def.kind === 'jammer') return jammerLimits(def, arc);
-  if (def.kind === 'rf') return `Hears ${covers(def).map((b) => SPECTRUM.bands[b].label).join(', ')}, but not a band your own jammer is jamming within its range`;
+  if (def.kind === 'rf') return `Hears ${covers(def).map((b) => SPECTRUM.bands[b].label).join(', ')}${def.ibw === 'narrow' ? `, one at a time, so each once every ${def.sapient.interval} s` : ''}, but not a band your own jammer is jamming within its range`;
   return null;
 }
 

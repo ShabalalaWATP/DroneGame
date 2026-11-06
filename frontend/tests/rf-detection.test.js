@@ -2,7 +2,7 @@
 // your own jammers nearby is filling them. A classifier library names what it knows; sensitivity and direction finding are hardware.
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DRONES, WORLD, resetAllFigures } from '../src/sim/config/index.js';
+import { DRONES, STRUCTURES, WORLD, resetAllFigures } from '../src/sim/config/index.js';
 import { bandGhz, heardBand, radiates } from '../src/sim/rf-model.js';
 import { reachFor } from '../src/sim/site-range.js';
 import { createSimulation } from '../src/sim/simulation.js';
@@ -102,4 +102,33 @@ describe('the receiver', () => {
     expect(unitDef('rf', { df: 'sector' }).sapient.noise.az).toBe(30);
     expect(unitCost('rf', { df: 'sector' })).toBe(20000);
   });
+});
+
+describe('the bands monitored and the bandwidth', () => {
+  it('hear only the bands it monitors, from those its hardware covers, with fewer false alarms', () => {
+    const rf = sim.addStructure('rf', u(300), u(300)), small = sim.addStructure('rf_s', u(-300), u(300));
+    expect(sim.commands.configureUnit(rf, 'monitored', ['video58', 'control24'])).toBeNull();
+    expect(rf.def.settings.monitored).toEqual(['control24', 'video58']); // kept in one order
+    expect(heardBand(rf.def, DRONES.spotter)).toBe('video58'); // no longer on 900 MHz
+    expect(rf.def.falseAlarm).toBeCloseTo(STRUCTURES.rf.falseAlarm * (2 / 3));
+    for (const bad of [['gnss'], []]) expect(sim.commands.configureUnit(rf, 'monitored', bad)).toMatch(/Not a valid/);
+    expect(sim.commands.configureUnit(small, 'monitored', ['control900'])).toMatch(/Not a valid/); // not a band it can hear
+  });
+  it('with a narrow receiver, come round once per band it monitors, for less', () => {
+    expect(unitDef('rf').sapient.interval).toBe(1);
+    expect(unitDef('rf', { ibw: 'narrow' }).sapient.interval).toBe(3);
+    expect(unitDef('rf', { ibw: 'narrow', monitored: ['control24'] }).sapient.interval).toBe(1);
+    expect(unitCost('rf', { ibw: 'narrow' })).toBe(STRUCTURES.rf.cost * 0.75);
+  });
+  it('make a narrow detector report that much less often in a run', () => {
+    setUp(sim, { seed: '1', laydown: [['radar', 600, 0], ['rf', 300, 300], ['rf', 300, 340]] });
+    expect(sim.commands.configureUnit(sim.structures[2], 'ibw', 'narrow')).toBeNull();
+    sim.state.warnedWire = true;
+    sim.commands.startWave();
+    sim.run(2500);
+    const [wide, narrow] = ['wide', 'narrow'].map((ibw) => sim.structures.find((s) => s.def.kind === 'rf' && (s.def.ibw ?? 'wide') === ibw)); // starting a wave rebuilds every unit
+    const reports = (s) => sim.bus.entries.filter((e) => e.type === 'detection_report' && e.from === s.nodeId).length;
+    expect(reports(narrow)).toBeGreaterThan(0);
+    expect(reports(narrow)).toBeLessThan(reports(wide) * 0.6);
+  }, 60000);
 });

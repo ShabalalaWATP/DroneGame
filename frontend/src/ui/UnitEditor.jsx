@@ -18,8 +18,8 @@ export function UnitField({ field, id, value, changed, onChange, locked, prefix 
     return (
       <fieldset className="up-bands" id={inputId}>
         <legend>{field.label}</legend>
-        {Object.entries(SPECTRUM.bands).map(([b, band]) => (
-          <label key={b}><input type="checkbox" checked={value.includes(b)} disabled={locked} onChange={(e) => change(e.target.checked ? [...value, b] : value.filter((x) => x !== b))} /> {band.label}</label>
+        {field.options(id).map((b) => (
+          <label key={b}><input type="checkbox" checked={value.includes(b)} disabled={locked} onChange={(e) => change(e.target.checked ? [...value, b] : value.filter((x) => x !== b))} /> {SPECTRUM.bands[b].label}</label>
         ))}
         <span className="muted">{field.help}{price !== 0 && <b> {price > 0 ? '+' : '-'}{money(Math.abs(price))}</b>}</span>
       </fieldset>
