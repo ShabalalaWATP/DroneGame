@@ -65,7 +65,7 @@ export function createPeopleViews(scene, sim, labels) {
     sim.people.forEach((g, gi) => {
       const hurt = new Set(counts ? g.hits.slice(0, counts[gi]) : g.hits);
       const floor = groundU(g.x, g.z);
-      const rng = mulberry32(hashSeed(`${g.x},${g.z}`)); // the same look every time this group is drawn
+      const rng = mulberry32(hashSeed(g.look)); // the same look every time this group is drawn
       for (let i = 0; i < g.count; i++, n++) {
         const x = g.spots[i * 2], z = g.spots[i * 2 + 1], scale = u(1.62 + rng() * 0.3) / MODEL_HEIGHT, turn = rng() * Math.PI * 2;
         const clothes = CLOTHES[Math.floor(rng() * CLOTHES.length)], skin = SKIN[Math.floor(rng() * SKIN.length)];

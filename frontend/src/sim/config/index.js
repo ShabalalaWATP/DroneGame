@@ -3,4 +3,5 @@ export * from './comms.js';
 export * from './systems.js';
 export * from './drones.js';
 export * from './people.js';
+export * from './patrol.js';
 export * from './figures.js';

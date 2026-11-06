@@ -8,6 +8,7 @@ import { tally } from './economy.js';
 import { removeStructure } from './laydown.js';
 import { removeDrone, spotterBonus } from './drones.js';
 import { blastOnGround } from './people.js';
+import { patrolAim } from './patrol.js';
 
 function emitterScore(s) {
   const def = s.def;
@@ -18,12 +19,13 @@ function emitterScore(s) {
 }
 
 const SITE_AIM = { x: 0, z: 0, structure: null };
+const plainAim = (w, d) => (w.patrol ? patrolAim(w) : d.aim || SITE_AIM); // a patrol takes the place of the station and any drawn area
 
 // An anti-radar drone only hears what radiates: a radar, or a jammer that is on. It goes for the strongest, wherever it is within reach.
 const radiates = (s) => (s.def.kind === 'radar' || (s.def.kind === 'jammer' && s.mode === 'Jam') ? s.def.signature || 0 : 0);
 
 export function pickTarget(w, d) {
-  if (!d.def.seeksEmitters) return d.aim || SITE_AIM;
+  if (!d.def.seeksEmitters) return plainAim(w, d);
   if (d.targetStructure && w.structures.includes(d.targetStructure)) return { x: d.targetStructure.pos.x, z: d.targetStructure.pos.z, structure: d.targetStructure };
   d.targetStructure = null;
   let best = null, bs = 0.3;
@@ -34,7 +36,7 @@ export function pickTarget(w, d) {
     const score = d.def.antiRadar ? radiates(s) : emitterScore(s) / (1 + dist / u(1500));
     if (score > bs) { bs = score; best = s; }
   }
-  if (!best) return d.aim || SITE_AIM;
+  if (!best) return plainAim(w, d);
   d.targetStructure = best;
   d.h0 = hdist(d.pos, best.pos); d.agl0 = Math.max((d.pos.y - hereU(d.pos.x, d.pos.z)) * WORLD.metresPerUnit, 5); // restart the descent profile
   return { x: best.pos.x, z: best.pos.z, structure: best };

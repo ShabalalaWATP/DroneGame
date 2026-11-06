@@ -19,6 +19,7 @@ export const view = {
   selected: null, // the system the Unit panel is showing
   osm: false, // demo: OpenStreetMap tiles as the picture on the ground
   zone: null, // the area to defend as it is drawn: { points: [[x, z]...], closed }. game.js gives the simulation a closed one
+  route: null, // a patrol route while it is being drawn, in the same shape. Once closed it goes to the simulation, which draws it from there
   spot: null, // a spot the wizard is suggesting: { x, z }
   wizard: 'closed', // 'open', 'collapsed' or 'closed'
   coverageOn: false, // the plan map shows sensor coverage

@@ -144,7 +144,7 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
   const drones = createDroneViews(scene, sim, labels, camera);
   const beliefs = createBeliefViews(scene, sim.net, camera, labelLayer);
   const effects = createEffects(scene, sim);
-  const zone = createZoneView(scene);
+  const zone = createZoneView(scene, sim);
   sim.on('terrain', zone.redraw);
 
   // Show the live state of the simulation. Replay runs after this and hides what it replaces.
