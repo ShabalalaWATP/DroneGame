@@ -468,6 +468,8 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 | A6 | RF, libraries and jammer physics | Tests confirm band matching, jam range and self-interference |
 | A7 | Balance using `tools/balance.js`. Optionally, later waves move to non-standard bands such as 3.3 GHz, as reported in Ukraine. | Results are recorded and the game is playable |
 
+**Which drones attack:** `sim/attack-mix.js` holds the ticked mix, `state.attack`, and `makeWave` fills each type's place from it. It saves in the laydown's `spec` only when changed, and the backend checks its shape alone. `ui/AttackMix.jsx` is the picker. `config/real-drones-extra.js` holds the Geran-3, ASN-301 and Wing Loong II, and `antiRadar` with `seekRange` in `targeting.js` sends the ASN-301 after radars.
+
 **Hit chance and accuracy:** `sim/hit-chance.js` gives each guided round's chance and a beam's fall with distance, used by play and by the Unit panel. `pk` is tunable in the Sources tab, and each system's `ref` says whether it is evidence or an assumption. `errorScale` in `sim/site-range.js` widens sensor error as the signal weakens, in the reports and the tracker alike. `enoughInAir` in `sim/effectors.js` decides between waiting, a salvo and the next target.
 
 **Range from where you stand:** a catalogue range means an open field on the standard mast. `sim/propagation.js` (ITU-R P.526 Bullington, Weissberger foliage, 4/3 earth) gives the loss on a real path, and `sim/site-range.js` turns it into a reach, used by detection, jamming, the rings, the plan map, the placing preview and the Range side of the Unit panel. See [ADR 0003](adr/0003-range-from-a-terrain-path-model.md). RF detectors and jammers default to a 9 m mast. UK systems are in `config/uk-systems.js`.

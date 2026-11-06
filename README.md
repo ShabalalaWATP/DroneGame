@@ -57,7 +57,7 @@ Press **Deploy**, pick a system from the left (or press 1 to 7), and click the g
 | 2 | RF detector | $10k, 2 km | $40k, 3.5 km | $400k, 14 km | | Passive direction finding with no range, on a 9 m mast. Cannot see RF-silent drones |
 | 3 | EO/IR camera | $25k, 260 m | $100k, 650 m | $500k, 1.6 km | | Narrow view cued by other sensors, with strong classification |
 | 4 | RF jammer | $40k, 500 m | $60k, 1 km | $350k, 3 km | | On only while tracks are in range, on a 9 m mast. Fibre-optic drones ignore it |
-| 5 | Interceptor drones | $100k, 3 km | $100k, 25 km | $300k, 15 km | $1,000 to $15,000 | Good against first-person-view and fibre-optic strike drones. Only the large one catches fixed-wing drones |
+| 5 | Interceptor drones | $100k, 3 km | $100k, 25 km | $300k, 15 km | $1,000 to $15,000 | Take any drone but the small net carrier, which only takes small, slow ones. Faster targets are harder to hit |
 | 6 | Missile | $100k, 2 km | $1M, 10 km | $5M, 25 km | $45,000 to $1.2M | Can hit fixed-wing drones |
 | 7 | Laser | $8M, 2 km | $2M, 3 km | $14M, 10 km | $3.50 to $13 | Needs dwell time, so evasive targets take longer |
 
@@ -66,6 +66,8 @@ These ranges are for an open field, on the standard mast, and sensors are agains
 Rounds can miss. The Unit panel gives each weapon's chance against each drone, close in and at its limit, or for a laser the time to burn through. Sensor error grows as the signal weakens, and a poor track lowers a shot's chance. Most hit chances are labelled assumptions, because few are published.
 
 The attack is made of first-person-view (FPV) strike drones ($400), fibre-optic strike drones that fly low and emit no radio ($1,000), fixed-wing strike drones ($35,000) and fixed-wing spotters that make strikes hit harder ($100,000). They get harder to hit and jam each wave.
+
+Press **Attack** in the top right to choose which drones the waves send: tick any mix of the generic types and the real Russian, Iranian, Chinese and commercial drones. Waves keep their size and timing, and the drones you tick take turns in the place of their type. The choice saves with the laydown and locks when the first wave starts.
 
 ### 2. Network it
 

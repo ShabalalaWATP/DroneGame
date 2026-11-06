@@ -187,6 +187,14 @@ A beam stays at full strength to a quarter of its range and then falls with dist
 
 Measuring the first version showed a problem the code did not show. The Mixed laydown fell from wave 11 to wave 7, and leaks were all fixed-wing drones. Its one missile launcher was firing, then sitting idle for a 40 s flight while others got through. It was a fire control flaw that perfect rounds had hidden. Launchers now shoot, look and shoot while there is time, salvo when there is not, and move to the next target while their rounds fly. Mixed then reached wave 9 or 10, spending far more of its budget.
 
+## Any mix of drones in the waves
+
+Another session had already added 21 real drones, but only to the sandbox and the planning tools. This one added three it had left out, the Geran-3 jet, the ASN-301 anti-radar drone and the Wing Loong II, and let the waves send any ticked mix. Each wave keeps its size and timing, and each type's place is taken in turn by the ticked drones of that type, so the default mix builds exactly the waves it did before and the reference digests did not move.
+
+Measuring each country's drones against the Mixed laydown showed how much a game rule now matters. Generic waves last to wave 9 or 10, Russia's to 6 to 8, China's to 2 to 4 and Iran's to wave 2. Iran's drones are all fixed-wing, and interceptor drones are barred from fixed-wing targets, so one missile launcher faces them alone. That rule was always unrealistic, since a Sting is built to hit Shaheds, and it is now the main question for balance.
+
+Alex chose to lift it for the Sting and the P1-SUN, leaving the small net carrier limited to small, slow drones. Hit chance already falls as the target gets faster, so a Shahed is a fair shot and a jet a hard one. Against Mixed, Iran's waves then lasted to wave 11 or 12 instead of 2, China's to 4 or 5 and Russia's to 8 or 9. The generic game got easier too: Mixed held to wave 15 to 17 instead of 9 or 10, and eight interceptors with three compact radars to 14 to 16 instead of 4. Generic waves may want strengthening to match.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |
