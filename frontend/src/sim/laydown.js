@@ -6,6 +6,7 @@ import { WORLD, BUILD, COMMS, ECONOMY, STRUCTURES } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { SITE_POS, u, hdist, hereU } from './units.js';
 import { cleanZone, reachProblem, siteIsFree, zoneCentre } from './attack-area.js';
+import { outwardFrom } from './sensor-model.js';
 import { cleanMix, hasStrike, isDefaultMix } from './attack-mix.js';
 import { buyTerminal, money } from './economy.js';
 import { capturePeople, clearPeople, restorePeople } from './people.js';
@@ -18,6 +19,8 @@ export function addStructure(w, id, x, z, saved = {}, reserved) {
   const def = unitDef(id, cleanSettings(id, saved.settings));
   const y = hereU(x, z);
   const s = { def, health: def.health || 30, pos: new Vector3(x, y, z), cd: 0, aim: 0, beamTarget: null };
+  // unless it is told otherwise, it faces away from what is defended, so it follows a drawn area or a walking patrol
+  Object.defineProperty(def, 'facing', { get: () => def.settings.facing ?? outwardFrom(w.state.zoneCentre, s.pos) });
   const name = cleanName(saved.name), callsign = cleanCallsign(saved.callsign);
   if (name || callsign) s.custom = { name, callsign };
   fillMagazine(s);

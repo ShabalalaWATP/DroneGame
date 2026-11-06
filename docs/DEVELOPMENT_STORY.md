@@ -237,6 +237,14 @@ The fixed-site digests did not move, because a run with no patrol runs none of i
 
 A browser run found what the tests had missed: nine strikes on the patrol and no casualties. A strike counts once it is within 30 m, and the blast went off where the drone was, beyond an FPV's 25 m casualty radius. It now lands on the patrol, as a strike on a system lands on the system.
 
+## Radar arcs
+
+Stage A4 started with where a radar looks. A fixed-panel radar now covers only its arc: 120° for the EchoGuard and the Spexer, and the published 90° for the Blighter A800 and A400. More panels sit side by side, each at the price of another head, and three or four cover all round. Rotating radars still see all round. Every radar also covers a band of elevation from 10° below the horizon, so a spotter close overhead can pass above the beam, which the published 80° of the EchoGuard and the assumed 60° of the IRIS make plain.
+
+A radar faces away from what is defended unless it is turned, worked out when read rather than stored. So it follows a drawn area, and a patrol's escort radar faces outward from the patrol as it walks. Turning it is a free setting; reset, it faces away again. The rule lives in `sim/sensor-model.js`, and detection, false alarms, the range prediction and every view that draws range go through it, so the rings show a wedge and cannot disagree with play.
+
+This was a deliberate balance change, so the reference digests were re-recorded. The laser laydown, which watches with three Small radars, now lets one drone through where it let none, and the jammer laydown kills 18 instead of 21. The mixed laydowns end the same, with only their messages changed. `GAME_VERSION` moved to 0.6.0.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

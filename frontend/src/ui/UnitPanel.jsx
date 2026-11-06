@@ -7,6 +7,7 @@ import { money } from '../sim/economy.js';
 import { magazineWord } from '../sim/magazine.js';
 import { burnTime, hitChance } from '../sim/hit-chance.js';
 import { ERROR_AT_LIMIT, predictRange, reachFor, usesPath } from '../sim/site-range.js';
+import { coverArc, elevationBand } from '../sim/sensor-model.js';
 import { terrainState } from '../sim/terrain.js';
 import { fmtTime, hex, useGame, useTick } from './hooks.js';
 import { stateWord } from './dock/NetworkSide.jsx';
@@ -166,7 +167,9 @@ function Odds({ def }) {
 }
 
 function limitsOf(def) {
-  if (def.lowAlt) return `Below ${def.lowAlt} m, unreliable beyond about ${def.lowRange} m (ground clutter)`;
+  const band = elevationBand(def), arc = coverArc(def);
+  const looks = def.kind === 'radar' && `${arc < 360 ? `Looks through ${arc}° facing ${def.facing ?? 0}°` : 'Looks all round'}${band ? `, from ${-band[0]}° below the horizon to ${band[1]}° up` : ''}`;
+  if (def.lowAlt) return `${looks ? `${looks}. ` : ''}Below ${def.lowAlt} m, unreliable beyond about ${def.lowRange} m (ground clutter)`;
   if (def.fov) return `${def.fov}° view, so it must be pointed. Another sensor cues it`;
   if (def.fire === 'beam') return 'Needs a clear line of sight, and engages one target at a time';
   return null;

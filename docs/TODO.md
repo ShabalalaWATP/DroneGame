@@ -4,16 +4,16 @@ What is still open now the rebuild to React, FastAPI and SQLite is on `main`. De
 
 ## Decisions for you
 
-- [ ] **Add a remote backup.** This work exists only on one machine. Choose where it lives, and keep the repository private until you decide otherwise.
-- [ ] **Commit or drop the uncommitted mapping plan edits.** `docs/REAL_MAPPING_PLAN.md` has another author's changes in the working tree, and the mapping stages below depend on them.
+- [x] **Add a remote backup.** The code is on GitHub.
+- [x] **Commit or drop the uncommitted mapping plan edits.** Committed.
 - [ ] **Confirm the mapping plan's assumptions.** Grid format, Great Britain coverage, what "offline" means, open data only, and whether the app is for commercial, non-commercial or public sector use, which decides the satellite imagery allowed. See "Assumptions to confirm" in `docs/REAL_MAPPING_PLAN.md`.
-- [ ] **Decide what happens to `parked-friendlies-roe-spectrum`.** It holds untested work on friendly drones, rules of engagement, defence targeting and `spectrum.js`, and predates the rebuild. Reuse its ideas or delete it.
-- [ ] **Delete `refactor/client-server`?** It now points at the same commit as `main`.
-- [ ] **Leave the early mapping plan draft in commit `393ac0e`?** It was included by accident in Phase 3. Removing it means rewriting history, so the suggestion is to leave it, and it must be decided before a remote exists.
+- [ ] **Decide what happens to `parked-friendlies-roe-spectrum`** (also on GitHub). It is untested and predates the rebuild, so it cannot be merged. Its spectrum, defence targeting and water rules are on `main` in newer forms; only friendly drones and rules of engagement are not. Rebuild those as new work, or delete it.
+- [ ] **Delete the merged branches?** All of these are in `main`: `refactor/client-server`, `feature/leaflet-start`, `feature/map-styles`, `feature/map-views`, `feature/real-mapping` (also on GitHub), `feature/real-threats`, `fix/defend-anywhere`, `feature/simulated-people`, `claude/amazing-bassi-40110b` and `claude/stoic-pare-bfbde0`, with their worktrees. `feature/assistant-wizard` (also on GitHub) is the wizard's first draft, replaced by later commits, so it needs a forced delete.
+- [ ] **Leave the early mapping plan draft in commit `393ac0e`?** It was included by accident in Phase 3. It is on GitHub now, so removing it would mean rewriting history and a force push. The suggestion is to leave it.
 
-## Once a remote exists
+## Now there is a remote
 
-- [ ] Add CI: both test suites, the reference digests, the build, `npm audit` and `pip-audit`.
+- [ ] Add CI: both test suites, the map builder's tests, the reference digests, the build, `npm audit` and `pip-audit`. There are no workflows yet.
 
 ## Planned features
 
@@ -24,7 +24,8 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] A1: per-unit definitions and kind checks, with digests unchanged
 - [x] A2: small, medium and large catalogue entries, and the toolbar
 - [x] A3: editing in the unit panel, with names and settings in laydowns and the API
-- [ ] A4: radar physics, arcs, tracker fixes and map drawing
+- [x] A4 part 1: coverage arcs and elevation for every radar, panels and facing on fixed-panel radars, drawn in every view. Small radars now see 120° per panel
+- [ ] A4, the rest: tracker timing for scans up to 5 s, 2D radars with no height, then band, clutter filter, blanking arcs, elevation edges and micro-Doppler
 - [ ] A5: environment and electro-optical physics
 - [ ] A6: RF detector, libraries and jammer physics
 - [ ] A7: balance pass. This is the place to fix five lasers never losing.
@@ -81,8 +82,15 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 **Real drones**
 
-- [ ] Letting the waves send real drones, by choosing who is attacking. They fly in the sandbox and the wizard can plan against them, but the waves still send the four generic types, so that saved runs stay comparable.
+- [x] Letting the waves send real drones. The Attack button picks any mix of types, real drones included, and it saves with the laydown.
 - [ ] Spelling out the systems' own short names (RDR, RFS, EO/IR, RF) as the threat names now are. They appear on the map, in the node list and in logs.
+
+**Patrol prototype** (see `docs/PATROL_MODE.md`)
+
+- [x] A first playable slice: people walk a looped route with a radar and a launcher, and strike drones attack the patrol
+- [x] Routes, people and systems may go anywhere on the map, and an area and a patrol refuse each other
+- [ ] What the slice leaves out, listed under "Left out of the slice" in `docs/PATROL_MODE.md`: a spotter's fix that goes stale, choosing the escort, sensing penalties on the move, routes along roads, winning by laps, escort positions in replays, a hotkey, and an end card that says the patrol was lost
+- [ ] The wizard's "Show me a good spot" still searches round the station when you protect a patrol. It follows a drawn area, but not a patrol
 
 **Real-world mapping** (see `docs/REAL_MAPPING_PLAN.md`)
 

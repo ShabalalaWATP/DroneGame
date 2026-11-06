@@ -42,7 +42,7 @@ describe('sensors', () => {
   it('follows the zone the player drew', () => {
     const spot = placeBest('radar', north);
     expect(spot.z).toBeLessThan(0); // north of the site
-    expect(zoneShare(sim, 'spotter', north)).toBe(1);
+    expect(zoneShare(sim, 'spotter', north)).toBeGreaterThan(0.6); // a spotter close overhead is above the radar's beam
     expect(suggestSpot(sim, STRUCTURES.rf, north).why).toMatch(/your zone/i);
   });
 

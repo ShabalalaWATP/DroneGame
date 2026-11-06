@@ -9,6 +9,7 @@ import { terrainState } from '../../sim/terrain.js';
 import { hereU } from '../../sim/units.js';
 import { inZone } from '../../zone.js';
 import { zoneCentre } from '../../sim/attack-area.js';
+import { standingAt } from '../../sim/sensor-model.js';
 import { answer, COUNTS } from './guide.js';
 
 const OUTSIDE_WEIGHT = 0.5, OUTSIDE_POINTS = 16, OUTSIDE_MARGIN = 1000; // a look past the edge of the zone, for early warning
@@ -100,8 +101,10 @@ export function suggestSpot(sim, def, zone = null) {
   const judged = rows.slice(0, 2); // the weakest two: the first counts most, and it is the one the reason talks about
   const total = points.reduce((sum, p) => sum + p.weight, 0);
 
+  const placed = (x, z) => ({ def: standingAt(def, sim.state.zoneCentre, { x, z }), pos: { x, y: hereU(x, z), z } }); // facing as it would once placed
+
   function score(x, z) {
-    const s = { def, pos: { x, y: hereU(x, z), z } };
+    const s = placed(x, z);
     let value = 0;
     judged.forEach(({ probes, looks }, t) => {
       probes.forEach((probe, i) => { if (covers(net, s, probe)) value += (t ? 0.5 : 1) * points[i].weight * worth(def, looks[i]); });
@@ -129,7 +132,7 @@ export function suggestSpot(sim, def, zone = null) {
   const { x: cx, z: cz } = best;
   for (let a = 0; a < 8; a++) consider(cx + (FINE_STEP * Math.cos((a / 8) * 2 * Math.PI)) / mpu, cz + (FINE_STEP * Math.sin((a / 8) * 2 * Math.PI)) / mpu);
 
-  const weakest = judged[0], s = { def, pos: { x: best.x, y: hereU(best.x, best.z), z: best.z } };
+  const weakest = judged[0], s = placed(best.x, best.z);
   const here = weakest.probes.map((probe) => covers(net, s, probe));
   // A camera's reason counts only what it can be cued onto. Anything else counts all it would add to what is already covered.
   const after = points.filter((p, i) => p.inside && (def.kind === 'camera' ? here[i] && weakest.looks[i].total > 0 : here[i] || weakest.looks[i].total > 0)).length;

@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { DRONES, STRUCTURES, STRUCT_SCALE, WORLD } from '../sim/config/index.js';
 import { BEARINGS, predictRange, usesPath } from '../sim/site-range.js';
+import { standingAt } from '../sim/sensor-model.js';
 import { terrainState } from '../sim/terrain.js';
 import { u, hereU } from '../sim/units.js';
 import { drapedRing } from './terrain-view.js';
@@ -114,7 +115,8 @@ export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getT
         if (ghostRadii && now - predictedAt > PREDICT_EVERY_MS) { // the preview shows the range this spot really gets
           predictedAt = now;
           const m = WORLD.metresPerUnit;
-          predictRange(defFor(tool), DRONES.fpv, terrainState.data, mouseGround.x * m, mouseGround.z * m).first.forEach((metres, i) => { ghostRadii[i] = u(metres); });
+          const def = standingAt(defFor(tool), sim.state.zoneCentre, mouseGround); // facing as it will once placed
+          predictRange(def, DRONES.fpv, terrainState.data, mouseGround.x * m, mouseGround.z * m).first.forEach((metres, i) => { ghostRadii[i] = u(metres); });
         }
         ghostRing.update(mouseGround.x, mouseGround.z); // re-drape the ring over the ground under the cursor
         ghostAt = { x: mouseGround.x, z: mouseGround.z };

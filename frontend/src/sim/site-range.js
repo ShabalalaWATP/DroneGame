@@ -3,6 +3,7 @@
 
 import { SENSING, TERRAIN } from './config/index.js';
 import { earthBulge, freeSpaceLoss, fresnelRadius, pathLoss, reachFactor } from './propagation.js';
+import { coverArc, inCover } from './sensor-model.js';
 
 // How much ground clutter hides low flyers from radar, by ground cover (open, forest, built, power-line corridor):
 // the radar's low-flyer range is multiplied by this.
@@ -65,13 +66,14 @@ export const inClutter = (def, world, x, z, agl, horizontal) => !!def.lowAlt && 
 const predictions = new WeakMap(); // world -> results, because the same spot is asked for by the ring, the panel and the cursor
 
 // Range around a spot in each direction, against one type of drone at its usual height. first[i] is how far cover runs unbroken on bearing
-// i * 360 / BEARINGS. covered is the share of the open-field area that is really seen, gaps included. limited means the map's edge stopped it.
+// i * 360 / BEARINGS, and 0 outside a radar's arc. covered is the share of the open-field area inside its arc that is really seen, gaps
+// included, and mean, min and worst are over that arc too. limited means the map's edge stopped it.
 export function predictRange(def, droneDef, world, x, z, alt = typicalAltitude(droneDef)) {
   const open = reachFor(def, droneDef);
   const sx = Math.round(x / world.cell) * world.cell, sz = Math.round(z / world.cell) * world.cell;
   let results = predictions.get(world);
   if (!results) predictions.set(world, results = new Map());
-  const key = `${def.id}|${sx}|${sz}|${open}|${def.mount}|${droneDef.id}|${alt}`;
+  const key = `${def.id}|${sx}|${sz}|${open}|${def.mount}|${droneDef.id}|${alt}|${coverArc(def)}|${def.facing}`;
   const saved = results.get(key);
   if (saved) return saved;
   const out = calculate(def, droneDef, world, sx, sz, alt, open);
@@ -86,24 +88,26 @@ function calculate(def, droneDef, world, x, z, alt, open) {
   const steps = Math.min(STEPS, Math.ceil(far / world.cell)) || 1;
   const a = { x, y: world.groundAt(x, z) + antennaHeight(def), z }, b = { x: 0, y: 0, z: 0 };
   let seen = 0, total = 0, limited = false;
+  const looks = Array.from({ length: BEARINGS }, (_, i) => inCover(def, (i * 360) / BEARINGS, 0));
   for (let i = 0; i < BEARINGS; i++) {
+    if (!looks[i]) continue;
     const rad = (i / BEARINGS) * 2 * Math.PI, east = Math.sin(rad), south = -Math.cos(rad);
-    let unbroken = true;
+    let unbroken = true, started = false;
     for (let s = 1; s <= steps && far; s++) {
       const r = (far * s) / steps;
       b.x = x + east * r; b.z = z + south * r;
       if (Math.abs(b.x) > world.R || Math.abs(b.z) > world.R) { limited = true; break; }
       b.y = world.groundAt(b.x, b.z) + alt;
-      const ok = Math.hypot(r, b.y - a.y) <= reachOnPath(def, droneDef, world, a, b) * 1.001 && !inClutter(def, world, b.x, b.z, alt, r);
+      const inBand = inCover(def, (i * 360) / BEARINGS, (Math.atan2(b.y - a.y, r) * 180) / Math.PI);
+      const ok = inBand && Math.hypot(r, b.y - a.y) <= reachOnPath(def, droneDef, world, a, b) * 1.001 && !inClutter(def, world, b.x, b.z, alt, r);
       total += r;
-      if (ok) seen += r;
-      if (!ok) unbroken = false;
-      if (unbroken) first[i] = r;
+      if (ok) { seen += r; started = true; } else if (started || inBand) unbroken = false; // close in, over or under the beam is a gap, not the edge
+      if (unbroken && ok) first[i] = r;
     }
   }
-  let sum = 0, min = Infinity, max = 0, worst = 0;
-  first.forEach((r, i) => { sum += r; max = Math.max(max, r); if (r < min) { min = r; worst = i; } });
-  return { open, first, mean: sum / BEARINGS, min, max, covered: total ? seen / total : 0, limited, worst: (worst * 360) / BEARINGS, alt };
+  let sum = 0, min = Infinity, max = 0, worst = 0, counted = 0;
+  first.forEach((r, i) => { if (!looks[i]) return; counted++; sum += r; max = Math.max(max, r); if (r < min) { min = r; worst = i; } });
+  return { open, first, mean: counted ? sum / counted : 0, min: counted ? min : 0, max, covered: total ? seen / total : 0, limited, worst: (worst * 360) / BEARINGS, alt };
 }
 
 // Everything needed to draw and explain one path, from a spot out along a bearing to the system's open-field range or the map's edge.

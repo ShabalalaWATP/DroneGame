@@ -5,6 +5,7 @@ import { SENSING } from '../config/index.js';
 import { rand, gauss } from '../rng.js';
 import { terrainState } from '../terrain.js';
 import { errorScale, inClutter, reachFor, reachOnPath } from '../site-range.js';
+import { coverArc, inCover } from '../sensor-model.js';
 import { RB_UNITS, rbDatum, round, clamp } from './core.js';
 
 export { reachFor };
@@ -37,6 +38,8 @@ export function createSensors(core, feed) {
     if (def.senses === 'perimeter') return r.hr < def.range ? 0.98 : 0;
     const open = reachFor(def, d.def);
     if (!open || r.rng > open * SENSING.rangeCap) return 0;
+    const b = bearingOf(r);
+    if (!inCover(def, b.az, b.el)) return 0; // outside a radar's arc, or above or below its beam
     const T3 = terrainState.data, m = mpu();
     const dxm = d.pos.x * m, dzm = d.pos.z * m, dym = d.pos.y * m;
     const p = inClutter(def, T3, dxm, dzm, dym - T3.groundAt(dxm, dzm), r.hr) ? SENSING.clutterPenalty : 1; // lost in clutter
@@ -72,7 +75,8 @@ export function createSensors(core, feed) {
   // Where a false alarm appears: random direction and range inside what the sensor covers (a camera only inside its view).
   function falseGeometry(s) {
     const def = s.def;
-    const azD = def.fov ? s.point.az + (rand() - 0.5) * def.fov : rand() * 360;
+    const arc = coverArc(def); // a radar's false alarms come from where it looks
+    const azD = def.fov ? s.point.az + (rand() - 0.5) * def.fov : arc < 360 ? def.facing + (rand() - 0.5) * arc : rand() * 360;
     const elD = def.fov ? s.point.el + (rand() - 0.5) * def.fov : rand() * 12 - 2;
     const rng = def.range * (0.15 + 0.85 * rand());
     const az = (azD * Math.PI) / 180, el = (elD * Math.PI) / 180;

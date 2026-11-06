@@ -6,6 +6,7 @@ import { STRUCTURES } from './config/index.js';
 
 const each = (ids, limits) => Object.fromEntries(ids.map((id) => [id, limits]));
 const RADARS = ['radar_s', 'radar_a400', 'radar', 'radar_a800', 'radar_giraffe', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_auds', 'jammer_l'], ACOUSTICS = ['acoustic_s', 'acoustic', 'acoustic_l'];
+const PANELLED = { radar_s: [1, 3], radar_l: [1, 3], radar_a800: [1, 4], radar_a400: [1, 4] }; // fixed-panel radars: up to all round
 const MAST_PRICE = 0.015, RELOAD_PRICE = 0.1; // share of the system's price, per metre and per second
 const THRESHOLD = { low: { range: 1.1, falseAlarm: 2 }, high: { range: 0.9, falseAlarm: 0.5 } };
 
@@ -26,6 +27,16 @@ export const UNIT_FIELDS = [
     key: 'scan', label: 'Scan period', unit: 's', step: 0.1, base: (c) => c.sapient.interval, limits: each(RADARS, [0.5, 1.5]),
     range: (v, c) => Math.pow(v / c.sapient.interval, 0.25), sapient: 'interval',
     help: 'Slower reaches further, but its data is older.',
+  },
+  {
+    key: 'panels', label: 'Panels', unit: '', step: 1, base: () => 1, direct: 'panels', limits: PANELLED,
+    price: (v, c) => (v - 1) * c.cost,
+    help: 'Each panel adds its arc beside the others, at the price of another radar head.',
+  },
+  {
+    // No standard value: left unset, it faces away from what is being defended, wherever that is (laydown.js).
+    key: 'facing', label: 'Facing', unit: '°', step: 5, base: () => null, limits: Object.fromEntries(Object.keys(PANELLED).map((id) => [id, [0, 355]])),
+    help: 'The compass bearing the middle of its arc points along. Reset, it faces away from what you defend.',
   },
   {
     key: 'threshold', label: 'Detection threshold', base: () => 'normal', limits: { ...each(RADARS, true), ...each(RFS, true), ...each(CAMERAS, true), ...each(ACOUSTICS, true) },
@@ -79,7 +90,7 @@ export function cleanSettings(id, saved) {
   return settings;
 }
 
-export const settingValue = (def, field) => def.settings[field.key] ?? field.base(STRUCTURES[def.id]);
+export const settingValue = (def, field) => def.settings[field.key] ?? field.base(STRUCTURES[def.id]) ?? def[field.key] ?? ''; // a placed radar's facing has no standard value
 
 export function unitCost(id, settings = {}) {
   const c = STRUCTURES[id];

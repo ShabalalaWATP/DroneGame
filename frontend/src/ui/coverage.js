@@ -12,7 +12,7 @@ export function coverageGrid(sim, threat) {
   const def = DRONES[threat];
   const agl = (def.alt[0] + def.alt[1]) / 2;
   // everything the answer depends on: node ids repeat after a reload, so they cannot tell two laydowns apart
-  const key = [threat, sim.state.terrainSeed, JSON.stringify(exportFigures()), ...[...net.nodes.values()].map((n) => `${n.nodeId}:${n.pos.x}:${n.pos.z}:${n.def.range}:${n.def.mount}:${n.def.fov}`)].join('|');
+  const key = [threat, sim.state.terrainSeed, JSON.stringify(exportFigures()), ...[...net.nodes.values()].map((n) => `${n.nodeId}:${n.pos.x}:${n.pos.z}:${n.def.range}:${n.def.mount}:${n.def.fov}:${n.def.panels}:${n.def.facing}`)].join('|');
   if (!caches.has(sim)) caches.set(sim, new Map());
   const cache = caches.get(sim), hit = cache.get(threat);
   if (hit && hit.key === key) return hit;

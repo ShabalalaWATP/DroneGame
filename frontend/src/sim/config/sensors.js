@@ -9,6 +9,7 @@ export const SENSORS = {
     product: 'Robin Radar IRIS', size: 'M', name: 'Medium radar', short: 'RDR', cost: 900000, shotCost: 0, color: 0x2962ff, role: 'sensor', kind: 'radar', published: 3100, mount: 25, falseAlarm: 0.1, // chance of a false alarm per scan
     health: 30, signature: 1.0, emits: [{ label: 'X-band radar (assumed 9.2\u20139.5 GHz)', f: [[9.2, 9.5]] }], // radar band: assumption
     lowAlt: 40, lowRange: 500, // targets below lowAlt (m) are only seen inside lowRange (m): ground clutter (game rule)
+    elevation: 60, // degrees of elevation it covers (sensor-model.js). A rotating radar has no arc: it sees all round
     desc: 'Medium-range surveillance radar. Range, bearing and velocity. Low flyers hide in ground clutter until close.',
     sapient: {
       nodeType: 'NODE_TYPE_RADAR', subType: ['Surveillance', 'C-UAS'], scan: 'SCAN_TYPE_SCANNING', interval: 1,
@@ -19,7 +20,7 @@ export const SENSORS = {
       class: 'Counter-UAS surveillance radar, medium range',
       analogues: ['Robin Radar IRIS'],
       published: 'IRIS datasheet, from real-life testing in typical conditions: 1.1 km against a 0.25 kg drone, 3.1 km against 0.9 kg, 3.7 to 4 km against 2.9 kg (the sheets differ) and 7.6 km against 52 kg. Its instrumented range is 5 km, or 12 km in Long-Range Mode.',
-      basis: 'Game range is the 3.1 km figure, because 0.9 kg is closest to the game\u2019s small FPV. The 5 and 12 km are how far it can display, not how far it sees a small drone.',
+      basis: 'Game range is the 3.1 km figure, because 0.9 kg is closest to the game\u2019s small FPV. The 5 and 12 km are how far it can display, not how far it sees a small drone. It rotates, so it sees all round; the 60\u00B0 of elevation it covers is an ASSUMPTION.',
       confidence: 'Manufacturer\u2019s test figures, not independently checked',
       sources: [
         { label: 'Robin Radar: IRIS product sheet, April 2026', url: 'https://www.robinradar.com/hubfs/IRIS%20product%20sheet%20042026.pdf' },
@@ -37,7 +38,8 @@ export const SENSORS = {
     product: 'Echodyne EchoGuard', size: 'S', name: 'Small radar', short: 'RDS', cost: 45000, shotCost: 0, color: 0x82b1ff, role: 'sensor', kind: 'radar', published: 1000, mount: 15, falseAlarm: 0.15,
     health: 30, signature: 0.8, emits: [{ label: 'K-band radar 24.45\u201324.65 GHz', f: [[24.45, 24.65]] }], // published for EchoGuard (US)
     lowAlt: 30, lowRange: 300,
-    desc: 'Small solid-state radar. Cheap and short range, so you can afford several, but it sees less.',
+    arc: 120, elevation: 80, // one fixed panel's arc and elevation, in degrees. More panels widen the arc
+    desc: 'Small solid-state radar. Cheap and short range, so you can afford several, but each panel only looks through 120\u00B0.',
     sapient: {
       nodeType: 'NODE_TYPE_RADAR', subType: ['Compact', 'C-UAS'], scan: 'SCAN_TYPE_FIXED', interval: 1,
       noise: { az: 1.0, el: 2.0, range: 10 }, velocity: true,
@@ -46,8 +48,8 @@ export const SENSORS = {
     ref: {
       class: 'Compact 3D drone-detection radar',
       analogues: ['Echodyne EchoGuard'],
-      published: 'About 1 km against a DJI Phantom 4 and 1.4 km against a Matrice 600 (vendor-listed).',
-      basis: 'Game range is the 1 km Phantom 4 figure.',
+      published: 'About 1 km against a DJI Phantom 4 and 1.4 km against a Matrice 600 (vendor-listed). Each panel covers 120\u00B0 by 80\u00B0.',
+      basis: 'Game range is the 1 km Phantom 4 figure. One panel covers 120\u00B0, and three cover all round.',
       confidence: 'Vendor-listed figures',
       sources: [{ label: 'EverythingRF: EchoGuard', url: 'https://everythingrf.com/products/radar-systems/echodyne-corp/1069-2160-echoguard' }],
       cost: {
@@ -61,7 +63,8 @@ export const SENSORS = {
     product: 'Blighter A800', variantOf: 'radar', size: 'M', name: 'Blighter A800', short: 'A80', model: 'radar_s', cost: 600000, shotCost: 0, color: 0x448aff, role: 'sensor', kind: 'radar', published: 3000, mount: 25, falseAlarm: 0.1,
     health: 30, signature: 1.0, emits: [{ label: 'Ku-band radar 15.7\u201317.2 GHz', f: [[15.7, 17.2]] }],
     lowAlt: 40, lowRange: 500,
-    desc: '3D multi-mode AESA drone radar. It reaches about as far as the IRIS for less, but the real one only looks through a 90\u00B0 cone, which stage A4 will model.',
+    arc: 90, elevation: 40,
+    desc: '3D multi-mode AESA drone radar. It reaches about as far as the IRIS for less, but each head only looks through a 90\u00B0 cone.',
     sapient: {
       nodeType: 'NODE_TYPE_RADAR', subType: ['Multi-mode', 'C-UAS'], scan: 'SCAN_TYPE_SCANNING', interval: 1,
       noise: { az: 0.6, el: 1.2, range: 8 }, velocity: true,
@@ -71,7 +74,7 @@ export const SENSORS = {
       class: 'Counter-UAS surveillance radar, medium range',
       analogues: ['Blighter A800'],
       published: 'Ku band, 15.7\u201317.2 GHz. FMCW Doppler AESA scanning a 90\u00B0 x 40\u00B0 cone, with a 1 s full scan. Up to 3 km against a nano-quadcopter and 7 km against a Class 2 winged drone, assuming ideal mounting over flat terrain. Instrumented range 3.5, 10 or 20 km.',
-      basis: 'Game range is the 3 km quadcopter figure, a best case by the maker\u2019s own footnote. Accuracy and clutter are assumptions, copied from the IRIS entry. It still sees all round until stage A4.',
+      basis: 'Game range is the 3 km quadcopter figure, a best case by the maker\u2019s own footnote. Accuracy and clutter are assumptions, copied from the IRIS entry. The 90\u00B0 by 40\u00B0 cone is the published one, and four heads cover all round.',
       confidence: 'Vendor figures',
       sources: [
         { label: 'Blighter: A800', url: 'https://www.blighter.com/products/a800-3d-multi-mode-radar' },
@@ -84,6 +87,7 @@ export const SENSORS = {
     product: 'Hensoldt Spexer 2000 3D MkIII', size: 'L', name: 'Large radar', short: 'RDL', model: 'radar_s', modelScale: 1.4, cost: 2500000, shotCost: 0, color: 0x0d47a1, role: 'sensor', kind: 'radar', published: 4300, mount: 30, falseAlarm: 0.1,
     health: 30, signature: 1.5, emits: [{ label: 'X-band radar 9.2\u201310 GHz', f: [[9.2, 10]] }],
     lowAlt: 30, lowRange: 800,
+    arc: 120, elevation: 60,
     desc: 'Long-range multi-beam radar. It sees furthest and is the most accurate, but it is the most expensive and the easiest for the enemy to find.',
     sapient: {
       nodeType: 'NODE_TYPE_RADAR', subType: ['Air defence', 'C-UAS'], scan: 'SCAN_TYPE_SCANNING', interval: 1,
@@ -94,7 +98,7 @@ export const SENSORS = {
       class: 'Long-range air-defence and C-UAS radar',
       analogues: ['Hensoldt Spexer 2000 3D MkIII'],
       published: 'X-band pulse Doppler, 9.2\u201310 GHz. The 40 km instrumented range is for a single beam, and falls to 2.5 km with all 16 beams. The older Spexer 2000 is listed at up to 9 km against a 0.2 m\u00B2 UAV and 36 km against a 5 m\u00B2 low-flying aircraft. No figure for small drones was found for the MkIII.',
-      basis: 'Game range 4.3 km is an ASSESSMENT: that 9 km scaled to the 0.01 m\u00B2 reference drone by the radar range equation, which brings a 0.2 m\u00B2 Fixed-wing strike drone back to 9 km. It fits the Giraffe 1X, a comparable radar quoted at about 4 km against the smallest drones. The MkIII is newer, so this may be low. Accuracy and clutter are assumptions. The real radar looks through a 120\u00B0 panel: this one still sees all round until stage A4.',
+      basis: 'Game range 4.3 km is an ASSESSMENT: that 9 km scaled to the 0.01 m\u00B2 reference drone by the radar range equation, which brings a 0.2 m\u00B2 Fixed-wing strike drone back to 9 km. It fits the Giraffe 1X, a comparable radar quoted at about 4 km against the smallest drones. The MkIII is newer, so this may be low. Accuracy and clutter are assumptions. Each panel covers 120\u00B0; its 60\u00B0 of elevation is an ASSUMPTION.',
       confidence: 'Assessed from an older model; no manufacturer figure for small drones',
       sources: [
         { label: 'Quwa: Spexer 2000 detection table', url: 'https://quwa.org/system-profile/profile-hensoldt-spexer-2000-border-surveillance-radar/' },

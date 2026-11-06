@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { DRONES, STRUCTURES, TOOLBAR, WORLD } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
 import { predictRange, reachFor, usesPath } from '../sim/site-range.js';
+import { standingAt } from '../sim/sensor-model.js';
 import { terrainState } from '../sim/terrain.js';
 import { fieldsFor, settingValue, unitDef } from '../sim/unit-config.js';
 import { view } from '../render/view.js';
@@ -14,9 +15,9 @@ import { PeoplePicker } from './PeoplePicker.jsx';
 const km = (m) => `${(m / 1000).toFixed(1)} km`;
 
 // What the spot under the cursor really gets, against the open-field figure.
-function AtCursor({ def, spot }) {
+function AtCursor({ def, spot, centre }) {
   if (!spot || !usesPath(def)) return null;
-  const p = predictRange(def, DRONES.fpv, terrainState.data, spot.x * WORLD.metresPerUnit, spot.z * WORLD.metresPerUnit);
+  const p = predictRange(standingAt(def, centre, spot), DRONES.fpv, terrainState.data, spot.x * WORLD.metresPerUnit, spot.z * WORLD.metresPerUnit);
   return <div className="up-summary" id="picker-here">At the cursor: <b>{km(p.mean)}</b>, {km(p.min)} to {km(p.max)}, seeing {Math.round(p.covered * 100)}% of the open-field area</div>;
 }
 // A sensor's range is against a small drone: the second figure shows how much further it sees a large one.
@@ -52,7 +53,7 @@ export function ToolPicker() {
       </div>
       <p className="up-desc">{STRUCTURES[tool].desc}</p>
       <div className="up-summary">Next one placed: <b>{(def.range / 1000).toFixed(1)} km</b> in an open field · <b>{money(def.cost)}</b></div>
-      <AtCursor def={def} spot={game.cursor?.()} />
+      <AtCursor def={def} spot={game.cursor?.()} centre={game.sim.state.zoneCentre} />
       {fieldsFor(tool).map((f) => (
         <UnitField
           key={`${tool}-${f.key}`}

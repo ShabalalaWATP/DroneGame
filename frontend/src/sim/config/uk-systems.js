@@ -6,6 +6,7 @@ export const UK_SYSTEMS = {
     product: 'Blighter A400 series', variantOf: 'radar', size: 'M', name: 'Blighter A400', short: 'A40', model: 'radar_s', cost: 400000, shotCost: 0, color: 0x536dfe, role: 'sensor', kind: 'radar', published: 2730, mount: 25, falseAlarm: 0.1,
     health: 30, signature: 0.8, emits: [{ label: 'Ku-band radar (assumed 15.5–17.3 GHz)', f: [[15.5, 17.3]] }],
     lowAlt: 40, lowRange: 500,
+    arc: 90, elevation: 20,
     desc: 'British e-scan radar, and the sensor behind the AUDS counter-drone system. Modest reach for a small drone, at a lower price than the IRIS.',
     sapient: {
       nodeType: 'NODE_TYPE_RADAR', subType: ['E-scan', 'C-UAS'], scan: 'SCAN_TYPE_SCANNING', interval: 1,
@@ -15,8 +16,8 @@ export const UK_SYSTEMS = {
     ref: {
       class: 'British counter-UAS surveillance radar',
       analogues: ['Blighter A400 series'],
-      published: 'The datasheet gives 2.73 km in free space against a 0.01 m² target. The same table gives 4.87 km at 0.1 m00B2, 8.66 km at 1 m00B2 and 15.4 km at 10 m00B2, which is the fourth-root law the game uses. Blighter also quotes more than 3 km against a DJI Phantom.',
-      basis: 'Game range is the 2.73 km datasheet figure, because 0.01 m² is exactly the game’s reference drone. Accuracy and clutter are assumptions, copied from the IRIS entry. The real radar covers a sector per head: this one sees all round until stage A4.',
+      published: 'The datasheet gives 2.73 km in free space against a 0.01 m² target. The same table gives 4.87 km at 0.1 m², 8.66 km at 1 m² and 15.4 km at 10 m², which is the fourth-root law the game uses. Blighter also quotes more than 3 km against a DJI Phantom.',
+      basis: 'Game range is the 2.73 km datasheet figure, because 0.01 m² is exactly the game’s reference drone. Accuracy and clutter are assumptions, copied from the IRIS entry. Each head covers a 90\u00B0 sector, and four cover all round. Its 20\u00B0 of elevation is an ASSUMPTION for a fan beam, so a high drone close in passes over it.',
       confidence: 'Manufacturer datasheet',
       sources: [
         { label: 'Blighter: A400 datasheet', url: 'https://blighter.com/wp-content/uploads/2025/10/blighter-a400-series-radars-datasheet-bss-1311.pdf' },
@@ -29,6 +30,7 @@ export const UK_SYSTEMS = {
     product: 'Saab Giraffe 1X', variantOf: 'radar_l', size: 'L', name: 'Giraffe 1X', short: 'GF1', model: 'radar_s', modelScale: 1.4, cost: 5000000, shotCost: 0, color: 0x1a237e, role: 'sensor', kind: 'radar', published: 4000, mount: 12, falseAlarm: 0.1,
     health: 30, signature: 1.5, emits: [{ label: 'X-band radar (assumed 9.2–10 GHz)', f: [[9.2, 10]] }],
     lowAlt: 30, lowRange: 800,
+    elevation: 70,
     desc: 'Swedish air-defence radar, reported working with the RAF’s Rapid Sentry. Its 75 km is for aircraft: about 4 km is what it manages against the smallest drones.',
     sapient: {
       nodeType: 'NODE_TYPE_RADAR', subType: ['Air defence', 'C-UAS'], scan: 'SCAN_TYPE_SCANNING', interval: 1,
@@ -39,7 +41,7 @@ export const UK_SYSTEMS = {
       class: 'Mobile air-defence radar with a drone mode',
       analogues: ['Saab Giraffe 1X'],
       published: 'About 75 km instrumented range, reported as up to 250 km in 2026. Saab says it can detect a UAV "lighter than a milk carton" as far as 4 km.',
-      basis: 'Game range is the 4 km small drone figure. Accuracy and clutter are assumptions, copied from the Spexer entry. The link to Rapid Sentry is a press report.',
+      basis: 'Game range is the 4 km small drone figure. Accuracy and clutter are assumptions, copied from the Spexer entry. It rotates, so it sees all round; its 70\u00B0 of elevation is an ASSUMPTION. The link to Rapid Sentry is a press report.',
       confidence: 'Manufacturer and press figures',
       sources: [
         { label: 'Saab: Giraffe 1X', url: 'https://www.saab.com/products/giraffe-1x' },

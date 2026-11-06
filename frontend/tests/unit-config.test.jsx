@@ -37,6 +37,7 @@ describe('the field table', () => {
     for (const f of UNIT_FIELDS.filter((x) => !x.choices)) {
       for (const [id, [min, max]] of Object.entries(f.limits)) {
         const base = f.base(STRUCTURES[id]);
+        if (base == null) continue; // no standard value: a radar faces away from what is defended
         expect(base).toBeGreaterThanOrEqual(min);
         expect(base).toBeLessThanOrEqual(max);
       }

@@ -24,17 +24,17 @@
     "budget": 11777451
   },
   "lasers-seed42": {
-    "digest": "a6f07a38",
+    "digest": "9357cace",
     "wave": 8,
-    "kills": 131,
-    "leaks": 0,
-    "health": 100,
-    "budget": 3995125
+    "kills": 124,
+    "leaks": 1,
+    "health": 70,
+    "budget": 3995710
   },
   "jammers-seed1": {
-    "digest": "a90e4d4a",
+    "digest": "e1ac9bf6",
     "wave": 4,
-    "kills": 21,
+    "kills": 18,
     "leaks": 3,
     "health": 0,
     "budget": 14498651
