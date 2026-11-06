@@ -207,3 +207,35 @@ class TestUnitSettings:
     ])
     def test_refuses_bad_settings_and_names(self, client, bad):
         assert client.post(f"{API}/laydowns", json=_laydown_with(**bad)).status_code == 422
+
+
+class TestPeople:
+    GROUP = {"x": 20, "z": -3.5, "count": 12, "protection": "bunker"}
+
+    def _with(self, people):
+        spec = copy.deepcopy(SPEC)
+        spec["people"] = people
+        return laydown(spec=spec)
+
+    def test_keeps_a_laydowns_people(self, client):
+        made = client.post(f"{API}/laydowns", json=self._with([self.GROUP]))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["people"] == [self.GROUP]
+
+    def test_a_laydown_saved_before_people_comes_back_without_them(self, client):
+        made = client.post(f"{API}/laydowns", json=laydown())
+        assert "people" not in client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]
+
+    @pytest.mark.parametrize("change", [
+        {"count": 0},
+        {"count": 501},
+        {"count": 1.5},
+        {"protection": "tank"},
+        {"x": 351},
+        {"extra": 1},
+    ])
+    def test_refuses_a_bad_group(self, client, change):
+        assert client.post(f"{API}/laydowns", json=self._with([{**self.GROUP, **change}])).status_code == 422
+
+    def test_refuses_too_many_groups(self, client):
+        assert client.post(f"{API}/laydowns", json=self._with([self.GROUP] * 51)).status_code == 422

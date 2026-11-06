@@ -15,6 +15,7 @@ import { SITE_POS, u } from './units.js';
 import { DEFAULT_MIX } from './attack-mix.js';
 import { affordable, createLedger, resetLedger } from './economy.js';
 import * as laydown from './laydown.js';
+import * as people from './people.js';
 import { spawnDrone, removeDrone, updateDrones, spotterBonus } from './drones.js';
 import { opticalLos, updateStructures, updateMissiles, enoughInAir } from './effectors.js';
 import { canFire, resupply } from './magazine.js';
@@ -35,12 +36,12 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   terrainState.data = generateTerrain(terrainSeed);
 
   const state = {
-    seed, terrainSeed, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, time: 0, warnedWire: false,
+    seed, terrainSeed, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, time: 0, warnedWire: false,
     started: false, over: false, autoStart: false, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX,
     waveActive: false, queue: [], waveTime: 0, autoTimer: -1,
     sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, // sandbox: attacks without consequences, before the first wave
   };
-  const w = { state, drones: [], structures: [], missiles: [], ledger: createLedger(), emit, droneUid: 0, startLaydown: null, startFigures: null, runEnded: false };
+  const w = { state, drones: [], structures: [], missiles: [], people: [], peopleUid: 0, peopleRev: 0, ledger: createLedger(), emit, droneUid: 0, startLaydown: null, startFigures: null, runEnded: false };
   w.rec = createRecorder(() => state.time);
   w.net = createNetwork({
     drones: w.drones,
@@ -84,8 +85,9 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     for (const s of w.structures.slice()) laydown.removeStructure(w, s);
     for (const d of w.drones.slice()) removeDrone(w, d);
     w.missiles.length = 0;
+    people.clearPeople(w);
     Object.assign(state, {
-      health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, time: 0, warnedWire: false, over: false,
+      health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, time: 0, warnedWire: false, over: false,
       waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX,
     });
     resetLedger(w.ledger);
@@ -170,6 +172,8 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     setAttack: (ids) => laydown.setAttack(w, ids),
     place: (id, x, z, settings) => laydown.place(w, id, x, z, settings),
     sell: (x, z) => laydown.sell(w, x, z),
+    placePeople: (x, z, count, protection) => people.placePeople(w, x, z, count, protection),
+    removePeople: (id) => people.removePeople(w, id),
     resupply: () => resupply(w),
     startWave: () => startWave(w, beginRun),
     reset: (mode) => resetRun(mode),
@@ -211,16 +215,18 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     const feed = (s) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } };
     for (const e of bus.entries) feed(JSON.stringify(e.msg));
     feed(JSON.stringify([state.kills, state.health, state.budget, state.leaks, state.time, bus.seq, w.ledger]));
+    if (w.people.length) feed(JSON.stringify(w.people.map((g) => g.hits))); // with no people, a run's digest stays as it was
     return (h >>> 0).toString(16);
   }
 
   return {
     registerPack(pack) { packs.set(pack.hash, pack); },
-    state, drones: w.drones, structures: w.structures, missiles: w.missiles, ledger: w.ledger, net: w.net, rec: w.rec, bus,
+    state, drones: w.drones, structures: w.structures, missiles: w.missiles, people: w.people, peopleRev: () => w.peopleRev, ledger: w.ledger, net: w.net, rec: w.rec, bus,
     commands, log, on, off, step, digest, endRun, stepCount: () => stepCount,
     currentLaydown: () => w.startLaydown || laydown.captureLaydown(w),
     run(steps) { state.started = true; for (let i = 0; i < steps && !state.over; i++) step(); },
     canPlace: (x, z, def) => !laydown.placementProblem(w, x, z, def),
+    canPlacePeople: (x, z, protection) => !people.peopleProblem(w, x, z, protection),
     designLocked: () => laydown.designLocked(w),
     unwired: () => laydown.unwired(w),
     spotterBonus: () => spotterBonus(w),

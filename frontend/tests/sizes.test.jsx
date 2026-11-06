@@ -133,6 +133,8 @@ describe('the hotkeys', () => {
     expect(game.getTool()).toBe('laser_l');
     press('8');
     expect(game.getTool()).toBe('acoustic');
+    press('9');
+    expect(game.getTool()).toBe('people');
   });
 
   it('switches a system with one size off on the second press', () => {

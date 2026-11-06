@@ -116,7 +116,7 @@ export function createReplay(deps) {
   }
   function exit() {
     if (!review.active) return;
-    review.active = false; review.playing = false; view.replayT = null;
+    review.active = false; review.playing = false; view.replayT = null; view.replayCasualties = null;
     hide();
     deps.resume();
   }
@@ -138,6 +138,7 @@ export function createReplay(deps) {
     }
     const f = rec.frames[frameIndex()];
     view.replayT = f.t;
+    view.replayCasualties = f.casualties ?? null;
     deps.hideLive();
     show(f, camera);
   }

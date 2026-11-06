@@ -215,6 +215,18 @@ Alex asked whether Estonia had topographic maps, around Narva or Tapa. It does, 
 
 The saving grace was that northings on the two grids never overlap, so a position says which grid it is on, and nothing that carries an easting and northing needed to change. The builder gained a second set of sources. Whole-country files were chosen over asking for one area at a time, because downloading them gives nothing away about the site, even though it costs about 7 GB once.
 
+## Simulated people
+
+Alex asked for fake people on the map, in groups, very small and realistic, with a protection level, so that attacks could cause casualties. The first design rule was that people must not disturb the attack. Each blast therefore rolls from a stream seeded by the drone's id, and nothing is read from the run's own stream, so a run with people gives the same kills, health and budget as one without. Casualties join the digest only when a laydown has people, so every older digest still holds.
+
+Two things in the existing game shaped the rest. A drone counts as hitting the site at the 150 m edge of its disc, so blasts measured from there could never reach staff in the middle. A site strike now lands inside the disc for this purpose, aimed at the middle with scatter. And the camera stopped 400 m from the ground, where a person is about four pixels tall, so true scale would have meant never seeing anyone. The camera can now come to 40 m, and each group has a Look button.
+
+A real browser found what the tests could not: the green placement marker was large enough to hide a whole group up close, and a fourth figure squeezed the HUD's stats row together.
+
+The casualty figures are round-number assumptions and are labelled so in the Sources tab. They are not weapons-effects data, and they should not be read as any.
+
+After main gained drawn attack areas, a strike aimed at a spot inside the area now blasts there rather than scattered over the station. People also joined the wizard as an optional step before the rehearsal, so a rehearsal can show casualties. A test measures every figure drawn at between 1.55 and 1.95 m tall and about half a metre wide on both kinds of ground, because generated ground draws trees and houses twice life size and people must not pick that up.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

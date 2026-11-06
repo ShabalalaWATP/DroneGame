@@ -8,6 +8,7 @@ import { rand, gauss } from './rng.js';
 import { u, hdist, clamp, groundM, hereU, onMap } from './units.js';
 import { tally } from './economy.js';
 import { pickTarget, hitStructure } from './targeting.js';
+import { blastInAir, blastOnSite } from './people.js';
 import { aimInZone, launchPoint } from './attack-area.js';
 
 const _v = new Vector3();
@@ -56,6 +57,7 @@ export function removeDrone(w, d) {
 
 // `by` is the id of whatever did the damage ('laser', 'interceptor', 'missile', ...), for the cost ledger.
 function recordKill(w, d, by) {
+  blastInAir(w, d);
   w.rec.event('kill', `${d.def.name} destroyed by ${by}`, d.uid);
   w.state.kills++;
   tally(w.ledger.killed, d.type);
@@ -78,6 +80,7 @@ export const spotterBonus = (w) => w.drones.reduce((sum, d) => sum + (d.mode ===
 function impact(w, d) {
   const { state, ledger, net } = w;
   w.rec.event('leak', `${d.def.name} hit the site`, d.uid);
+  blastOnSite(w, d);
   state.leaks++; tally(ledger.leaked, d.type);
   if (!state.sandbox) state.health = Math.max(state.health - d.def.damage * (1 + spotterBonus(w)), 0);
   w.emit('siteHit');

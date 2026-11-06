@@ -16,9 +16,10 @@ export function createRecorder(now) {
   };
 }
 
-export function takeSnapshot({ state, drones, missiles, structures, net }) {
+export function takeSnapshot({ state, drones, missiles, structures, net, people }) {
   const m = WORLD.metresPerUnit;
   return {
+    ...(people.length ? { casualties: people.map((g) => g.hits.length) } : {}),
     t: state.time, wave: state.wave, budget: state.budget, kills: state.kills, leaks: state.leaks, health: state.health,
     drones: drones.map((d) => ({ u: d.uid, type: d.type, x: d.pos.x, y: d.pos.y, z: d.pos.z, ry: d.heading, tracked: !!d.track })),
     tracks: [...net.tracks.values()].filter((tr) => tr.est).map((tr) => ({

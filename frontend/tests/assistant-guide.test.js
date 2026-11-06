@@ -137,7 +137,7 @@ describe('progress', () => {
   it('goes to the first step not done or passed', () => {
     expect(firstOpen({}, {})).toBe(0);
     expect(firstOpen({ zone: true }, { sensors: true })).toBe(2);
-    expect(firstOpen({ zone: true, sensors: true, effectors: true, network: true }, { coverage: true, rehearse: true, refine: true })).toBe(STEP_IDS.indexOf('preflight'));
+    expect(firstOpen({ zone: true, sensors: true, effectors: true, network: true }, { coverage: true, people: true, rehearse: true, refine: true })).toBe(STEP_IDS.indexOf('preflight'));
     expect(firstOpen({}, Object.fromEntries(STEP_IDS.map((id) => [id, true])))).toBe(STEP_IDS.length - 1);
   });
   it('notices when something finished comes undone', () => {

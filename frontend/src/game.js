@@ -84,7 +84,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   // ---------- filled in once the canvas exists ----------
   let gameView = null, placement = null, replay = null;
   const frameListeners = new Set();
-  let tool = null; // structure id | 'sell' | 'zone' | null
+  let tool = null; // structure id | 'sell' | 'zone' | 'people' | null
   let refusal = null; // why the last placement was refused
   let selectHinted = false; // the first placement says that systems can be clicked
 
@@ -128,6 +128,11 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   function groundClick(x, z) {
     if (!tool || state.over || !state.started) return;
     if (tool === 'sell') { commands.sell(x, z); return; }
+    if (tool === 'people') {
+      refusal = commands.placePeople(x, z, view.people.count, view.people.protection);
+      if (refusal) toast(refusal);
+      return;
+    }
     if (tool === 'zone') {
       if (sim.designLocked()) toast(ZONE_LOCKED);
       else {

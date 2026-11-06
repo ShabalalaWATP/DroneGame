@@ -14,6 +14,8 @@ export const view = {
   planView: false, // the camera looks straight down
   me: null, // the player's own position, once asked for: { x, z, accuracy } in scene units
   replayT: null, // simulated time being reviewed while rewinding, or null when live
+  people: { count: 10, protection: 'open' }, // the next group the People tool will place
+  replayCasualties: null, // how many in each group were down at the moment being reviewed, or null when live
   selected: null, // the system the Unit panel is showing
   osm: false, // demo: OpenStreetMap tiles as the picture on the ground
   zone: null, // the area to defend as it is drawn: { points: [[x, z]...], closed }. game.js gives the simulation a closed one

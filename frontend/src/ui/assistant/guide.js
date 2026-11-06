@@ -4,7 +4,7 @@
 import { DRONE_CLASSES, STRUCTURES, TOOLBAR } from '../../sim/config/index.js';
 import { reachFor } from '../../sim/network/sensors.js';
 
-export const STEP_IDS = ['zone', 'sensors', 'effectors', 'network', 'coverage', 'rehearse', 'refine', 'preflight'];
+export const STEP_IDS = ['zone', 'sensors', 'effectors', 'network', 'coverage', 'people', 'rehearse', 'refine', 'preflight'];
 
 const placed = (sim, role) => sim.structures.filter((s) => s.def.role === role);
 // One size of each kind, for the table of which kinds answer which drone. Which size to buy is systemFor's job.

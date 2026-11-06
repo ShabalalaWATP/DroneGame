@@ -8,6 +8,7 @@ import { SITE_POS, u, hdist, hereU, onMap } from './units.js';
 import { cleanZone, zoneCentre } from './attack-area.js';
 import { cleanMix, hasStrike, isDefaultMix } from './attack-mix.js';
 import { buyTerminal, money } from './economy.js';
+import { capturePeople, clearPeople, restorePeople } from './people.js';
 import { fillMagazine } from './magazine.js';
 import { cleanCallsign, cleanName, cleanSettings, fieldsFor, setSetting, unitCost, unitDef } from './unit-config.js';
 
@@ -81,6 +82,7 @@ export function captureLaydown(w) {
     }))
       .sort((a, b) => a.id.localeCompare(b.id) || a.x - b.x || a.z - b.z),
     fusionUplinks: [...w.net.fusion.uplinks], fusionCell: w.net.fusion.cellBand,
+    ...capturePeople(w),
     ...(w.state.zone ? { zone: w.state.zone } : {}),
     ...(isDefaultMix(w.state.attack) ? {} : { attack: w.state.attack }),
   };
@@ -106,6 +108,8 @@ export function restoreLaydown(w, spec) {
   }
   for (const k of spec.fusionUplinks) { w.net.fusion.uplinks.add(k); w.ledger.terminals[k]++; charge(COMMS[k].cost); }
   w.net.fusion.cellBand = spec.fusionCell;
+  clearPeople(w);
+  restorePeople(w, spec.people);
   applyZone(w, cleanZone(spec.zone));
   w.state.attack = cleanMix(spec.attack);
 }

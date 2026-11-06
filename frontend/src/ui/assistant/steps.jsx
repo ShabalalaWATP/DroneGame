@@ -10,6 +10,7 @@ import { zoneScores } from '../coverage.js';
 import { ThreatOptions } from '../ThreatOptions.jsx';
 import { ATTACK_NOTE, CoverageBars } from '../ZonePanel.jsx';
 import { useGame } from '../hooks.js';
+import { PeopleStep } from './PeopleStep.jsx';
 import { Spotlight } from './Spotlight.jsx';
 import { answer, effectorColumns, effectorFor, kindName, sensorChecklist, unanswered, warningAgainst } from './guide.js';
 import { suggestSpot } from './spots.js';
@@ -297,6 +298,10 @@ export const STEPS = {
   coverage: { title: 'Check what it can see', Body: CoverageStep, why: [
     ['Why is one drone so much lower?', 'Each type flies at its own height. Low flyers are hidden by hills and trees for longer.'],
     ['What do the colours mean?', 'Red is unseen, green is one sensor, blue is two, and white is three or more.'],
+  ] },
+  people: { title: 'Who is on site?', optional: true, Body: PeopleStep, why: [
+    ['Do I need to do this?', 'No. People change nothing about the attack. They only show what a blast near them would do.'],
+    ['Where do the casualty numbers come from?', 'Assumed round figures, marked ASSUMPTION in the Sources tab. They are not weapons-effects data.'],
   ] },
   rehearse: { title: 'Rehearse before it counts', Body: RehearseStep, why: [
     ['Why rehearse?', 'The laydown locks at the first wave. Here you can still fix what you find.'],
