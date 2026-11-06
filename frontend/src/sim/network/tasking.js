@@ -4,12 +4,14 @@ import * as S from '../sapient.js';
 import { FUSION, DRONES } from '../config/index.js';
 import { canFire } from '../magazine.js';
 import { zoomMax } from '../camera-model.js';
+import { inArcOf } from '../sensor-model.js';
 
 // Would this effector ever take this airframe? Unknown tracks are offered, and the effector can reject them.
 const takesAirframe = (def, airframe) => !def.engages || !airframe || airframe === 'Unknown' || def.engages.some((t) => DRONES[t].airframe === airframe);
 
 export function createTasking(core, { raiseAlert }, registration, authority, confirmedTracks) {
-  const { ctx, T, nodes, tracker, fusion, send, deliver, distToTrack, siteDist } = core;
+  const { ctx, mpu, T, nodes, tracker, fusion, send, deliver, distToTrack, siteDist } = core;
+  const faces = (s, tr) => inArcOf(s.def, s.pos, { x: tr.est.east / mpu(), z: -tr.est.north / mpu() }); // a sector antenna only jams what it faces
   const { sendStatus } = registration;
 
   function sendTask(s, task, name, description) {
@@ -106,7 +108,7 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
     for (const s of nodes.values()) {
       if (s.def.role !== 'effector' || s.offline) continue; // an effector we have lost contact with can't be tasked
       if (s.def.kind === 'jammer') {
-        const want = live.some((tr) => distToTrack(s, tr) <= s.def.range) ? 'Jam' : 'Standby';
+        const want = live.some((tr) => distToTrack(s, tr) <= s.def.range && faces(s, tr)) ? 'Jam' : 'Standby';
         if (s.mode !== want && s.modePending !== want) {
           const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { mode_change: want } }, `Mode ${want}`, `Switch ${s.name} to ${want}`);
           if (!res.dropped) {

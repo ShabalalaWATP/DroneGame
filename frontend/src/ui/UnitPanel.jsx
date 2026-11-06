@@ -175,6 +175,7 @@ function limitsOf(def) {
   if (def.lowAlt) return `${looks ? `${looks}. ` : ''}Below ${def.lowAlt} m, unreliable beyond about ${def.lowRange} m (ground clutter)`;
   if (def.fov) return `${def.fov}° search view${hasZoom(def) ? `, ${def.trackFov}° on a cue` : ''}, so it must be pointed. Another sensor cues it. ${CHANNELS[def.channels].label}${def.channels === 'both' ? ' channels' : ' only'}`;
   if (def.fire === 'beam') return 'Needs a clear line of sight, and engages one target at a time';
+  if (def.kind === 'jammer') return `${arc < 360 ? `Jams only through ${arc}° facing ${def.facing ?? 0}°` : 'Jams all round'}. A control link is easier to jam the further the drone is from its operator`;
   if (def.kind === 'rf') return `Hears ${covers(def).map((b) => SPECTRUM.bands[b].label).join(', ')}, but not a band your own jammer is jamming within its range`;
   return null;
 }

@@ -12,6 +12,7 @@
 import { WORLD, TERRAIN, COMMS, SPECTRUM, overlaps } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { rand } from './rng.js';
+import { inArcOf } from './sensor-model.js';
 
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 const LOCAL = { ok: true, local: true, delay: 0, dropped: false };
@@ -79,7 +80,7 @@ export function createComms(deps) {
       const jf = [...j.jamBands].flatMap((b) => (SPECTRUM.bands[b] ? SPECTRUM.bands[b].f : []));
       if (!overlaps(jf, bandF)) continue;
       const jw = where(j), d = Math.hypot(jw.x - w.x, jw.z - w.z), range = j.def.range;
-      if (d < range) { q *= clamp(d / range, 0, 1) * 0.5; hits.push(j.short); }
+      if (d < range && inArcOf(j.def, j.pos, s.pos)) { q *= clamp(d / range, 0, 1) * 0.5; hits.push(j.short); }
     }
     return { q, hits };
   }

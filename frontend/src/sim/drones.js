@@ -4,6 +4,7 @@ import { Vector3 } from 'three';
 import { WORLD, SITE, DRONES, ADAPT } from './config/index.js';
 import { antennaHeight, reachOnPath } from './site-range.js';
 import { bandGhz } from './rf-model.js';
+import { inArcOf } from './sensor-model.js';
 import { terrainState } from './terrain.js';
 import { rand, gauss } from './rng.js';
 import { u, hdist, clamp, groundM, hereU, onMap } from './units.js';
@@ -136,14 +137,22 @@ function moveStrike(w, d, spd) {
   return true;
 }
 
-// Does this jammer reach the drone on this band? It needs a radio path, the same as a radio detector, worked out on that band.
-export function jamReaches(s, d, band) {
+// Does this jammer reach the drone on this band? It needs a radio path, the same as a radio detector, worked out on that band, and a
+// sector antenna has to face it. k scales its reach, for a link that is easier or harder to jam than the one its range is quoted for.
+export function jamReaches(s, d, band, k = 1) {
   const dist = s.pos.distanceTo(d.pos);
-  if (dist > u(s.def.range)) return false;
+  if (dist > u(s.def.range * k) || !inArcOf(s.def, s.pos, d.pos)) return false;
   const m = WORLD.metresPerUnit;
   const from = { x: s.pos.x * m, y: s.pos.y * m + antennaHeight(s.def), z: s.pos.z * m }, to = { x: d.pos.x * m, y: d.pos.y * m, z: d.pos.z * m };
-  return dist <= u(reachOnPath(s.def, d.def, terrainState.data, from, to, bandGhz(band)));
+  return dist <= u(reachOnPath(s.def, d.def, terrainState.data, from, to, bandGhz(band)) * k);
 }
+
+// A control link is easier to jam the further the drone is from its operator, whose signal it is listening for: jamming wins when the
+// jammer is louder at the drone, so its reach goes with that distance. The launch point stands in for the operator, and a jammer's
+// quoted range is taken as against a drone this far from its operator, about where one on a 6 km run comes within a jammer's quoted range near
+// the site, so that range holds there: an assumption.
+const OPERATOR_REF = 4500; // m
+export const fromOperator = (d) => hdist(d.pos, d.launch) / u(OPERATOR_REF);
 
 // Jamming. Each jammer that is on jams the bands it is set to, where it reaches the drone on that band, and what that does depends
 // on what the drone relies on: a jammed control link slows it and eventually crashes it, a jammed video link does the same more
@@ -154,8 +163,9 @@ function applyJamming(w, d, dt) {
   let ctrl = false, vid = false, gnss = false, killTime = Infinity, ctrlSlow = 1;
   for (const s of w.structures) {
     if (s.def.kind !== 'jammer' || s.mode !== 'Jam') continue;
-    const jams = (band) => band && s.jamBands.has(band) && jamReaches(s, d, band);
-    const c = jams(links.control), v = jams(links.video), g = links.gnss && jams('gnss');
+    const jams = (band, k) => band && s.jamBands.has(band) && jamReaches(s, d, band, k);
+    // shortcut: video is jammed at the drone, though its receiver is with the operator; jamming it there needs the operator on the map
+    const c = jams(links.control, fromOperator(d)), v = jams(links.video), g = links.gnss && jams('gnss');
     if (c) { ctrl = true; ctrlSlow = Math.min(ctrlSlow, s.def.slow); }
     if (v) vid = true;
     if (g) gnss = true;

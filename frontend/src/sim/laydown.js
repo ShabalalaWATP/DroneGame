@@ -108,7 +108,7 @@ export function restoreLaydown(w, spec) {
     charge(s.def.cost);
     if (l.uplink) { s.uplink = l.uplink; w.ledger.terminals[l.uplink]++; charge(COMMS[l.uplink].cost); }
     s.cellBand = l.cellBand;
-    if (l.jam && s.jamBands) s.jamBands = new Set(l.jam);
+    if (l.jam && s.jamBands) s.jamBands = new Set(l.jam.filter((b) => s.def.fitted.includes(b)));
   }
   for (const k of spec.fusionUplinks) { w.net.fusion.uplinks.add(k); w.ledger.terminals[k]++; charge(COMMS[k].cost); }
   w.net.fusion.cellBand = spec.fusionCell;
@@ -163,6 +163,7 @@ export function configureUnit(w, s, key, value) {
     return `Not enough budget (${money(delta)} more needed, ${money(w.state.budget)} left)`;
   }
   w.state.budget -= delta; w.ledger.capex += delta;
+  if (key === 'fitted') s.jamBands = new Set([...s.jamBands].filter((b) => s.def.fitted.includes(b))); // a band taken out stops being jammed
   return null;
 }
 
@@ -206,7 +207,7 @@ export function wireFusion(w, kind, on) {
 }
 export function setCellBand(w, s, band) { if (!designLocked(w)) s.cellBand = band; }
 export function setFusionCellBand(w, band) { if (!designLocked(w)) w.net.fusion.cellBand = band; }
-export function toggleJamBand(w, s, band, on) { if (on) s.jamBands.add(band); else s.jamBands.delete(band); } // an operating setting: allowed any time
+export function toggleJamBand(w, s, band, on) { if (!on) s.jamBands.delete(band); else if (s.def.fitted.includes(band)) s.jamBands.add(band); } // an operating setting, allowed any time, on fitted bands only
 
 // Wire everything unwired: cellular where a tower reaches well, otherwise Starlink if it has sky, and give the fusion node both.
 export function autoWire(w) {

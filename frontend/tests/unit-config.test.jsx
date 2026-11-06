@@ -34,7 +34,7 @@ describe('the field table', () => {
   });
 
   it('keeps every standard value inside its own limits', () => {
-    for (const f of UNIT_FIELDS.filter((x) => !x.choices && !x.arcs)) {
+    for (const f of UNIT_FIELDS.filter((x) => !x.choices && !x.arcs && !x.bands)) {
       for (const [id, [min, max]] of Object.entries(f.limits)) {
         const base = f.base(STRUCTURES[id]);
         if (base == null) continue; // no standard value: a radar faces away from what is defended
@@ -377,7 +377,7 @@ describe('the Configure side of the panel', () => {
     expect($('#unit-power').disabled).toBe(true);
     expect($('#unit-name').disabled).toBe(true);
     expect($('#unit-sell')).toBeNull();
-    const gnss = [...document.querySelectorAll('.up-bands label')].find((l) => l.textContent.includes('GNSS')).querySelector('input');
+    const gnss = [...document.querySelectorAll('#unit-jamming label')].find((l) => l.textContent.includes('GNSS')).querySelector('input');
     fireEvent.click(gnss);
     expect(unit('jammer').jamBands.has('gnss')).toBe(true);
   });

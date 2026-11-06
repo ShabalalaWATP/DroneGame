@@ -211,6 +211,12 @@ class TestUnitSettings:
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings
 
+    def test_keeps_the_bands_a_jammer_is_fitted_for(self, client):
+        settings = {"fitted": ["control24", "gnss"], "antenna": "sector", "facing": 90}
+        made = client.post(f"{API}/laydowns", json=_laydown_with(settings=settings))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"][0]["settings"] == settings
+
     def test_keeps_the_conditions_and_refuses_unknown_ones(self, client):
         spec = copy.deepcopy(SPEC) | {"conditions": "night"}
         made = client.post(f"{API}/laydowns", json=laydown(spec=spec))
@@ -230,6 +236,8 @@ class TestUnitSettings:
         {"settings": {"blank": [[0, 360]]}},
         {"settings": {"blank": [[0, 10, 20]]}},
         {"settings": {"blank": [["north", 10]]}},
+        {"settings": {"fitted": ["wifi"]}},
+        {"settings": {"fitted": ["gnss"] * 5}},
         {"settings": {"mount": 1e13}},
         {"settings": {"bad key": 1}},
         {"settings": {"threshold": "<script>"}},

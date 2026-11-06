@@ -2,7 +2,7 @@
 // site: a radar, a jammer that is switched on, a system with a Starlink or cellular terminal. Everything else heads for its spot
 // in the area the player drew, or for the station if there is none.
 
-import { WORLD, COMMS } from './config/index.js';
+import { WORLD, COMMS, STRUCTURES } from './config/index.js';
 import { u, hdist, hereU } from './units.js';
 import { tally } from './economy.js';
 import { removeStructure } from './laydown.js';
@@ -22,7 +22,8 @@ const SITE_AIM = { x: 0, z: 0, structure: null };
 const plainAim = (w, d) => (w.patrol ? patrolAim(w) : d.aim || SITE_AIM); // a patrol takes the place of the station and any drawn area
 
 // An anti-radar drone only hears what radiates: a radar, or a jammer that is on. It goes for the strongest, wherever it is within reach.
-const radiates = (s) => (s.def.kind === 'radar' || (s.def.kind === 'jammer' && s.mode === 'Jam') ? s.def.signature || 0 : 0);
+// A jammer is louder for each band it jams, against the bands it jams as standard.
+export const radiates = (s) => (s.def.kind === 'radar' ? s.def.signature || 0 : s.def.kind === 'jammer' && s.mode === 'Jam' ? ((s.def.signature || 0) * s.jamBands.size) / STRUCTURES[s.def.id].bands.length : 0);
 
 export function pickTarget(w, d) {
   if (!d.def.seeksEmitters) return plainAim(w, d);

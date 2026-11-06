@@ -47,9 +47,9 @@ function NodeConfig({ n, commands, locked }) {
       {n.jamBands && (
         <>
           <div className="opt-h">Jamming bands</div>
-          {Object.entries(SPECTRUM.bands).map(([id, b]) => (
+          {n.def.fitted.map((id) => (
             <label className="opt" key={id}>
-              <input type="checkbox" data-jam={id} checked={n.jamBands.has(id)} onChange={(e) => commands.toggleJamBand(n, id, e.target.checked)} /> {b.label}
+              <input type="checkbox" data-jam={id} checked={n.jamBands.has(id)} onChange={(e) => commands.toggleJamBand(n, id, e.target.checked)} /> {SPECTRUM.bands[id].label}
             </label>
           ))}
           <div className="muted">Jamming 868/915 MHz also hits Band 8 cellular links nearby. See the Spectrum tab.</div>

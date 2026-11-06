@@ -1,6 +1,7 @@
-// What a radio detector hears. A drone radiates on the bands of its control and video links (SPECTRUM in config/comms.js), and a
-// detector hears it only on a band it covers, and only while none of your own jammers nearby is filling that band. A classifier
-// library names the airframe when it knows the family of the drone's link; with none, the detector hears energy and nothing more.
+// What a radio detector hears, and the bands a jammer can be fitted for. A drone radiates on the bands of its control and video links
+// (SPECTRUM in config/comms.js), and a detector hears it only on a band it covers, and only while none of your own jammers nearby is
+// filling that band. A classifier library names the airframe when it knows the family of the drone's link; with none, the detector
+// hears energy and nothing more.
 
 import { SPECTRUM, overlaps } from './config/index.js';
 
@@ -20,6 +21,13 @@ export const LIBRARIES = {
 export const libraryKnows = (def, droneDef) => !!LIBRARIES[def.library]?.knows?.includes(droneDef.protocol);
 
 export const bandGhz = (id) => (SPECTRUM.bands[id].f[0][0] + SPECTRUM.bands[id].f[0][1]) / 2;
+
+// Every band a jammer can be fitted for. A list of them, as typed or saved, made clean: known bands, once each, in this order, at least one.
+export const JAM_BANDS = Object.keys(SPECTRUM.bands);
+export function parseBands(value) {
+  if (!Array.isArray(value) || !value.length || !value.every((b) => JAM_BANDS.includes(b))) return undefined;
+  return JAM_BANDS.filter((b) => value.includes(b));
+}
 
 // The bands a drone radiates on.
 export function radiates(droneDef) {

@@ -273,6 +273,14 @@ Your own jammer now deafens your detectors: while it jams, a detector within its
 
 The mixed laydown over twelve seeds ended at 781 kills and 11 leaks, against 814 and 5 before. That looked like a loss until the same comparison was run on the old code with one extra dice roll per scan, which changes no rule: it ended at 793 kills and 12 leaks. Every leak was a fixed-wing strike drone, which emits nothing, so these runs mostly measure chance, and the six-seed comparison in A5 can say no more than this. The reference digests were re-recorded, and only the mixed laydowns changed. `GAME_VERSION` moved to 0.9.0.
 
+## Jammer reach
+
+The second part of A6 settled how far a jammer reaches. The bands it is fitted for are now paid modules. Every catalogue jammer comes with all four, because the game always let any jammer jam any band, and leaving one out saves money; a band that is not fitted can never be switched on. A jammer can have an omni antenna or a sector one: 10 dB over 60°, so it reaches about three times as far, but only through that arc, which faces away from what is defended unless turned. The arc governs everything a jammer does: which drones it jams, when the fusion node switches it on, which of your detectors it deafens, which of your links it cuts, and the ring drawn for it.
+
+A control link is now easier to jam the further the drone is from its operator, because the jammer only has to be louder at the drone than the operator is. The launch point stands in for the operator, and a jammer's quoted range is taken as against a drone 4.5 km from its operator, about where one on a 6 km run comes within reach of a jammer near the site. A first try at 5 km cut the mixed laydown's jammer kills by a fifth, so the reference moved to where the quoted range holds. Video is still jammed at the drone, a marked shortcut, as its receiver is really with the operator. Each band jammed also makes a jammer louder to emitter-seeking drones.
+
+Over twelve seeds the jammer laydown killed 223 drones against 217, and the mixed laydown 768 with 11 leaks against 781 and 11, which is within chance. The mixed laydown's jammers, 800 m out, killed 120 drones against 142: a drone meets them while still nearer its operator, which is the rule doing what it should, and a reason to keep jammers close in. The reference digests were re-recorded and `GAME_VERSION` moved to 0.10.0.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

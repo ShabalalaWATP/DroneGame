@@ -14,6 +14,17 @@ export function UnitField({ field, id, value, changed, onChange, locked, prefix 
   const price = field.price && changed ? Math.round(field.price(value, STRUCTURES[id])) : 0;
   const limits = field.limits[id];
   const inputId = `${prefix}-${field.key}`;
+  if (field.bands) { // a list of bands, ticked
+    return (
+      <fieldset className="up-bands" id={inputId}>
+        <legend>{field.label}</legend>
+        {Object.entries(SPECTRUM.bands).map(([b, band]) => (
+          <label key={b}><input type="checkbox" checked={value.includes(b)} disabled={locked} onChange={(e) => change(e.target.checked ? [...value, b] : value.filter((x) => x !== b))} /> {band.label}</label>
+        ))}
+        <span className="muted">{field.help}{price !== 0 && <b> {price > 0 ? '+' : '-'}{money(Math.abs(price))}</b>}</span>
+      </fieldset>
+    );
+  }
   return (
     <div className="up-field">
       <label htmlFor={inputId}>{field.label}{field.unit ? ` (${field.unit})` : ''}</label>
@@ -88,10 +99,10 @@ export function UnitEditor({ s, game }) {
         />
       ))}
       {s.jamBands && (
-        <fieldset className="up-bands">
+        <fieldset className="up-bands" id="unit-jamming">
           <legend>Jamming bands</legend>
-          {Object.entries(SPECTRUM.bands).map(([id, b]) => (
-            <label key={id}><input type="checkbox" checked={s.jamBands.has(id)} onChange={(e) => commands.toggleJamBand(s, id, e.target.checked)} /> {b.label}</label>
+          {def.fitted.map((id) => (
+            <label key={id}><input type="checkbox" checked={s.jamBands.has(id)} onChange={(e) => commands.toggleJamBand(s, id, e.target.checked)} /> {SPECTRUM.bands[id].label}</label>
           ))}
         </fieldset>
       )}

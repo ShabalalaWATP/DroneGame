@@ -5,7 +5,7 @@ import { SENSING } from '../config/index.js';
 import { rand, gauss } from '../rng.js';
 import { terrainState } from '../terrain.js';
 import { errorScale, inClutter, reachFor, reachOnPath } from '../site-range.js';
-import { blindSpeed, classifiesAt, coverArc, elevationBand, inCover, outwardFrom } from '../sensor-model.js';
+import { blindSpeed, classifiesAt, coverArc, elevationBand, inArcOf, inCover, outwardFrom } from '../sensor-model.js';
 import { airframeConfidence, hasZoom, pixelsOn } from '../camera-model.js';
 import { LIBRARIES, bandGhz, covers, heardBand, libraryKnows } from '../rf-model.js';
 import { RB_UNITS, rbDatum, round, clamp } from './core.js';
@@ -38,7 +38,7 @@ export function createSensors(core, feed) {
   function deafTo(s) {
     const deaf = new Set();
     for (const j of nodes.values()) {
-      if (j.def.kind !== 'jammer' || j.mode !== 'Jam' || Math.hypot(j.pos.x - s.pos.x, j.pos.z - s.pos.z) * mpu() >= j.def.range) continue;
+      if (j.def.kind !== 'jammer' || j.mode !== 'Jam' || Math.hypot(j.pos.x - s.pos.x, j.pos.z - s.pos.z) * mpu() >= j.def.range || !inArcOf(j.def, j.pos, s.pos)) continue;
       for (const b of j.jamBands) deaf.add(b);
     }
     return deaf;

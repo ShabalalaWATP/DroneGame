@@ -44,15 +44,19 @@ export const bandSharpness = (band, def) => ghzOf(def.emits[0].f) / ghzOf(BANDS[
 
 const within = (az, [from, to]) => ((az - from + 360) % 360) <= ((to - from + 360) % 360); // clockwise from `from` to `to`
 
-// Is a direction, as a compass bearing and an elevation in degrees, inside what this system covers? Only radars are limited here.
+// Is a direction, as a compass bearing and an elevation in degrees, inside what this system covers? Only radars, and jammers with a
+// sector antenna, are limited here.
 export function inCover(def, az, el) {
-  if (def.kind !== 'radar') return true;
+  if (def.kind !== 'radar' && def.kind !== 'jammer') return true;
   const arc = coverArc(def);
   if (arc < 360 && Math.abs(((((az - (def.facing ?? 0)) % 360) + 540) % 360) - 180) > arc / 2) return false;
   if (def.blank && def.blank.some((b) => within(az, b))) return false;
   const band = elevationBand(def);
   return !band || (el >= band[0] && el <= band[1]);
 }
+
+// Does a system at `from` cover the ground direction to `to` ({ x, z }, scene units)?
+export const inArcOf = (def, from, to) => inCover(def, ((Math.atan2(to.x - from.x, from.z - to.z) * 180) / Math.PI + 360) % 360, 0);
 
 // Everything that changes what a system covers, for caches of drawn and predicted range.
 export const coverKey = (def) => `${coverArc(def)}|${def.facing}|${elevationBand(def)}|${def.blank}|${def.lowRange}`;

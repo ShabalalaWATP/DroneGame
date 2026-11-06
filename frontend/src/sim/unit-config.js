@@ -6,7 +6,7 @@ import { STRUCTURES } from './config/index.js';
 import { BANDS, CLUTTER, arcsText, bandOf, bandRange, bandSharpness, beamGain, lowestEdge, parseArcs } from './sensor-model.js';
 import { CHANNELS, PIXELS } from './camera-model.js';
 import { weatherRange } from './conditions.js';
-import { LIBRARIES } from './rf-model.js';
+import { JAM_BANDS, LIBRARIES, parseBands } from './rf-model.js';
 
 const each = (ids, limits) => Object.fromEntries(ids.map((id) => [id, limits]));
 const RADARS = ['radar_s', 'radar_a400', 'radar', 'radar_a800', 'radar_giraffe', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_auds', 'jammer_l'], ACOUSTICS = ['acoustic_s', 'acoustic', 'acoustic_l'];
@@ -19,6 +19,9 @@ const RES_PRICE = 0.3, LENS_PRICE = 0.1, SLEW_PRICE = 0.1; // share of a camera'
 const RANGEFINDER_PRICE = 20000, RANGEFINDER_ERROR = 5; // dollars, and metres: assumptions
 const SENSITIVITY_PRICE = 0.5, DF_PRICE = 0.5; // share of a detector's price per doubling of reach, and for angle of arrival over a sector
 const DF_ERROR = { sector: 30, aoa: 5 }; // bearing error a detector switched to this gets, in degrees: the listed sector, and an older Dedrone's ±5°
+const BAND_PRICE = 0.15; // share of a jammer's price saved for each band module left out: an assumption
+// A sector antenna: 10 dB of gain over 60°, about what a panel antenna gives, so range goes up by the square root of 10. Price share assumed.
+const SECTOR = { arc: 60, gain: 10, price: 0.2 };
 const choicesOf = (table) => Object.fromEntries(Object.entries(table).map(([k, v]) => [k, v.label]));
 const MAST_PRICE = 0.015, RELOAD_PRICE = 0.1; // share of the system's price, per metre and per second
 const THRESHOLD = { low: { range: 1.1, falseAlarm: 2 }, high: { range: 0.9, falseAlarm: 0.5 } };
@@ -48,8 +51,18 @@ export const UNIT_FIELDS = [
   },
   {
     // No standard value: left unset, it faces away from what is being defended, wherever that is (laydown.js).
-    key: 'facing', label: 'Facing', unit: '°', step: 5, base: () => null, limits: Object.fromEntries(Object.keys(PANELLED).map((id) => [id, [0, 355]])),
+    key: 'facing', label: 'Facing', unit: '°', step: 5, base: () => null, limits: { ...Object.fromEntries(Object.keys(PANELLED).map((id) => [id, [0, 355]])), ...each(JAMMERS, [0, 355]) },
     help: 'The compass bearing the middle of its arc points along. Reset, it faces away from what you defend.',
+  },
+  {
+    key: 'fitted', label: 'Bands fitted', base: () => JAM_BANDS, limits: each(JAMMERS, true), bands: true, parse: parseBands,
+    price: (v, c) => (v.length - JAM_BANDS.length) * BAND_PRICE * c.cost,
+    help: 'Each band is a module. Leave one out to save its price: it can then never be jammed.',
+  },
+  {
+    key: 'antenna', label: 'Antenna', base: () => 'omni', direct: 'antenna', limits: each(JAMMERS, true), choices: { omni: 'Omni, all round', sector: `Sector, ${SECTOR.arc}°` },
+    range: (v) => (v === 'sector' ? Math.sqrt(SECTOR.gain) : 1), price: (v, c) => (v === 'sector' ? SECTOR.price * c.cost : 0),
+    help: 'A sector antenna reaches about three times as far, but only through its arc, which faces away from what you defend unless turned.',
   },
   {
     key: 'dims', label: 'Height', base: (c) => c.dims ?? 'full', direct: 'dims', limits: each(MEDIUM_UP, true), choices: { full: '3D, measures height', flat: '2D, no height' },
@@ -170,7 +183,7 @@ export const fieldsFor = (id) => UNIT_FIELDS.filter((f) => f.limits[id]);
 
 // A value made safe to use for this field on this system, or undefined if it cannot be used at all.
 function cleanValue(field, id, value) {
-  if (field.arcs) return field.parse(value);
+  if (field.arcs || field.bands) return field.parse(value);
   if (field.choices) return Object.hasOwn(field.choices, value) ? value : undefined;
   if (!Number.isFinite(value)) return undefined;
   const [min, max] = field.limits[id];
@@ -181,7 +194,8 @@ function cleanValue(field, id, value) {
 export function setSetting(settings, field, id, value) {
   const clean = value == null ? field.base(STRUCTURES[id]) : cleanValue(field, id, value);
   if (clean === undefined) return false;
-  if (clean === field.base(STRUCTURES[id]) || (field.arcs && !clean.length)) delete settings[field.key];
+  const base = field.base(STRUCTURES[id]), same = clean === base || (Array.isArray(clean) && String(clean) === String(base)); // a list is the same if it holds the same
+  if (same || (field.arcs && !clean.length)) delete settings[field.key];
   else settings[field.key] = clean;
   return true;
 }
@@ -222,6 +236,11 @@ export function unitDef(id, settings = {}) {
   }
   if (c.kind === 'camera') Object.defineProperty(def.sapient.noise, 'range', { get: () => (def.rangefinder === 'yes' ? RANGEFINDER_ERROR : undefined), enumerable: true });
   if (c.kind === 'rf') Object.defineProperty(def.sapient.noise, 'az', { get: () => (settings.df ? DF_ERROR[settings.df] : c.sapient.noise.az), enumerable: true });
+  if (c.kind === 'jammer') { // only fitted bands can be jammed, and a sector antenna covers its arc only
+    Object.defineProperty(def, 'fitted', { get: () => settings.fitted ?? JAM_BANDS });
+    Object.defineProperty(def, 'bands', { get: () => c.bands.filter((b) => def.fitted.includes(b)) });
+    Object.defineProperty(def, 'arc', { get: () => (def.antenna === 'sector' ? SECTOR.arc : undefined) });
+  }
   return def;
 }
 
