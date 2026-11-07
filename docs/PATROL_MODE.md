@@ -35,7 +35,9 @@ As designed, each mobile system would get two figures: whether it can sense on t
 
 ## Which assets can be mobile, and how fast
 
-In the slice the escort is fixed: one Blighter A800 radar (vehicle-mountable in its makers' material) drives ahead, and one Thales Rapid Ranger (a Land Rover launcher in service) drives behind. Both move at the group's walking pace, keeping a set gap along the route.
+The people on patrol are soldiers, drawn in MultiCam with helmets, body armour and rifles at true size; it changes only the drawing.
+
+The escort is a column of 1 to 6 vehicles, chosen in the Area panel once the route is drawn: a Patria 6x6, a Toyota Hilux or a Mule UGV in the Milrem THeMIS class, each carrying one system it can take (a Mule light ones, a Hilux medium ones too, a Patria anything that rides) at a gap ahead of or behind the soldiers. A new patrol gets a Blighter A800 on a Hilux 40 m ahead and a Thales Rapid Ranger on a Patria 40 m behind. Every vehicle moves at the group's walking pace, keeping its gap along the route, and a sensor on one stands on the vehicle's short mast (2 to 3.5 m, an assumption).
 
 | Figure | Value | Basis |
 | --- | --- | --- |
@@ -49,9 +51,9 @@ As designed, a mobile flag and a road speed would be added to each system that i
 
 ## Choosing and saving a mobile laydown
 
-In the slice the player only draws the route. The escort is added for them, paid from the budget like any other system, and each vehicle gets a Starlink terminal (the fusion node gets one too if it has none). Escorts cannot be sold on their own: clearing or redrawing the patrol removes them and refunds them in full, as nothing has happened yet. The patrol locks when the first wave starts, like the rest of the laydown, and a patrol and a drawn area cannot both be set.
+The player draws the route, and the default column is added; they can then change each vehicle, what it carries and its gap, or add and remove vehicles. Each system is paid from the budget like any other (the vehicles themselves are not priced), and each gets a Starlink terminal (the fusion node gets one too if it has none). Escorts cannot be sold on their own: clearing or redrawing the patrol removes them and refunds them in full, as nothing has happened yet. The patrol locks when the first wave starts, like the rest of the laydown, and a patrol and a drawn area cannot both be set.
 
-A saved laydown carries the patrol as its route, `patrol: [[x, z], ...]`, beside the systems. The escort and its people are rebuilt from the route and the figures when the laydown is restored, so they are not in the saved structures or people lists. The backend accepts the route with the same limits as the area to defend (2 to 32 points).
+A saved laydown carries the patrol as its route, `patrol: [[x, z], ...]`, and its column, `patrolColumn: [{ vehicle, system, gap }, ...]`, beside the systems. The escort and its people are rebuilt from these and the figures when the laydown is restored, so they are not in the saved structures or people lists; a laydown saved before the column existed gets the default one. The backend accepts the route with the same limits as the area to defend (2 to 32 points).
 
 As designed, the player would pick which systems ride with the patrol and where each sits in the column (ahead, behind, on a flank), from the mobile systems above. A mix of fixed systems near the route and mobile ones in the column should be allowed, since that is how a real route would be covered.
 

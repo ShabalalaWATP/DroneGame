@@ -1,8 +1,8 @@
-// A patrol: a group of simulated people walking a looped route, with a sensor vehicle ahead and a weapon vehicle behind. Strike
+// A patrol: a group of simulated soldiers walking a looped route, escorted by a column of vehicles carrying sensors and weapons. Strike
 // drones attack the patrol in place of the station. Nothing here draws a random number, so a patrol walks the same way on every run,
 // and a laydown without one runs none of this. See docs/PATROL_MODE.md.
 
-import { COMMS, PATROL, STRUCTURES, WORLD } from './config/index.js';
+import { COMMS, MAX_ESCORTS, MAX_ESCORT_GAP, MOUNTS, PATROL, PATROL_VEHICLES, STRUCTURES, WORLD } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { SITE_POS, hereU, onMap, u } from './units.js';
 import { buyTerminal, money } from './economy.js';
@@ -56,36 +56,49 @@ export function along(p, dist) {
   return { x: ax + (bx - ax) * f, z: az + (bz - az) * f };
 }
 
-// The people walk at the patrol's spot, keeping their places in the group, and the escort keeps its gap along the route.
+// Why this column can't escort a patrol, or null: 1 to MAX_ESCORTS vehicles, each carrying a system it can take, near the people.
+export function columnProblem(column) {
+  if (!Array.isArray(column) || column.length < 1 || column.length > MAX_ESCORTS) return `A patrol needs 1 to ${MAX_ESCORTS} vehicles`;
+  for (const e of column) {
+    if (!Object.hasOwn(PATROL_VEHICLES, e?.vehicle)) return 'Choose a vehicle for each place in the column';
+    const v = PATROL_VEHICLES[e.vehicle], sys = STRUCTURES[e.system];
+    if (!Object.hasOwn(MOUNTS, e.system) || !sys) return 'That system cannot ride in a patrol';
+    if (MOUNTS[e.system] > v.carries) return `A ${v.name} cannot carry the ${sys.name}`;
+    if (!Number.isFinite(e.gap) || Math.abs(e.gap) > MAX_ESCORT_GAP) return `Keep each vehicle within ${MAX_ESCORT_GAP} m of the people`;
+  }
+  return null;
+}
+
+// The people walk at the patrol's spot, keeping their places in the group, and each vehicle keeps its gap along the route.
 function placeAll(w) {
   const p = w.patrol, g = p.group, at = along(p, p.dist), dx = at.x - g.x, dz = at.z - g.z;
   for (let i = 0; i < g.count; i++) { g.spots[i * 2] += dx; g.spots[i * 2 + 1] += dz; }
   g.x = at.x; g.z = at.z; g.y = hereU(at.x, at.z);
   w.peopleRev++;
-  for (const [s, gap] of [[p.sensor, FOOT.escortGap], [p.effector, -FOOT.escortGap]]) {
+  for (const { s, gap } of p.escorts) {
     const q = along(p, p.dist + u(gap));
     s.pos.set(q.x, hereU(q.x, q.z), q.z);
   }
   w.state.zoneCentre = at; // spotters orbit the patrol, and the fusion node measures threats from it
 }
 
-// Both vehicles and their terminals, and a terminal for the fusion node if it has none.
-const escortCost = (w) => STRUCTURES[FOOT.sensor].cost + STRUCTURES[FOOT.effector].cost + COMMS.starlink.cost * (w.net.fusion.uplinks.has('starlink') ? 2 : 3);
+// Every system in the column and its terminal, and a terminal for the fusion node if it has none. The vehicles themselves are
+// not priced: the budget is for counter-drone systems.
+const escortCost = (w, column) => column.reduce((sum, e) => sum + STRUCTURES[e.system].cost, 0) + COMMS.starlink.cost * (column.length + (w.net.fusion.uplinks.has('starlink') ? 0 : 1));
 
-function startPatrol(w, route) {
+function startPatrol(w, route, column) {
   const [x, z] = route[0];
-  const vehicle = (id) => {
-    const s = addStructure(w, id, x, z);
-    s.escort = true;
+  const escorts = column.map(({ vehicle, system, gap }) => {
+    const s = addStructure(w, system, x, z, { settings: STRUCTURES[system].mount == null ? {} : { mount: PATROL_VEHICLES[vehicle].mast } }); // its mast on the vehicle
+    s.escort = true; s.def.vehicle = vehicle; // the unit's own definition, so the drawing puts it on the vehicle
     w.state.budget -= s.def.cost; w.ledger.capex += s.def.cost;
     wireNode(w, s, 'starlink'); // shortcut: assumes a terminal that works on the move. Model cellular or a mesh radio if escorts need a choice.
-    return s;
-  };
-  const sensor = vehicle(FOOT.sensor), effector = vehicle(FOOT.effector);
+    return { s, gap };
+  });
   wireFusion(w, 'starlink', true);
-  const group = addGroup(w, x, z, Math.max(1, Math.round(FOOT.groupSize)), 'open');
+  const group = addGroup(w, x, z, Math.max(1, Math.round(FOOT.groupSize)), 'open', 'military');
   group.patrol = true;
-  w.patrol = { route, ends: legEnds(route), dist: 0, group, sensor, effector, halted: false };
+  w.patrol = { route, ends: legEnds(route), dist: 0, group, escorts, column: column.map((e) => ({ ...e })), halted: false };
   placeAll(w);
 }
 
@@ -93,7 +106,7 @@ function startPatrol(w, route) {
 export function clearPatrol(w) {
   const p = w.patrol;
   if (!p) return;
-  for (const s of [p.sensor, p.effector]) {
+  for (const { s } of p.escorts) {
     if (!w.structures.includes(s)) continue;
     w.state.budget += s.def.cost; w.ledger.capex -= s.def.cost;
     if (s.uplink) buyTerminal(w, s.uplink, null);
@@ -106,16 +119,20 @@ export function clearPatrol(w) {
   w.state.zoneCentre = SITE_POS;
 }
 
-// Set, replace or (with null) clear the patrol. Returns why not, or null.
-export function setPatrol(w, points) {
+// Set, replace or (with null) clear the patrol, keeping its column unless given another. Returns why not, or null.
+export function setPatrol(w, points, column = w.patrol?.column ?? FOOT.column) {
   if (designLocked(w)) return 'The patrol is locked once the first wave starts';
+  const problem = points == null ? null : w.state.zone ? 'Clear the area to defend first: with a patrol, the patrol is what the enemy attacks' : routeProblem(points) || columnProblem(column);
+  if (problem) return problem;
+  const before = w.patrol?.column;
   clearPatrol(w);
   if (points == null) return null;
-  if (w.state.zone) return 'Clear the area to defend first: with a patrol, the patrol is what the enemy attacks';
-  const problem = routeProblem(points);
-  if (problem) return problem;
-  if (w.state.budget < escortCost(w)) return `Not enough budget for the escort (${money(escortCost(w))} needed, ${money(w.state.budget)} left)`;
-  startPatrol(w, points.map(([x, z]) => [x, z]));
+  if (w.state.budget < escortCost(w, column)) {
+    const need = escortCost(w, column);
+    if (before && column !== before) startPatrol(w, points.map(([x, z]) => [x, z]), before); // a new column that is too dear leaves the old one
+    return `Not enough budget for the escort (${money(need)} needed, ${money(w.state.budget)} left)`;
+  }
+  startPatrol(w, points.map(([x, z]) => [x, z]), column.map(({ vehicle, system, gap }) => ({ vehicle, system, gap })));
   return null;
 }
 
@@ -123,7 +140,7 @@ export function setPatrol(w, points) {
 export function updatePatrol(w, dt) {
   const p = w.patrol;
   if (!p || !(w.state.wave > 0 || w.state.sandbox)) return;
-  p.halted = !!p.effector.task && w.structures.includes(p.effector);
+  p.halted = p.escorts.some(({ s }) => s.task && s.def.fire !== 'jam' && w.structures.includes(s)); // a jammer works on the move
   if (!p.halted) p.dist += u(FOOT.walkSpeed) * dt;
   placeAll(w);
 }

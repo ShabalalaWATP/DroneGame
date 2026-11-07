@@ -38,7 +38,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   terrainState.data = generateTerrain(terrainSeed);
 
   const state = {
-    seed, terrainSeed, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, time: 0, warnedWire: false,
+    seed, terrainSeed, health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, killed: 0, injured: 0, time: 0, warnedWire: false,
     started: false, over: false, autoStart: false, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX, conditions: 'day',
     waveActive: false, queue: [], waveTime: 0, autoTimer: -1,
     sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, // sandbox: attacks without consequences, before the first wave
@@ -92,7 +92,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     people.clearPeople(w);
     w.patrol = null; // its escort and people went with the rest
     Object.assign(state, {
-      health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, time: 0, warnedWire: false, over: false,
+      health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, killed: 0, injured: 0, time: 0, warnedWire: false, over: false,
       waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX,
     });
     laydown.applyConditions(w, 'day'); // a kept laydown brings its own back
@@ -175,12 +175,12 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     deploy,
     leave,
     setZone: (points) => laydown.setZone(w, points),
-    setPatrol: (points) => setPatrol(w, points),
+    setPatrol: (points, column) => setPatrol(w, points, column),
     setAttack: (ids) => laydown.setAttack(w, ids),
     setConditions: (name) => laydown.setConditions(w, name),
     place: (id, x, z, settings) => laydown.place(w, id, x, z, settings),
     sell: (x, z) => laydown.sell(w, x, z),
-    placePeople: (x, z, count, protection) => people.placePeople(w, x, z, count, protection),
+    placePeople: (x, z, count, protection, role) => people.placePeople(w, x, z, count, protection, role),
     removePeople: (id) => people.removePeople(w, id),
     resupply: () => resupply(w),
     startWave: () => startWave(w, beginRun),

@@ -76,7 +76,8 @@ const casualtySummary = (groups) => Object.entries(PEOPLE)
   .filter(([id]) => groups.some((g) => g.protection === id))
   .map(([id, level]) => {
     const here = groups.filter((g) => g.protection === id);
-    return `${level.name.toLowerCase()} ${here.reduce((sum, g) => sum + g.hits.length, 0)} of ${here.reduce((sum, g) => sum + g.count, 0)}`;
+    const count = (sev) => here.reduce((sum, g) => sum + g.hits.filter((i) => g.down[i] === sev).length, 0);
+    return `${level.name.toLowerCase()} ${count(2)} killed and ${count(1)} injured of ${here.reduce((sum, g) => sum + g.count, 0)}`;
   }).join(', ');
 
 function GameOverCard({ onReview }) {
@@ -88,7 +89,7 @@ function GameOverCard({ onReview }) {
         <h1>SITE LOST</h1>
         <p>You held out for <b>{Math.max(state.wave - 1, 0)}</b> full wave(s).</p>
         <p>Kills <b>{state.kills}</b> · Enemy attack cost <b>{money(enemyCost(ledger.launched))}</b> · Defence spend <b>{money(ledger.capex + ledger.consumables)}</b></p>
-        {sim.people.length > 0 && <p id="casualty-summary">Simulated casualties <b>{state.casualties}</b> of {sim.people.reduce((sum, g) => sum + g.count, 0)}: {casualtySummary(sim.people)}. These come from assumed figures (see Sources), not real data.</p>}
+        {sim.people.length > 0 && <p id="casualty-summary">Simulated <b>{state.killed}</b> killed and <b>{state.injured}</b> injured of {sim.people.reduce((sum, g) => sum + g.count, 0)}: {casualtySummary(sim.people)}. Each warhead's lethal and injury radii come from assumed figures (see Sources), not real data.</p>}
         {saver.message() && <p id="save-status" className="muted">{saver.message()}</p>}
         <button id="btn-restart" className="primary" onClick={() => commands.reset('keep')}>Retry with the same laydown</button>{' '}
         <button id="btn-restart-clear" onClick={() => commands.reset('clear')}>Clear map</button>

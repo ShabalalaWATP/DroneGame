@@ -15,7 +15,7 @@ FILE_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}\.sgmap$")
 BUILDER = Path(__file__).resolve().parents[3] / "tools" / "mapbuild"
 # The national files the builder fetches for Estonia, into their own folder (tools/mapbuild/mapbuild/estonia_files.py).
 ESTONIA_HEIGHTS, ESTONIA_SURFACE = "DTM_10m_eesti.tif", "ndsm_5m_2020-2023_kogu_Eesti.zip"
-ESTONIA_FEATURES = tuple(f"ETAK_Eesti_SHP_{theme}.zip" for theme in ("ehitised", "kolvikud", "transport", "veekogud", "tehnovorgud"))
+ESTONIA_FEATURES = (*(f"ETAK_Eesti_SHP_{theme}.zip" for theme in ("ehitised", "kolvikud", "transport", "veekogud", "tehnovorgud")), "asustusyksus_shp.zip")
 
 
 def in_estonia(east: int, north: int) -> bool:

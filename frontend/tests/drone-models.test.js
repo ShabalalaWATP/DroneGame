@@ -2,7 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
-import { DRONES } from '../src/sim/config/index.js';
+import { DRONES, WORLD } from '../src/sim/config/index.js';
 import { buildDrone, drawScale } from '../src/render/drone-models.js';
 
 const mat = new THREE.MeshBasicMaterial();
@@ -21,6 +21,13 @@ describe('drone models', () => {
     const meshes = g.children.filter((c) => c.isMesh);
     expect(meshes.length).toBeLessThanOrEqual(8);
     expect(meshes.reduce((n, m) => n + m.geometry.attributes.position.count / 3, 0)).toBeLessThan(1000);
+  });
+
+  it('is true size up close and no bigger than before zoomed right out', () => {
+    for (const def of Object.values(DRONES)) {
+      expect(drawScale(def, 0.25)).toBe(1 / WORLD.metresPerUnit);
+      expect(drawScale(def, 1200)).toBeCloseTo(WORLD.droneVisualScale * 3 * def.size ** -0.6);
+    }
   });
 
   it('draws a bigger drone bigger, but not in proportion', () => {

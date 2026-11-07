@@ -36,7 +36,6 @@ export function createDroneViews(scene, sim, labels, camera) {
     drop.frustumCulled = false;
     group.add(drop);
 
-    group.scale.setScalar(drawScale(def));
     scene.add(group);
 
     // fibre-optic drones pay out a line from where they launched
@@ -78,8 +77,10 @@ export function createDroneViews(scene, sim, labels, camera) {
       }
       v.dropMat.color.setHex(tracked ? d.def.color : 0x667080);
       for (const r of v.rotors) r.rotation[r.userData.axis || 'y'] += real * 50;
+      const k = drawScale(d.def); // it shrinks to true size as the camera closes in
+      v.group.scale.setScalar(k);
       v.group.position.copy(d.pos);
-      v.group.position.y = d.pos.y + Math.sin(performance.now() / 300 + v.phase) * 0.15;
+      v.group.position.y = d.pos.y + Math.sin(performance.now() / 300 + v.phase) * 0.01 * d.def.size * k;
       v.group.rotation.y = d.heading;
       if (d.def.bank) { v.model.rotation.z = d.bank; v.unseen.rotation.z = d.bank; }
       v.drop.scale.y = Math.max(d.pos.y - hereU(d.pos.x, d.pos.z), 0) / v.group.scale.y;
@@ -97,7 +98,7 @@ export function createDroneViews(scene, sim, labels, camera) {
     updateLabels() {
       for (const [d, v] of views) {
         v.label.style.opacity = d.detected ? '1' : '0.5';
-        labels.place(v.label, d.pos.x, d.pos.y + 4, d.pos.z, view.labels && view.truth && view.replayT == null);
+        labels.place(v.label, d.pos.x, d.pos.y + Math.max(d.def.size * v.group.scale.y * 0.7, 0.004 * view.zoom), d.pos.z, view.labels && view.truth && view.replayT == null);
       }
     },
     hide() { for (const v of views.values()) { v.group.visible = false; if (v.fibre) v.fibre.visible = false; v.label.style.display = 'none'; } },

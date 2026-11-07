@@ -1,7 +1,7 @@
 // Effectors act only on tasks from the fusion node. Each one is looked up by how it fires: act(w, system, target, dt).
 
 import { Vector3 } from 'three';
-import { WORLD, TERRAIN, STRUCT_SCALE } from './config/index.js';
+import { WORLD, TERRAIN, SYSTEM_UNIT_M } from './config/index.js';
 import { beamFactor, evasionFactor, hitChance, layTime } from './hit-chance.js';
 import { rand } from './rng.js';
 import { antennaHeight } from './site-range.js';
@@ -15,7 +15,8 @@ const _v = new Vector3(), _m = new Vector3();
 const MISS_COLOUR = 0x90a4ae;
 const SALVO_ASSURANCE = 0.8; // a salvo stops once it is this likely that one of the rounds in the air will work: an assumption
 
-export const muzzle = (s, out = _m) => out.set(s.pos.x, s.pos.y + (s.def.muzzleY || 2) * STRUCT_SCALE * (s.def.modelScale || 1), s.pos.z);
+// where a round leaves: muzzleY model units up, at true size (SYSTEM_UNIT_M metres each)
+export const muzzle = (s, out = _m) => out.set(s.pos.x, s.pos.y + u((s.def.muzzleY || 2) * SYSTEM_UNIT_M * (s.def.modelScale || 1)), s.pos.z);
 
 // The laser needs a clear optical path; guided weapons (interceptor drones, missiles) are cued over the terrain.
 export function opticalLos(s, d) {

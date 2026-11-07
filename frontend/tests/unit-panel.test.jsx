@@ -8,6 +8,7 @@ import { createGame } from '../src/game.js';
 import { DRONES, STRUCTURES, resetAllFigures } from '../src/sim/config/index.js';
 import { reachFor } from '../src/sim/network/sensors.js';
 import { pickStructure, selectionFrom } from '../src/render/placement.js';
+import { labelLift } from '../src/render/structure-view.js';
 import { view } from '../src/render/view.js';
 import { GameContext } from '../src/ui/hooks.js';
 import { useHotkeys } from '../src/ui/useHotkeys.js';
@@ -40,7 +41,7 @@ describe('picking a system on the screen', () => {
     c.position.set(0, 100, 200); c.lookAt(0, 0, 0); c.updateMatrixWorld(); c.updateProjectionMatrix();
     return c;
   };
-  const at = (x, z) => ({ pos: new THREE.Vector3(x, 0, z) });
+  const at = (x, z) => ({ pos: new THREE.Vector3(x, 0, z), def: STRUCTURES.camera });
   const screen = (s, cam, lift = 0) => {
     const p = s.pos.clone().setY(lift).project(cam);
     return [((p.x + 1) / 2) * W, ((1 - p.y) / 2) * H];
@@ -50,7 +51,7 @@ describe('picking a system on the screen', () => {
     const cam = camera(), s = at(0, 0);
     expect(pickStructure([s], cam, ...screen(s, cam), W, H)).toBe(s);
     expect(pickStructure([s], cam, ...screen(s, cam, 4), W, H)).toBe(s);
-    expect(pickStructure([s], cam, ...screen(s, cam, 9), W, H)).toBe(s);
+    expect(pickStructure([s], cam, ...screen(s, cam, labelLift(s.def)), W, H)).toBe(s);
   });
 
   it('takes a tighter tolerance while placing', () => {

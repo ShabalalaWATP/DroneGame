@@ -235,7 +235,7 @@ def test_the_estonian_base_map_is_cut_into_pieces_placed_on_the_grid():
 
 def test_estonian_credits_name_the_owner_and_carry_the_licence():
     found = estonia.credits(30, 2026)
-    assert "Land and Spatial Development Board" in found["osmap"] and estonia.LICENCE in found["osmap"]
+    assert "Land and Spatial Development Board" in found["osmap"] and estonia.LICENCE in found["osmap"] and "settlement units" in found["osmap"]
     assert "2020-2023" in found["lidar"] and "2020-2023" not in estonia.credits(0, 2026)["lidar"]
 
 
@@ -284,7 +284,7 @@ def test_lidar_is_only_fetched_for_estonia_when_asked(tmp_path, monkeypatch):
     got = []
     monkeypatch.setattr(estonia_files, "_fetch", lambda name, folder, say: got.append(name))
     estonia_files.ensure(str(tmp_path), False, lambda _: None)
-    assert estonia.SURFACE not in got and estonia.HEIGHTS in got
+    assert estonia.SURFACE not in got and estonia.HEIGHTS in got and estonia.PLACES in got
     estonia_files.ensure(str(tmp_path), True, lambda _: None)
     assert estonia.SURFACE in got
 
@@ -462,6 +462,30 @@ def test_a_filtered_etak_layer_really_is_filtered(tmp_path):
     assert len(shapes) == 3 and sorted(fields["nimipinge"]) == [35, 110, 330]
     assert all(s.geom_type == "LineString" for s in shapes)
     assert len(etak.read(estonia.UTILITIES, "E_601_elektriliin_j")[0]) == 4  # no filter, and no columns asked for
+
+
+def test_settlements_are_named_once_at_their_middle_without_their_type_word(tmp_path):
+    import zipfile
+    from pyogrio.raw import write
+    square = lambda e, n, side: shapely.box(e, n, e + side, n + side)
+    town = square(610600, 6569600, 800)
+    bent = shapely.Polygon([(611100, 6570100), (611400, 6570100), (611400, 6570400), (611300, 6570400), (611300, 6570200), (611100, 6570200)])  # an L, with its centroid outside it
+    rows = [(town, "Tapa linn", "1", "5"), (square(611450, 6570450, 20), "Tapa linn", "1", "5"), (bent, "Tahu küla / Skåtanäs", "2", "8"),
+            (square(611300, 6569500, 50), "Lehtse alevik", "3", "7"), (square(611600, 6570000, 50), "Odd place", "4", "9"), (square(612600, 6570000, 900), "Far küla", "5", "8")]
+    folder = tmp_path / "shapes"
+    folder.mkdir()
+    write(str(folder / "asustusyksus.shp"), np.array([shapely.to_wkb(r[0]) for r in rows], dtype=object), [np.array([r[i] for r in rows], dtype=object) for i in (1, 2, 3)],
+          fields=["ANIMI", "AKOOD", "TYYP"], driver="ESRI Shapefile", geometry_type="Polygon", crs="EPSG:3301")
+    with zipfile.ZipFile(tmp_path / estonia.PLACES, "w") as z:
+        for part in folder.glob("asustusyksus.*"):
+            z.write(part, part.name)
+    points, fields = estonia.place_names(str(tmp_path), Window(611000, 6570000, 1000))
+    found = dict(zip(fields["DISTNAME"], zip(fields["FONTHEIGHT"], points)))
+    assert sorted(found) == ["Lehtse", "Odd place", "Tahu / Skåtanäs", "Tapa"]  # the far village's middle is outside the window
+    assert found["Tapa"][0] == "Large" and found["Lehtse"][0] == "Medium" and found["Tahu / Skåtanäs"][0] == "Medium" and found["Odd place"][0] == "Small"
+    assert (found["Tapa"][1].x, found["Tapa"][1].y) == (611000, 6570000)  # on the town, not its small detached piece
+    assert bent.contains(found["Tahu / Skåtanäs"][1])
+    assert set(fields["CLASSIFICA"]) == {"Populated Place"}
 
 
 def test_an_etak_layer_only_gives_what_is_in_the_window(tmp_path):

@@ -9,7 +9,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, JsonValue, St
 SystemId = Literal[
     "radar", "radar_s", "radar_a400", "radar_a800", "radar_giraffe", "radar_l", "rf", "rf_s", "rf_elysion", "rf_airfence", "rf_l", "camera", "camera_s", "camera_l", "acoustic", "acoustic_s", "acoustic_l",
     "jammer", "jammer_s", "jammer_l", "jammer_auds", "jammer_neo", "jammer_jupiter", "jammer_sf", "interceptor", "interceptor_s", "interceptor_l", "interceptor_p1",
-    "missile", "missile_s", "missile_l", "missile_rr", "missile_hvm", "missile_paladin", "missile_skysabre",
+    "missile", "missile_s", "missile_l", "missile_rr", "missile_hvm", "missile_paladin", "missile_skysabre", "gun_hmg",
     "laser", "laser_s", "laser_l", "laser_rfdew",
 ]
 Uplink = Literal["starlink", "cellular"]
@@ -19,6 +19,9 @@ JamBand = Literal["control900", "control24", "video58", "gnss"]
 DroneTypeId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,31}$")]
 MAX_ATTACK_TYPES = 64
 Protection = Literal["open", "building", "bunker"]
+PatrolVehicle = Literal["patria", "hilux", "mule"]  # PATROL_VEHICLES in frontend/src/sim/config/patrol.js
+MAX_ESCORTS = 6
+MAX_ESCORT_GAP = 200  # metres along the route, ahead of the people or (negative) behind
 
 WORLD_LIMIT = 350  # scene units: the ground reaches 7 km from the site, at 20 m a unit
 MAX_SYSTEMS = 200
@@ -80,6 +83,16 @@ class PlacedPeople(Strict):
     z: Coordinate
     count: Annotated[int, Field(ge=1, le=MAX_PEOPLE_PER_GROUP)]
     protection: Protection
+    # soldiers are drawn in uniform; a group without it is civilians, as every group saved before it was
+    role: Literal["military"] | None = Field(default=None, exclude_if=lambda role: role is None)
+
+
+class Escort(Strict):
+    """One vehicle in a patrol's column: what it is, the system it carries, and where it keeps along the route."""
+
+    vehicle: PatrolVehicle
+    system: SystemId
+    gap: Annotated[float, Field(ge=-MAX_ESCORT_GAP, le=MAX_ESCORT_GAP)]
 
 
 class LaydownSpec(Strict):
@@ -94,6 +107,8 @@ class LaydownSpec(Strict):
     zone: list[Annotated[list[Coordinate], Field(min_length=2, max_length=2)]] | None = Field(default=None, min_length=3, max_length=MAX_ZONE_POINTS, exclude_if=lambda zone: zone is None)
     # a patrol's looped route (see docs/PATROL_MODE.md); the game checks it again on the ground when it is restored
     patrol: list[Annotated[list[Coordinate], Field(min_length=2, max_length=2)]] | None = Field(default=None, min_length=2, max_length=MAX_ZONE_POINTS, exclude_if=lambda patrol: patrol is None)
+    # the vehicles that escort it; a patrol saved before there was a choice gets the default column
+    patrolColumn: list[Escort] | None = Field(default=None, min_length=1, max_length=MAX_ESCORTS, exclude_if=lambda column: column is None)
 
 
 FigureGroup = Annotated[dict[FigureKey, Annotated[dict[FigureKey, Figure], Field(max_length=MAX_FIGURES_PER_ITEM)]], Field(max_length=MAX_FIGURES_PER_ITEM)]
