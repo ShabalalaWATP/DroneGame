@@ -12,7 +12,7 @@ import { damageDrone } from './drones.js';
 import { canFire, updateMagazine, useRound } from './magazine.js';
 import { crewTask, crewed } from './crew.js';
 
-const _v = new Vector3(), _m = new Vector3();
+const _v = new Vector3(), _m = new Vector3(), _from = new Vector3(), _near = new Vector3();
 const MISS_COLOUR = 0x90a4ae;
 const SALVO_ASSURANCE = 0.8; // a salvo stops once it is this likely that one of the rounds in the air will work: an assumption
 
@@ -31,8 +31,11 @@ const aimAt = (s, t) => { s.aim = Math.atan2(t.pos.x - s.pos.x, t.pos.z - s.pos.
 
 function launchMissile(w, s, t) {
   const speed = u(s.def.missileSpeed), track = s.task && w.net.tracks.get(s.task.trackId);
+  const pos = muzzle(s).clone();
+  // a gun fires straight at its target; a missile or interceptor leaves its launcher climbing, then steers in
+  const vel = s.def.kind === 'gun' ? new Vector3().subVectors(t.pos, pos).setLength(speed) : new Vector3(0, speed * 0.6, 0);
   w.missiles.push({
-    def: s.def, pos: muzzle(s).clone(), vel: new Vector3(0, speed * 0.6, 0), target: t, life: (s.def.range / s.def.missileSpeed) * 1.5,
+    def: s.def, pos, vel, target: t, life: (s.def.range / s.def.missileSpeed) * 1.5,
     from: s.pos.distanceTo(t.pos) * WORLD.metresPerUnit, cueError: track?.estErr ?? 0, // what its chance depends on, as it was fired
   });
 }
@@ -95,6 +98,14 @@ export function updateStructures(w, dt) {
   }
 }
 
+// How close the path from a to b comes to p, with that point in out.
+export function closestOnPath(a, b, p, out) {
+  out.subVectors(b, a);
+  const len2 = out.lengthSq(), t = len2 ? Math.min(1, Math.max(0, _v.subVectors(p, a).dot(out) / len2)) : 0;
+  out.multiplyScalar(t).add(a);
+  return out.distanceTo(p);
+}
+
 export function updateMissiles(w, dt) {
   const { missiles, drones } = w;
   for (let i = missiles.length - 1; i >= 0; i--) {
@@ -109,8 +120,13 @@ export function updateMissiles(w, dt) {
       _v.subVectors(m.target.pos, m.pos).normalize().multiplyScalar(u(m.def.missileSpeed));
       m.vel.lerp(_v, 1 - Math.exp(-4 * dt));
     }
+    _from.copy(m.pos);
     m.pos.addScaledVector(m.vel, dt);
-    const fuzed = m.target && m.pos.distanceTo(m.target.pos) < u(m.def.fuze);
+    const r = u(m.def.fuze);
+    let fuzed = !!m.target && m.pos.distanceTo(m.target.pos) < r;
+    // A fast round flies further in a step than its fuze reaches, so it could pass clean through its target between checks:
+    // look along the path it just flew too, and burst where it came closest.
+    if (m.target && !fuzed && closestOnPath(_from, m.pos, m.target.pos, _near) < r) { m.pos.copy(_near); fuzed = true; }
     if (fuzed || m.life <= 0 || m.pos.y < hereU(m.pos.x, m.pos.z) + 0.2) {
       const hit = fuzed && rand() < hitChance(m.def, { speed: m.target.def.speed, evade: m.target.evade }, m.from, m.cueError);
       if (hit) { // it reaches its target, and its blast anything else close by. A miss costs the round and does nothing.
