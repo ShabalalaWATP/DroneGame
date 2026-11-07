@@ -1,4 +1,5 @@
-"""Protections for a local service with no sign-in: a page on another site must not be able to read or change anything here."""
+"""Protections for a local service: a page on another site must not be able to read or change anything here, even while someone
+is signed in (the session cookie is SameSite=Strict as well)."""
 
 from starlette.datastructures import MutableHeaders
 from starlette.responses import JSONResponse
@@ -70,7 +71,10 @@ class SecurityHeaders:
 
         async def with_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
-                MutableHeaders(scope=message).update(HEADERS)
+                headers = MutableHeaders(scope=message)
+                headers.update(HEADERS)
+                if scope["path"].startswith("/api/"):
+                    headers["Cache-Control"] = "no-store"  # profiles and saves must not linger in a browser cache after signing out
             await send(message)
 
         await self.app(scope, receive, with_headers)

@@ -3,7 +3,7 @@
 import copy
 
 import pytest
-from conftest import FIGURES, SPEC, figure_set, laydown, run
+from conftest import FIGURES, PASSWORD, SPEC, figure_set, laydown, run, sign_up
 
 API = "/api/v1"
 
@@ -17,6 +17,15 @@ def test_the_api_matches_the_documented_table(client):
     found = {path: sorted(m.upper() for m in ops) for path, ops in paths.items()}
     assert found == {
         f"{API}/health": ["GET"],
+        f"{API}/auth/register": ["POST"],
+        f"{API}/auth/sign-in": ["POST"],
+        f"{API}/auth/sign-out": ["POST"],
+        f"{API}/auth/reset": ["POST"],
+        f"{API}/auth/me": ["GET", "PUT"],
+        f"{API}/auth/password": ["POST"],
+        f"{API}/auth/recovery-code": ["POST"],
+        f"{API}/units": ["GET", "POST"],
+        f"{API}/units/{{unit_id}}": ["DELETE", "GET", "PUT"],
         f"{API}/laydowns": ["GET", "POST"],
         f"{API}/laydowns/{{laydown_id}}": ["DELETE", "GET", "PUT"],
         f"{API}/runs": ["GET", "POST"],
@@ -176,8 +185,10 @@ def test_saved_data_survives_a_restart(db_path):
     from app.main import create_app
 
     with TestClient(create_app(db_path), base_url="http://localhost") as c:
+        sign_up(c)
         c.post(f"{API}/laydowns", json=laydown())
     with TestClient(create_app(db_path), base_url="http://localhost") as c:
+        assert c.post(f"{API}/auth/sign-in", json={"username": "operator", "password": PASSWORD}).status_code == 200
         assert c.get(f"{API}/laydowns/1").json()["name"] == "Ring of radars"
 
 
