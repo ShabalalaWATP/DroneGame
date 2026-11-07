@@ -9,6 +9,7 @@ import { u, hereU } from '../sim/units.js';
 import { drapedRing } from './terrain-view.js';
 import { view } from './view.js';
 import { LABEL_LIFT, ringThickness } from './structure-view.js';
+import { DRAG_TYPE, readDrop } from '../drag.js';
 
 const PICK_PX = 16;
 const PEOPLE_MARKER = 0.006; // the placement marker's size per scene unit from the camera
@@ -52,7 +53,7 @@ export function selectionFrom(tool, tagged, pick) {
 
 // getTool() is a structure id, 'sell', 'zone', 'people' or null. A left click first calls onSelect(screenX, screenY), which returns true if
 // it dealt with the click. Otherwise it calls onGroundClick(x, z).
-export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getTool, defFor = (tool) => STRUCTURES[tool], onGroundClick, onSelect }) {
+export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getTool, defFor = (tool) => STRUCTURES[tool], onGroundClick, onSelect, onDrop = () => {} }) {
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -69,6 +70,20 @@ export function createPlacement({ scene, camera, canvas, getWorldMesh, sim, getT
     if (mouseOnGround) mouseGround.y = hereU(mouseGround.x, mouseGround.z);
   }
   canvas.addEventListener('pointermove', updateMouse);
+  // A card dragged from a list: the preview follows it, and letting go places it there
+  canvas.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    updateMouse(e);
+  });
+  canvas.addEventListener('drop', (e) => {
+    const item = readDrop(e.dataTransfer.getData(DRAG_TYPE));
+    if (!item) return;
+    e.preventDefault();
+    updateMouse(e);
+    if (mouseOnGround) onDrop(item, mouseGround.x, mouseGround.z);
+  });
   canvas.addEventListener('pointerdown', (e) => { downPos = { x: e.clientX, y: e.clientY, b: e.button }; });
   canvas.addEventListener('pointerup', (e) => {
     if (!downPos || downPos.b !== 0) return;

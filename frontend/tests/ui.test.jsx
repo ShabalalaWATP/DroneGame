@@ -63,12 +63,14 @@ describe('HUD', () => {
 });
 
 describe('toolbar', () => {
-  it('selects, deselects and marks what you cannot afford', () => {
+  it('opens and closes a list, and marks what you cannot afford', () => {
     show(<Toolbar />);
     fireEvent.click(screen.getByText('Laser'));
-    expect(game.getTool()).toBe('laser');
+    expect(game.catalogue()).toBe('laser');
     expect($('.tool.active').textContent).toContain('Laser');
+    expect($('.tool.active').getAttribute('aria-expanded')).toBe('true');
     fireEvent.click(screen.getByText('Laser'));
+    expect(game.catalogue()).toBeNull();
     expect(game.getTool()).toBeNull();
     fireEvent.click(screen.getByText('Sell'));
     expect($('.tool.active').textContent).toContain('Sell');
