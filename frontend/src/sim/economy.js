@@ -11,6 +11,7 @@ const freshLedger = () => ({
   killedBy: {},              // effector id (or 'jammer') -> { drone type -> count }
   terminals: { starlink: 0, cellular: 0 }, // network terminals bought (counted in capex)
   lost: {}, lostValue: 0,    // systems the enemy destroyed (id -> count) and what they were worth
+  jamTime: {},               // jammer id -> seconds switched on, for the deployment report
 });
 export const createLedger = freshLedger;
 export const resetLedger = (ledger) => Object.assign(ledger, freshLedger());
@@ -19,8 +20,9 @@ export const tally = (obj, key, n = 1) => { obj[key] = (obj[key] || 0) + n; };
 export const enemyCost = (counts) => Object.entries(counts).reduce((sum, [type, n]) => sum + n * DRONES[type].cost, 0);
 export const money = (v) => v >= 1e6 ? `$${(v / 1e6).toFixed(v >= 1e7 ? 1 : 2).replace(/\.?0+$/, '')}M` : v >= 1e4 ? `$${Math.round(v / 1e3)}k` : `$${Math.round(v).toLocaleString('en-US')}`;
 
-// In the sandbox shots are free, and a round bought in a resupply is already paid for.
-export const affordable = (w, s) => w.state.sandbox || s.prepaid > 0 || w.state.budget >= (s.def.shotCost || 0);
+// In the sandbox shots are free, and a round bought in a resupply is already paid for. With a deployment pack the budget
+// is no limit (the pack and the magazines are): it only counts the cost, so it can go below zero.
+export const affordable = (w, s) => w.state.sandbox || w.state.packed || s.prepaid > 0 || w.state.budget >= (s.def.shotCost || 0);
 
 // Pay for a shot out of the budget and record it in the ledger.
 export function spend(w, s) {
@@ -37,7 +39,7 @@ export function spend(w, s) {
 export function buyTerminal(w, oldKind, newKind) {
   const { state, ledger } = w;
   const delta = (newKind ? COMMS[newKind].cost : 0) - (oldKind ? COMMS[oldKind].cost : 0);
-  if (delta > state.budget) { w.emit('toast', `Not enough budget for a ${COMMS[newKind].name} terminal (${money(COMMS[newKind].cost)})`); return false; }
+  if (!state.packed && delta > state.budget) { w.emit('toast', `Not enough budget for a ${COMMS[newKind].name} terminal (${money(COMMS[newKind].cost)})`); return false; }
   state.budget -= delta; ledger.capex += delta;
   if (oldKind) ledger.terminals[oldKind]--;
   if (newKind) ledger.terminals[newKind]++;

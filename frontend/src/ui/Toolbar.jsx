@@ -33,7 +33,7 @@ export function Toolbar() {
             <button
               data-catalogue={group.kind}
               aria-expanded={open === group.kind}
-              className={`tool${open === group.kind ? ' active' : ''}${budget < from ? ' poor' : ''}`}
+              className={`tool${open === group.kind ? ' active' : ''}${budget < from && !game.sim.state.packed ? ' poor' : ''}`}
               style={{ borderLeftColor: hex(STRUCTURES[game.toolChoice(group)].color) }}
               title={`${group.name}: click to see the ${group.classes.length} real systems, then drag one onto the map. Key ${group.key}.`}
               onClick={() => game.openCatalogue(group.kind)}

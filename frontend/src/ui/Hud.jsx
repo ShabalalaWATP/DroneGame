@@ -19,8 +19,10 @@ export function Hud() {
     return Math.max(Math.min(ADAPT.evadeFloor, def.evade), def.evade * (1 - ADAPT.evadePerWave * kk)).toFixed(2);
   };
   const destroyed = enemyCost(ledger.killed);
+  const hidden = state.packed && !state.sandbox; // with a deployment pack, the pack and magazines are the limits: budget and health show in the report
   return (
     <div id="hud-top-left" className="panel">
+      {!hidden && <>
       <div className="label">SITE INTEGRITY</div>
       <div className="bar"><div id="health-fill" style={{ width: (k * 100).toFixed(0) + '%', background: k > 0.6 ? '#4caf50' : k > 0.3 ? '#ffb300' : '#e53935' }} /></div>
       <div className="label" style={{ marginTop: 8 }}>BUDGET <b id="budget" className="budget-num">{money(state.budget)}</b></div>
@@ -30,6 +32,7 @@ export function Hud() {
       <div className="bb-legend">
         <i className="d-capex" />systems <b>{money(ledger.capex)}</b> <i className="d-shots" />shots <b>{money(ledger.consumables)}</b> <i className="d-left" />left <b>{money(state.budget)}</b>
       </div>
+      </>}
       <div className="stats">
         <span>Wave <b id="wave">{state.wave}</b></span>
         <span>Kills <b id="kills">{state.kills}</b></span>

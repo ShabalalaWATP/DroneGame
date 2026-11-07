@@ -19,6 +19,7 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
   useEffect(() => { document.body.classList.toggle('track-hi', view.trackHi); });
 
   const clear = useArmed(); // it throws the laydown away
+  const end = useArmed(); // it ends the run
   const [mixOpen, setMixOpen] = useState(false);
 
   const toggle = (id, key, label, title) => (
@@ -32,6 +33,9 @@ export function ControlPanel({ onToggleDock, onToggleTuning, onSandbox }) {
         {state.sandbox ? 'Exit sandbox to start' : state.waveActive ? `Wave ${state.wave} in progress` : `Start wave ${state.wave + 1}`}
       </button>
       <ResupplyButton />
+      {state.wave > 0 && !state.over && (
+        <button id="btn-end" title="Stand the deployment down now and see its report" onClick={end.confirm('end', () => commands.endDeployment())}>{end.armed ? 'Sure? Click again' : 'End deployment'}</button>
+      )}
       <div className="row">
         {SPEEDS.map(([s, text, title]) => (
           <button key={s} className={`speed${clock.speed === s ? ' active' : ''}`} data-speed={s} title={title} onClick={() => game.setSpeed(s)}>{text}</button>

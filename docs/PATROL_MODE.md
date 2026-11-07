@@ -90,4 +90,3 @@ As designed, a run would be won by walking a set number of laps, and lost when c
 - Escort positions in replay snapshots.
 - A hotkey and a toolbar button for the patrol: it is in the Area to defend panel only.
 - Moving range rings are re-predicted only every 100 m of travel.
-- The end-of-run card still says the site was lost, not the patrol.

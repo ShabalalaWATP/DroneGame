@@ -126,7 +126,7 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 - [x] A first playable slice: people walk a looped route with a radar and a launcher, and strike drones attack the patrol
 - [x] Routes, people and systems may go anywhere on the map, and an area and a patrol refuse each other
-- [ ] What the slice leaves out, listed under "Left out of the slice" in `docs/PATROL_MODE.md`: a spotter's fix that goes stale, choosing the escort, sensing penalties on the move, routes along roads, winning by laps, escort positions in replays, a hotkey, and an end card that says the patrol was lost
+- [ ] What the slice leaves out, listed under "Left out of the slice" in `docs/PATROL_MODE.md`: a spotter's fix that goes stale, choosing the escort, sensing penalties on the move, routes along roads, winning by laps, escort positions in replays, and a hotkey
 - [ ] The wizard's "Show me a good spot" still searches round the station when you protect a patrol. It follows a drawn area, but not a patrol
 
 **Real-world mapping** (see `docs/REAL_MAPPING_PLAN.md`)
@@ -144,6 +144,10 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] Keep the deployed pack across a page reload. Its id is kept in the browser with the owner's username, so only they get it back
 - [x] Sign out without a page reload, so a half-built laydown is not lost. The game stays for whoever signs in next; the last account's pack and tray are cleared
 - [x] A run whose save is refused while signed out says to sign in again, not that the server is down
+- [x] An end-of-deployment report, for a fixed site and a patrol: how it ended, drones launched, intercepted and through, what shot down what, rounds, missiles and beam fired and time spent jamming, the cost, systems lost and casualties. An End deployment button ends a run by choice
+- [x] With a pack deployed, the budget is no limit and only counts the cost, so the pack and magazines are the limits. The HUD hides the budget and site integrity then, apart from in the sandbox
+- [ ] With a pack deployed, nothing stops you placing kit the pack does not hold, and now the budget does not either. Should a pack limit the toolbar to its own kit?
+- [ ] With a pack deployed, resupply between waves refills every launcher, as a pack holds no reserve of rounds. A reserve per pack would make magazine depth count across waves
 
 ## Known limits to fix if they start to matter
 

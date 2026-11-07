@@ -48,7 +48,7 @@ export function placementProblem(w, x, z, def, cost = def.cost) {
   if (terrainState.data.coverAt(xm, zm) === 4) return 'You cannot build in water';
   if (terrainState.data.slope(xm, zm) > 0.4) return 'The ground is too steep';
   if (w.structures.some((s) => hdist(s.pos, { x, z }) < u(BUILD.spacing))) return 'Too close to another structure';
-  if (w.state.budget < cost) return `Not enough budget (${money(cost)} needed, ${money(w.state.budget)} left)`;
+  if (!w.state.packed && w.state.budget < cost) return `Not enough budget (${money(cost)} needed, ${money(w.state.budget)} left)`;
   return null;
 }
 
@@ -167,7 +167,7 @@ export function configureUnit(w, s, key, value) {
   const before = s.def.cost, was = s.def.settings[key];
   if (!setSetting(s.def.settings, field, s.def.id, value)) return field.invalid ?? `Not a valid ${field.label.toLowerCase()}`;
   const delta = s.def.cost - before;
-  if (delta > w.state.budget) {
+  if (!w.state.packed && delta > w.state.budget) {
     if (was == null) delete s.def.settings[key]; else s.def.settings[key] = was;
     return `Not enough budget (${money(delta)} more needed, ${money(w.state.budget)} left)`;
   }

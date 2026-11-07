@@ -54,7 +54,7 @@ export function resupply(w) {
   let bought = 0, spent = 0, short = 0;
   for (const s of launchers) {
     const missing = roundsMissing(s);
-    const n = state.sandbox ? missing : Math.min(missing, Math.floor(state.budget / s.def.shotCost));
+    const n = state.sandbox || state.packed ? missing : Math.min(missing, Math.floor(state.budget / s.def.shotCost));
     if (!state.sandbox) {
       const cost = n * s.def.shotCost;
       state.budget -= cost; ledger.consumables += cost; spent += cost;

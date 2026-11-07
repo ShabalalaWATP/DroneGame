@@ -48,6 +48,7 @@ export function Root({ game }) {
     if (pack?.username !== who) return;
     api.units.get(pack.id).then((p) => setActiveUnit((now) => now ?? p), (e) => { if (!e.retryable) keep(storage, null); }); // deleted meanwhile
   }, [who, api, game, storage]);
+  useEffect(() => { game.commands.setPacked(!!activeUnit); }, [game, activeUnit]); // with a pack, the budget only counts the cost
   useEffect(() => {
     const lost = () => { if (game.sim.state.waveActive) game.setSpeed(0); setUser(null); }; // a wave waits under the login page
     addEventListener(SIGNED_OUT, lost);

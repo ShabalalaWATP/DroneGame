@@ -111,7 +111,7 @@ export function PackEditor({ api, pack, onSaved, onCancel }) {
             <dt>People</dt><dd>{totals.people}</dd>
             <dt>Systems cost</dt><dd>{money(totals.cost)}</dd>
           </dl>
-          <p className="acct-muted">{describeTotals(totals)}. Deploying a pack draws on the game&apos;s budget like any purchase.</p>
+          <p className="acct-muted">{describeTotals(totals)}. With a pack deployed the budget is no limit: the pack and the magazines are, and the cost shows in the end-of-deployment report.</p>
           {error && <p className="acct-error" role="alert">{error}</p>}
           <button className={`acct-go${busy ? ' busy' : ''}`} disabled={busy || !draft.name.trim()}>{busy ? 'Saving' : 'Save pack'}</button>
         </aside>

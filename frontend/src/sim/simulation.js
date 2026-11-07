@@ -22,6 +22,7 @@ import { spawnDrone, removeDrone, updateDrones, spotterBonus } from './drones.js
 import { opticalLos, updateStructures, updateMissiles, enoughInAir } from './effectors.js';
 import { canFire, resupply } from './magazine.js';
 import { startWave, updateWaves } from './waves.js';
+import { deploymentReport } from './report.js';
 import { enterSandbox, launchSandboxWave, launchSandboxAttack, clearSandboxDrones } from './sandbox.js';
 
 export const SIM_STEP = 0.05; // fixed simulation step in game seconds, so a run does not depend on frame rate
@@ -42,6 +43,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     started: false, over: false, autoStart: false, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX, conditions: 'day',
     waveActive: false, queue: [], waveTime: 0, autoTimer: -1,
     sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, // sandbox: attacks without consequences, before the first wave
+    packed: false, ended: false, // packed: a deployment pack is in use, so the budget only counts; ended: the operator ended the deployment
   };
   const w = { state, drones: [], structures: [], missiles: [], people: [], peopleUid: 0, peopleRev: 0, patrol: null, ledger: createLedger(), emit, droneUid: 0, startLaydown: null, startFigures: null, runEnded: false };
   laydown.applyConditions(w, 'day'); // the conditions are module state that physics reads: a new simulation starts on a clear day
@@ -93,7 +95,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     w.patrol = null; // its escort and people went with the rest
     Object.assign(state, {
       health: SITE.maxHealth, budget: ECONOMY.budget, wave: 0, kills: 0, leaks: 0, hits: 0, casualties: 0, killed: 0, injured: 0, time: 0, warnedWire: false, over: false,
-      waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX,
+      waveActive: false, queue: [], waveTime: 0, autoTimer: -1, sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX, ended: false,
     });
     laydown.applyConditions(w, 'day'); // a kept laydown brings its own back
     resetLedger(w.ledger);
@@ -114,6 +116,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     w.startFigures = exportFigures();
     // settings from before the rebuild that still apply, so the log alone can reproduce the run
     log.push({ step: 0, name: 'setAuthority', args: [FUSION.authority] }, { step: 0, name: 'setAutoStart', args: [state.autoStart] });
+    if (state.packed) log.push({ step: 0, name: 'setPacked', args: [true] });
   }
 
   // A run that has started is reported once, however it ends.
@@ -124,9 +127,16 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
   }
   on('gameOver', endRun);
 
+  // The operator stands the deployment down: the run ends as if lost, and the report shows.
+  function endDeployment() {
+    if (state.wave === 0 || state.over || state.sandbox) return;
+    state.over = true; state.ended = true;
+    emit('gameOver');
+  }
+
   // Replace the current run with a saved laydown, on the ground it was made for. Returns the reason if it can't.
   function loadLaydown(spec, world) {
-    const problem = worldProblem(world) || laydown.costProblem(spec);
+    const problem = worldProblem(world) || (state.packed ? null : laydown.costProblem(spec));
     if (problem) return problem;
     endRun();
     setWorld(world);
@@ -186,6 +196,8 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     startWave: () => startWave(w, beginRun),
     reset: (mode) => resetRun(mode),
     setAutoStart: (on) => { state.autoStart = on; },
+    setPacked: (on) => { state.packed = !!on; },
+    endDeployment,
     setAuthority: (mode) => { FUSION.authority = mode; },
     decide: (id, approve) => w.net.decide(id, approve),
     injectFault: () => w.net.injectFault(),
@@ -223,7 +235,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     let h = 0x811c9dc5;
     const feed = (s) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } };
     for (const e of bus.entries) feed(JSON.stringify(e.msg));
-    feed(JSON.stringify([state.kills, state.health, state.budget, state.leaks, state.time, bus.seq, w.ledger]));
+    feed(JSON.stringify([state.kills, state.health, state.budget, state.leaks, state.time, bus.seq, { ...w.ledger, jamTime: undefined }])); // jamTime came later: left out so recorded digests still match
     if (w.people.length) feed(JSON.stringify(w.people.map((g) => g.hits))); // with no people, a run's digest stays as it was
     if (w.patrol) feed(String(w.patrol.dist));
     return (h >>> 0).toString(16);
@@ -242,6 +254,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     designLocked: () => laydown.designLocked(w),
     unwired: () => laydown.unwired(w),
     spotterBonus: () => spotterBonus(w),
+    report: () => deploymentReport(w),
     // for scripted experiments and tests: no budget or placement checks
     addStructure: (id, x, z) => laydown.addStructure(w, id, x, z),
     spawnDrone: (type, bearing, rolls) => spawnDrone(w, type, bearing, rolls),

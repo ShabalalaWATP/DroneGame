@@ -29,7 +29,7 @@ function LaydownTable({ net, ledger }) {
   );
 }
 
-function MagazineDepth({ structures }) {
+function MagazineDepth({ structures, packed }) {
   const armed = structures.filter((s) => s.def.magazine);
   const launchers = armed.filter((s) => s.def.fire !== 'beam');
   const shown = (s, n) => (s.def.fire === 'beam' ? `${Math.ceil(n)} s` : n);
@@ -44,7 +44,7 @@ function MagazineDepth({ structures }) {
         </tbody>
       </table>
       <ResupplyButton />
-      <div className="muted">Sensors and jammers use no rounds. Every shot also comes out of the budget below, so you can run out of either. You can resupply between waves.</div>
+      <div className="muted">Sensors and jammers use no rounds. {packed ? 'With a deployment pack the budget is no limit, so the magazines are: every shot is counted in the cost below.' : 'Every shot also comes out of the budget below, so you can run out of either.'} You can resupply between waves.</div>
     </div>
   );
 }
@@ -57,12 +57,12 @@ export function CostTab({ active }) {
   const capex = ledger.capex, shots = ledger.consumables, spend = capex + shots;
   return (
     <>
-      <MagazineDepth structures={sim.structures} />
-      <div className="sys">
+      <MagazineDepth structures={sim.structures} packed={state.packed} />
+      {!state.packed && <div className="sys">
         <div className="sys-h"><b>Budget</b> <span className="muted">{usd(ECONOMY.budget)} for the whole run</span></div>
         <div className="budget-bar"><span className="b-capex" style={{ width: pct(capex) }} /><span className="b-shots" style={{ width: pct(shots) }} /></div>
         <div className="muted">Systems {usd(capex)} ({pct(capex)}) · shots and rounds bought {usd(shots)} ({pct(shots)}) · <b>left {usd(state.budget)}</b></div>
-      </div>
+      </div>}
       <div className="sys">
         <div className="sys-h"><b>Cost exchange</b></div>
         <div><span className="k">Enemy attack</span> {usd(launched)} launched, {usd(destroyed)} of it destroyed</div>

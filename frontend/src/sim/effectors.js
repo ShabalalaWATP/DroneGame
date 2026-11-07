@@ -7,7 +7,7 @@ import { rand } from './rng.js';
 import { antennaHeight } from './site-range.js';
 import { terrainState } from './terrain.js';
 import { u, hereU, hdist } from './units.js';
-import { affordable, spend } from './economy.js';
+import { affordable, spend, tally } from './economy.js';
 import { damageDrone } from './drones.js';
 import { canFire, updateMagazine, useRound } from './magazine.js';
 import { crewTask, crewed } from './crew.js';
@@ -89,6 +89,7 @@ export function updateStructures(w, dt) {
     if (def.role === 'sensor') continue;
     updateMagazine(w, s, dt);
     if (crewed(def)) crewTask(w, s, dt); // off the network, its crew picks its own target
+    if (def.kind === 'jammer' && s.mode === 'Jam') tally(w.ledger.jamTime, def.id, dt);
     const t = s.task && state.time >= (s.task.activeAt || 0) && !s.task.drone.dead && s.pos.distanceTo(s.task.drone.pos) <= u(def.range) ? s.task.drone : null; // acts once its task has arrived
     FIRE[def.fire](w, s, t, dt);
   }

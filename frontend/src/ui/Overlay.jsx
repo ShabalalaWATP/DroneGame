@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { ECONOMY, PEOPLE } from '../sim/config/index.js';
-import { enemyCost, money } from '../sim/economy.js';
+import { money } from '../sim/economy.js';
 import { cleanSeed } from '../game.js';
 import { view } from '../render/view.js';
 import { parseWorldId } from '../sim/world-pack.js';
 import { Debrief } from './assistant/Debrief.jsx';
+import { DeploymentReport } from './DeploymentReport.jsx';
 import { useGame, useTick } from './hooks.js';
 import { WorldPicker } from './WorldPicker.jsx';
 import { ConditionsPicker } from './ConditionsPicker.jsx';
@@ -82,13 +83,11 @@ const casualtySummary = (groups) => Object.entries(PEOPLE)
 
 function GameOverCard({ onReview }) {
   const { sim, commands, saver } = useGame();
-  const { state, ledger } = sim;
+  const { state } = sim;
   return (
     <div className="card game-over">
       <div>
-        <h1>SITE LOST</h1>
-        <p>You held out for <b>{Math.max(state.wave - 1, 0)}</b> full wave(s).</p>
-        <p>Kills <b>{state.kills}</b> · Enemy attack cost <b>{money(enemyCost(ledger.launched))}</b> · Defence spend <b>{money(ledger.capex + ledger.consumables)}</b></p>
+        <DeploymentReport report={sim.report()} />
         {sim.people.length > 0 && <p id="casualty-summary">Simulated <b>{state.killed}</b> killed and <b>{state.injured}</b> injured of {sim.people.reduce((sum, g) => sum + g.count, 0)}: {casualtySummary(sim.people)}. Each warhead's lethal and injury radii come from assumed figures (see Sources), not real data.</p>}
         {saver.message() && <p id="save-status" className="muted">{saver.message()}</p>}
         <button id="btn-restart" className="primary" onClick={() => commands.reset('keep')}>Retry with the same laydown</button>{' '}
