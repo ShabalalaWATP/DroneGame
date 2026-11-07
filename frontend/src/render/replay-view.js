@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { WORLD, DRONES, STRUCTURES } from '../sim/config/index.js';
 import { view } from './view.js';
+import { drawScale } from './drone-models.js';
 
 // deps: { scene, rec, droneTemplate, makeLabel, placeLabel, trackColour, getStructures, labelOf, hideLive, getLastSpeed, setPaused, resume }
 export function createReplay(deps) {
@@ -31,7 +32,7 @@ export function createReplay(deps) {
     const model = deps.droneTemplate(d.type, false).clone();
     const unseen = deps.droneTemplate(d.type, true).clone();
     g.add(model, unseen);
-    g.scale.setScalar(def.scale * WORLD.droneVisualScale);
+    g.scale.setScalar(drawScale(def));
     group.add(g);
     o = { group: g, model, unseen, label: deps.makeLabel(def.label, '#' + def.color.toString(16).padStart(6, '0'), 'dlabel') };
     droneObjs.set(d.u, o);

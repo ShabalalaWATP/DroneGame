@@ -104,6 +104,8 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] More commercial drones reported with Russian forces: DJI Mavic 3T and Mavic 3 Pro, Autel EVO II Dual 640T, a DJI Mini 4 Pro as a reconnaissance spotter, and 10-inch and 13-inch first-person-view classes. The Agras T50 was left out: no report names it with either side
 - [x] Realistic heights, speeds and agility. Shahed-type drones fly low (50 to 300 m) or high (2 to 4 km), as Ukrainian officials report, and fixed-wing strike drones hold their height, then dive at 45°; multirotors still ease down over their run. Other heights are reported or set from their ceiling and role, and labelled. Agility is set by a stated rule, from airframe and who flies it. The four generic types keep their figures
 - [ ] Heights for most military drones are set by role, as only the Shahed family, Gerbera, Orlan-10 and CH-901 have reported operating heights. Lancet's 500 to 800 m rests on an unverified summary
+- [x] A 3D model for every drone type, built in code from its published span and the outline in press photos (`frontend/src/render/drone-models.js`), drawn bigger the bigger the drone, and saved as .glb files by `npm run models`. Open-licence models exist for about nine of the types on Sketchfab (CC BY), but each needs a sign-in to download and most are 25,000 to 900,000 triangles, so none was used
+- [ ] The Skywalker is drawn at 0.35 m, its type's size, as its own span is not public; a Skywalker X8 is 2.1 m. Lancet-3's 1 m span is assumed and its length taken as 1.65 times that
 
 **Patrol prototype** (see `docs/PATROL_MODE.md`)
 

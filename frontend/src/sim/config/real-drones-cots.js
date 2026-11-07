@@ -111,7 +111,7 @@ export const COTS_DRONES = {
   },
   mini4pro: {
     variantOf: 'spotter', origin: 'Commercial off the shelf', name: 'DJI Mini 4 Pro (reconnaissance)', label: 'Mini 4 Pro',
-    model: 'quad', airframe: 'Multirotor', scale: 0.7, bank: 0, speed: 12, alt: [60, 200], size: 0.37, hp: 20, evade: 0.85,
+    model: 'quad', airframe: 'Multirotor', bank: 0, speed: 12, alt: [60, 200], size: 0.37, hp: 20, evade: 0.85,
     ...COMMERCIAL, jamResist: 0, adapt: 1, rcs: 0.01, rfPower: 1, sound: 1, loiterDist: 1000, cost: 759,
     usedBy: 'The Mini family. CNA lists the Mini 2 and 3 Pro among commercial drones used by Russian forces for reconnaissance (2023). No report names the Mini 4 Pro itself.',
     published: 'Up to 16 m/s in Sport mode, 12 m/s in Normal (game uses 12). Up to 34 minutes. Under 249 g, 0.37 m across unfolded. O4 links at 2.4, 5.1 and 5.8 GHz, with satellite navigation; the game has no 5.1 GHz band. No payload is reported: it spots for strikes rather than carrying one.',

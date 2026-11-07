@@ -2,9 +2,9 @@
 // off, only the fused tracks (belief-view.js) are visible. Views are created and removed to match the simulation's list.
 
 import * as THREE from 'three';
-import { WORLD } from '../sim/config/index.js';
 import { hereU } from '../sim/units.js';
 import { droneTemplate } from './models.js';
+import { drawScale } from './drone-models.js';
 import { hexCss } from './labels.js';
 import { view } from './view.js';
 
@@ -23,8 +23,8 @@ export function createDroneViews(scene, sim, labels, camera) {
     group.add(model, unseen);
     const rotors = [...model.children, ...unseen.children].filter((c) => c.name === 'rotor');
 
-    const bar = new THREE.Group();
-    bar.position.y = 1.6;
+    const bar = new THREE.Group(); // the models are in metres, so the bar sits and sizes by the drone's span
+    bar.position.y = def.size * 0.5; bar.scale.setScalar(def.size * 0.3);
     const fillMat = new THREE.MeshBasicMaterial({ color: 0x66ff66, depthTest: false });
     const fill = new THREE.Mesh(barGeo, fillMat);
     fill.position.x = -1; fill.renderOrder = 10;
@@ -36,7 +36,7 @@ export function createDroneViews(scene, sim, labels, camera) {
     drop.frustumCulled = false;
     group.add(drop);
 
-    group.scale.setScalar(def.scale * WORLD.droneVisualScale);
+    group.scale.setScalar(drawScale(def));
     scene.add(group);
 
     // fibre-optic drones pay out a line from where they launched
