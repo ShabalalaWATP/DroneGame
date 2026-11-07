@@ -1,7 +1,8 @@
 // What each wizard step says and does. Names, prices and ranges come from the config, so edits cannot make the words wrong.
 // Anything that changes the game goes through commands, so a run can still be reproduced.
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useAccount } from '../account/pack.js';
 import { BUILD, DRONES, DRONE_CLASSES, ECONOMY, FUSION, SITE, STRUCTURES } from '../../sim/config/index.js';
 import { money } from '../../sim/economy.js';
 import { view } from '../../render/view.js';
@@ -40,6 +41,32 @@ function GoodSpot({ def, label = 'Show me a good spot' }) {
     if (popup && panel) game.reveal(spot.x, spot.z, (popup.getBoundingClientRect().right + panel.getBoundingClientRect().left) / 2, innerHeight / 2); // the popup must not hide it
   };
   return <button className="wz-go" onClick={show}>{label}</button>;
+}
+
+// Exactly what to do to place this system: open its kind's list, find it there, then drag it onto the map. The ring moves to
+// whatever the player has to use next, and a system of the same kind they picked themselves stands over the recommendation.
+function PlaceSteps({ def }) {
+  const game = useGame(), pack = useAccount()?.activeUnit;
+  const held = STRUCTURES[game.getTool()], use = held && held.kind === def.kind ? held : def;
+  const stage = game.getTool() === use.id ? 3 : game.catalogue() === def.kind ? 2 : 1;
+  const target = stage === 1 ? `[data-catalogue="${def.kind}"]` : stage === 2 ? `[data-pick="${use.id}"]` : null;
+  const list = useRef(null);
+  useEffect(() => { // both what to use next and the step that says so must be on screen, in their own scrolling panels
+    if (target) document.querySelector(target)?.scrollIntoView?.({ block: 'nearest' });
+    list.current?.querySelector('.now')?.scrollIntoView?.({ block: 'nearest' });
+  }, [target]);
+  const mark = (n) => (n < stage ? 'done' : n === stage ? 'now' : undefined);
+  return (
+    <>
+      {target && <Spotlight selector={target} />}
+      <ol className="wz-steps" id="wz-place" aria-label="What to do" ref={list}>
+        <li className={mark(1)}>Click <b>{kindName(def.kind)}</b> in the toolbar on the left. Its list of real systems opens beside it.</li>
+        <li className={mark(2)}>Find <b>{use.product}</b> in that list, {money(use.cost)}. The lime ring shows where it is.</li>
+        <li className={mark(3)}>Drag it onto the map and let go where you want it{view.spot ? ', on the lime marker' : ''}. Or click it, then click the map.</li>
+      </ol>
+      {pack?.assets.systems.some((l) => l.id === use.id) && <p className="wz-small">It is in your deployment pack too: you can drag it from the pack tray at the top of the toolbar instead.</p>}
+    </>
+  );
 }
 
 function Refusal() {
@@ -94,7 +121,6 @@ function SensorsStep({ next }) {
   const rows = sensorChecklist(sim, planned()), now = rows.find((r) => !r.done);
   return (
     <>
-      {now && <Spotlight selector={`[data-kind="${now.kind}"]`} />}
       <p>Undetected drones cannot be targeted, and no one sensor sees them all.</p>
       <ThreatPicker />
       <div className="wz-list">
@@ -110,6 +136,7 @@ function SensorsStep({ next }) {
           </div>
         ))}
       </div>
+      {now && <PlaceSteps def={now.def} />}
       <SpotReason />
       <Refusal />
       <div className="wz-actions">
@@ -127,7 +154,6 @@ function EffectorsStep({ next }) {
   const spotter = Object.values(DRONES).find((d) => d.loiterDist);
   return (
     <>
-      {fix && <Spotlight selector={`[data-kind="${fix.kind}"]`} />}
       <p>Match weapons to drones. No single system handles them all.</p>
       <table className="wz-matrix">
         <thead><tr><th scope="col">Drone</th>{columns.map((c) => <th scope="col" key={c.id} className={have.has(c.kind) ? 'have' : ''}>{kindName(c.kind)}</th>)}</tr></thead>
@@ -142,6 +168,7 @@ function EffectorsStep({ next }) {
       </table>
       <p className="wz-small wz-muted">Last: kept for close calls, at {money(STRUCTURES.missile.shotCost)} a shot against a {money(DRONES.fpv.cost)} drone. Far: spotters orbit {km(spotter.loiterDist)} out and a laser reaches {km(STRUCTURES.laser.range)}.</p>
       {gap && <p className="wz-warn">Nothing answers {gap.name} yet. For that threat: {kindName(fix.kind)}, {fix.product}, {money(fix.cost)}.</p>}
+      {fix && <PlaceSteps def={fix} />}
       <p>{money(sim.state.budget)} left. Every shot comes out of this too, and nothing is earned back.</p>
       <SpotReason />
       <Refusal />

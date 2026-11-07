@@ -2,12 +2,13 @@
 
 ## What this protects against
 
-Site Guard runs on one person's machine, with no sign-in and no secrets. It holds saved laydowns, run history and tuning figures. The realistic threats are:
+Site Guard runs on one machine, with no configured secrets. Each player signs in to a local account, which holds their profile and deployment packs. Saved laydowns, run history and tuning figures stay shared by every account on the machine, by choice. The realistic threats are:
 
 1. **A web page you visit** trying to read or change the local service through your browser.
 2. **Someone on your network** reaching the service.
 3. **A crafted link or file** running script in the game, or corrupting saved data.
-4. **A compromised dependency.**
+4. **Another account on the same machine** reading or changing someone's packs, or guessing their password.
+5. **A compromised dependency.**
 
 It is not built to be hosted. See [Before hosting](#before-hosting).
 
@@ -20,7 +21,7 @@ It is not built to be hosted. See [Before hosting](#before-hosting).
 | Cross-site writes | Writes must be `application/json`, and no CORS is offered, so a browser refuses the cross-site request | `RequestGuard` in `security.py` |
 | Large requests | 1 MB limit, counting what actually arrives, so chunked bodies can't dodge it | `RequestGuard` |
 | Bad input | Pydantic: known names only, coordinates in the world, finite numbers, length limits, capped lists, unknown fields refused. A unit's settings are checked for shape only (numbers from -150, for a receiver's sensitivity in dBm, lowercase choices, up to 3 pairs of whole-degree bearings, or up to 4 known jammer bands), and a jammer's hand switch can only be `on: true` or absent; the game clamps each to its own limits when it loads them | `schemas.py`, `frontend/src/sim/unit-config.js` |
-| SQL injection | Bound parameters only, with a test that checks the source | `db/stores.py` |
+| SQL injection | Bound parameters only, with tests that check the source of both store files | `db/stores.py`, `db/account_stores.py` |
 | Script injection | React escapes everything, and a test bans `innerHTML` and similar in `ui/` | `tests/boundary.test.js` |
 | Loading other scripts | Content Security Policy with no inline scripts and same-origin connections only | `security.py` |
 | Being framed | `frame-ancestors 'none'` | `security.py` |
@@ -28,6 +29,13 @@ It is not built to be hosted. See [Before hosting](#before-hosting).
 | Malicious links in data | Source links render only if they are `https`, with `noopener` | `SourceLinks.jsx` |
 | Imported figure files | Only known keys and finite numbers are applied | `sim/config/figures.js` |
 | Input echoed back | Validation errors say what is wrong, without repeating the input | `main.py` |
+| Sign-in | Every route except `/health`, `/auth/*` and the OpenAPI schema needs a session. Passwords of 10 to 128 characters, not the username, stored with scrypt (n 2^14, r 8, p 1) and a random salt. An unknown username costs the same hashing, so timing does not reveal it | `routes/auth.py`, `services/accounts.py` |
+| Sessions | A random 256-bit token in an `HttpOnly`, `SameSite=Strict` cookie scoped to `/api`. Only its SHA-256 is stored. 12 hours, or 30 days with "Keep me signed in". Sign-out deletes it. A password change signs out every other session, and a reset or a deleted account signs out all of them | `services/accounts.py` |
+| Guessing | Five wrong passwords or recovery codes in a row lock the account for 5 minutes, with `429` and `Retry-After`. Both count towards the same lockout. Each try is counted in one statement before the slow hash, so tries sent at the same moment still lock it after five | `services/accounts.py` |
+| Forgotten passwords | A 120-bit recovery code, shown once at sign-up and stored only as a scrypt hash. Each use replaces it. There is no email, so nothing leaves the machine | `services/accounts.py` |
+| Other people's packs | Every unit query includes the signed-in account's id, so another account's pack is `404`, never `403` | `db/account_stores.py` |
+| Cached account pages | `Cache-Control: no-store` on every `/api` answer | `security.py` |
+| Too many records | 500 accounts, 50 packs an account, 40 lines a pack and 50 of each item. The counts are checked before the insert, so requests sent at the same moment can pass a limit by a few | `services/`, `account_schemas.py` |
 | Dependencies | Exact versions and lockfiles, with Python packages limited to releases at least two weeks old | `package.json`, `pyproject.toml` |
 
 ## How this was checked
@@ -41,14 +49,25 @@ These were also checked by hand on a running server, on 2026-11-04:
 
 An independent security review on the same date found one low-severity bug, now fixed: an imported figures file could overwrite built-in JavaScript objects through keys such as `constructor`. Figure import and the enemy learning command now accept only their own known keys, tested through `JSON.parse` because that is what real input goes through. The backend still accepts those keys in stored figures. They are harmless there, because it only stores them.
 
+Accounts and packs were checked on 2026-11-07. `backend/tests/test_accounts.py` and `test_units.py` cover hashing, lockout, expiry, cookie flags, revocation, every route refusing a missing session, and another account's packs answering `404`. The whole flow was also walked through in a real browser against a local server. An independent security review on the same date found the lockout could be beaten by sending many tries at once, as each was counted after its slow hash and they overwrote each other. Tries are now counted first, in one statement, with a test that fails on the old code. The review's other findings are low and listed under accepted limits.
+
 `npm audit` and `pip-audit` reported nothing on that date. Neither is run automatically, because there is no CI until a remote exists.
 
 ## Accepted limits
 
 - **Run results are self-reported.** The browser sends them, so they are a record for the player and not proof of a score. There is no leaderboard for this reason.
-- **Anything already running on this machine can reach the API,** because there is no sign-in. Local programs are outside this threat model.
-- **No record limits.** Someone with access could fill the disk, which is acceptable for local use.
-- **The database is not encrypted.** It holds no personal data beyond what the player types as names.
+- **Anyone who can reach the service can make an account,** and every account sees the shared laydowns, runs and figure sets. Local programs are outside this threat model.
+- **The session cookie is not `Secure`,** because the game is served over plain http on localhost. It must gain `Secure` before the game is served over a network.
+- **Lockout works per account,** so anyone who knows a username can keep it locked by failing on purpose. There is no limit by address, which would mean nothing on one machine.
+- **Sign-up says when a username is taken,** which tells anyone with access that the account exists. A locked account answers `429` where an unknown name answers `401`, which says the same.
+- **Anyone with access can make the 500 accounts allowed,** and so stop new sign-ups. Existing accounts still work.
+- **Sessions are not capped per account.** Only someone with the password can add one, and expired ones are cleared each time a session starts.
+- **Cookies ignore ports,** so another web app on `localhost` sends `sg_session` with its own requests to this one. JSON-only writes and no CORS still stop it from writing or reading anything.
+- **A lost password and recovery code cannot be recovered.** There is no email and no administrator. Only that account's packs are lost; shared saves are not.
+- **Deleting an account needs its password,** and takes its sessions and packs with it. Laydowns and runs it saved stay, as saves are shared.
+- **Signing out keeps the game in the page,** so the next person to sign in finds the laydown as it was, which matches shared saves. The last account's deployed pack and tray are cleared. The browser keeps the deployed pack's id with its owner's username, so a reload restores it for that person only.
+- **No limits on laydowns, runs or figure sets.** Someone with access could fill the disk, which is acceptable for local use.
+- **The database is not encrypted.** Beyond password and code hashes, it holds what players type: names, ranks and organisations on profiles, and names on saves.
 - **Kept runs sit in browser storage** until the server returns, readable by anything running on the same origin.
 - **A run can occasionally be saved twice,** if the page closes or the connection drops after the server stored it but before its answer arrived, or if two tabs retry together. The player can delete the extra row. The saver prefers a duplicate to a lost run.
 - **The OpenStreetMap demo layer contacts an outside server.** It is off by default and uses a fixed area. Turning it on sends tile requests, with this site's origin as the referrer, to `tile.openstreetmap.org`, which the Content Security Policy now allows for images only. Do not reuse it for a real site, as the requests reveal the area being viewed.
@@ -69,9 +88,10 @@ Real drone figures in `frontend/src/sim/config/real-drones.js` are limited to pu
 
 A hosted version needs a new security review before deployment, and at least:
 
-- Sign-in, with ownership checks on every record, not just every route.
-- Rate limits and per-user quotas.
-- HTTPS, with a real host allowlist from configuration.
+- Ownership checks on laydowns, runs and figure sets, which are shared today, or a deliberate decision to share them.
+- Rate limits by address as well as by account, and per-user quotas on every record.
+- HTTPS, `Secure` cookies, and a real host allowlist from configuration.
+- An account recovery route other than the code.
 - A move off SQLite, if many users write at once.
 - Server-side checks on run results if scores are ever to mean anything.
 - Automated dependency scanning.

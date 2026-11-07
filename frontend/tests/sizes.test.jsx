@@ -65,32 +65,31 @@ describe('the catalogue', () => {
 describe('the toolbar', () => {
   const show = () => render(<GameContext.Provider value={game}><Toolbar /></GameContext.Provider>);
 
-  it('has one row per kind, and picks a size with its button', () => {
+  it('has one row per kind and no size buttons: each row opens its list of real systems', () => {
     show();
     expect(document.querySelectorAll('.tool-row').length).toBe(TOOLBAR.length);
-    expect(document.querySelectorAll('.tool-sizes button').length).toBe(TOOLBAR.length * 3);
-    fireEvent.click($('[data-tool="radar_l"]'));
-    expect(game.getTool()).toBe('radar_l');
+    expect(document.querySelectorAll('.tool-sizes button').length).toBe(0);
+    fireEvent.click($('[data-catalogue="radar"]'));
+    expect(game.getTool()).toBeNull();
+    expect(game.catalogue()).toBe('radar');
+    expect($('.tool.active').textContent).toContain('from $');
+    act(() => game.setTool('radar_l'));
     expect($('.tool.active').textContent).toContain('$2.5M');
-    expect($('[data-tool="radar_l"]').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('the row\'s own button offers the size last picked, and switches it off', () => {
+  it('the row\'s button closes its open list, and switches placing off', () => {
     show();
-    fireEvent.click($('[data-tool="rf_s"]'));
-    fireEvent.click($('[data-tool="rf_s"]'));
+    act(() => game.setTool('rf_s'));
+    fireEvent.click($('[data-catalogue="rf"]'));
     expect(game.getTool()).toBeNull();
-    fireEvent.click(document.querySelectorAll('.tool-row')[1].querySelector('.tool'));
-    expect(game.getTool()).toBe('rf_s');
-    fireEvent.click(document.querySelectorAll('.tool-row')[1].querySelector('.tool'));
-    expect(game.getTool()).toBeNull();
+    expect(game.catalogue()).toBeNull();
   });
 
-  it('remembers a size the wizard picks, and marks each standard system for its spotlight', () => {
+  it('remembers a system the wizard picks, for the hotkey, and marks each row for its spotlight', () => {
     show();
     act(() => game.setTool('jammer_l'));
     expect(game.toolChoice(group('jammer'))).toBe('jammer_l');
-    expect($('[data-tool="interceptor"]')).not.toBeNull();
+    expect($('[data-catalogue="interceptor"]')).not.toBeNull();
   });
 });
 

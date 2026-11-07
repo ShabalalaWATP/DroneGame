@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 import pytest
-from conftest import SPEC, figure_set, laydown, run
+from conftest import SPEC, figure_set, laydown, run, sign_up
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -190,6 +190,7 @@ class TestServingTheGame:
     @pytest.fixture
     def site(self, game, tmp_path):
         with TestClient(create_app(tmp_path / "data" / "t.db", game=game), base_url="http://localhost") as c:
+            sign_up(c)
             yield c
 
     def test_the_game_and_the_api_share_one_origin(self, site):
@@ -225,6 +226,7 @@ def test_the_database_path_can_come_from_the_environment(tmp_path, monkeypatch):
     path = tmp_path / "from-env.db"
     monkeypatch.setenv("SITE_GUARD_DB", str(path))
     with TestClient(create_app(), base_url="http://localhost") as c:
+        sign_up(c)
         assert c.post(f"{API}/laydowns", json=laydown()).status_code == 201
     assert path.exists()
 

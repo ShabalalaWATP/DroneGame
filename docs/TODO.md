@@ -135,6 +135,16 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [ ] Model site, live OS map and place search (these need an OS API key), Wales and Scotland lidar, sharper aerial photos, and a test on a dense city
 - [ ] Read coordinate limits from the world. The backend still checks against the fixed `WORLD_LIMIT` in `backend/app/schemas.py`, one of the mapping plan's small asks of the rebuild, and it matters once real worlds differ in size.
 
+**Accounts and deployment packs** (Feature E)
+
+- [x] Login page with sign-in, sign-up and recovery-code reset, a profile hub, and deployment packs dragged from a tray in the game
+- [x] The toolbar's S, M and L buttons replaced by each kind's list of real systems, dragged or clicked onto the map, with the wizard's numbered steps
+- [x] Place a pack's vehicles on the map: parked with one of the pack's systems on board, and as the patrol's column, which a pack with vehicles limits to its own. One vehicle list, `PATROL_VEHICLES`
+- [x] Delete an account, with its password. Its sessions and packs go with it; shared saves stay
+- [x] Keep the deployed pack across a page reload. Its id is kept in the browser with the owner's username, so only they get it back
+- [x] Sign out without a page reload, so a half-built laydown is not lost. The game stays for whoever signs in next; the last account's pack and tray are cleared
+- [x] A run whose save is refused while signed out says to sign in again, not that the server is down
+
 ## Known limits to fix if they start to matter
 
 - [ ] **A test that sometimes fails.** `save-panels.test.jsx`, "shows kept runs and saves them when the server is back", failed in about 1 of 4 runs on a busy machine: it checks for the error message before the list has finished reloading.
@@ -147,4 +157,4 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 ## Only if this is ever hosted
 
-- [ ] Work through "Before hosting" in `docs/SECURITY_NOTES.md`: sign-in, ownership checks, rate limits, HTTPS, a move off SQLite and a new security review.
+- [ ] Work through "Before hosting" in `docs/SECURITY_NOTES.md`: ownership of shared saves, rate limits, HTTPS and `Secure` cookies, a move off SQLite and a new security review.

@@ -3,7 +3,7 @@
 import copy
 
 import pytest
-from conftest import FIGURES, SPEC, figure_set, laydown, run
+from conftest import FIGURES, PASSWORD, SPEC, figure_set, laydown, run, sign_up
 
 API = "/api/v1"
 
@@ -17,6 +17,16 @@ def test_the_api_matches_the_documented_table(client):
     found = {path: sorted(m.upper() for m in ops) for path, ops in paths.items()}
     assert found == {
         f"{API}/health": ["GET"],
+        f"{API}/auth/register": ["POST"],
+        f"{API}/auth/sign-in": ["POST"],
+        f"{API}/auth/sign-out": ["POST"],
+        f"{API}/auth/reset": ["POST"],
+        f"{API}/auth/me": ["GET", "PUT"],
+        f"{API}/auth/password": ["POST"],
+        f"{API}/auth/recovery-code": ["POST"],
+        f"{API}/auth/delete-account": ["POST"],
+        f"{API}/units": ["GET", "POST"],
+        f"{API}/units/{{unit_id}}": ["DELETE", "GET", "PUT"],
         f"{API}/laydowns": ["GET", "POST"],
         f"{API}/laydowns/{{laydown_id}}": ["DELETE", "GET", "PUT"],
         f"{API}/runs": ["GET", "POST"],
@@ -98,6 +108,14 @@ class TestLaydowns:
         made = client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "patrol": route}))
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["patrol"] == route
+
+    def test_a_system_parked_on_a_vehicle_is_kept_with_the_laydown(self, client):
+        parked = {"id": "jammer", "x": 5.0, "z": 5.0, "uplink": None, "cellBand": "B8", "jam": None, "vehicle": "mule"}
+        made = client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "structures": [parked]}))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"] == [parked]
+        tank = laydown(spec={**SPEC, "structures": [{**parked, "vehicle": "tank"}]})
+        assert client.post(f"{API}/laydowns", json=tank).status_code == 422
 
     def test_a_patrol_column_is_kept_with_the_laydown(self, client):
         column = [{"vehicle": "hilux", "system": "gun_hmg", "gap": 40}, {"vehicle": "mule", "system": "jammer_s", "gap": -25.5}]
@@ -193,8 +211,10 @@ def test_saved_data_survives_a_restart(db_path):
     from app.main import create_app
 
     with TestClient(create_app(db_path), base_url="http://localhost") as c:
+        sign_up(c)
         c.post(f"{API}/laydowns", json=laydown())
     with TestClient(create_app(db_path), base_url="http://localhost") as c:
+        assert c.post(f"{API}/auth/sign-in", json={"username": "operator", "password": PASSWORD}).status_code == 200
         assert c.get(f"{API}/laydowns/1").json()["name"] == "Ring of radars"
 
 

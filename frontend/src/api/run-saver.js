@@ -48,6 +48,7 @@ export function createRunSaver({ api, storage, notify, onChange }) {
       savedCount++;
       say('Run saved to your history.', false);
     } else if (!failure.retryable) say(`This run could not be saved: ${failure.message}`);
+    else if (id && failure.status === 401) say('You are signed out, so this run is being kept in this browser. It will be saved when you sign in again.');
     else if (id) say('The save server is not running, so this run is being kept in this browser. It will be saved when the server is back.');
     else say('This run could not be saved or kept: the save server is down and browser storage is full or blocked.');
   }

@@ -3,12 +3,14 @@
 import { useEffect } from 'react';
 import { TOOLBAR } from '../sim/config/index.js';
 import { view } from '../render/view.js';
+import { useAccount } from './account/pack.js';
 import { mapName, nextBaseMap } from './MapControls.jsx';
 import { useGame } from './hooks.js';
 
 export function useHotkeys() {
-  const game = useGame();
+  const game = useGame(), covered = useAccount()?.covered; // under the profile or login page
   useEffect(() => {
+    if (covered) return undefined;
     const onKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
       const replay = game.getReplay();
@@ -21,7 +23,7 @@ export function useHotkeys() {
         else game.setSpeed(game.clock.speed === 0 ? game.clock.lastSpeed || 1 : 0);
         return;
       }
-      if (e.key === 'Escape') { if (view.mapPanel) game.setViewOption('mapPanel', false); else if (game.getTool()) game.setTool(game.getTool()); else game.select(null); return; }
+      if (e.key === 'Escape') { if (view.mapPanel) game.setViewOption('mapPanel', false); else if (game.getTool()) game.setTool(game.getTool()); else if (game.catalogue()) game.openCatalogue(game.catalogue(), false); else game.select(null); return; }
       if (e.key === 'r' || e.key === 'R') { game.setViewOption('rings', !view.rings); return; }
       if (e.key === 't' || e.key === 'T') { game.setViewOption('truth', !view.truth); return; }
       if (e.key === 'l' || e.key === 'L') { game.setViewOption('labels', !view.labels); return; }
@@ -43,5 +45,5 @@ export function useHotkeys() {
     };
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
-  }, [game]);
+  }, [game, covered]);
 }

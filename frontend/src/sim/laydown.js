@@ -2,7 +2,7 @@
 // once the first wave starts, so runs are comparable.
 
 import { Vector3 } from 'three';
-import { WORLD, BUILD, COMMS, ECONOMY, PATROL, STRUCTURES } from './config/index.js';
+import { WORLD, BUILD, COMMS, ECONOMY, PATROL, PATROL_VEHICLES, STRUCTURES, carries } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { SITE_POS, u, hdist, hereU } from './units.js';
 import { cleanZone, reachProblem, siteIsFree, zoneCentre } from './attack-area.js';
@@ -18,6 +18,7 @@ import { cleanCallsign, cleanName, cleanSettings, fieldsFor, setSetting, unitCos
 // saved holds a unit's settings and custom names, and reserved the callsigns other saved units will need.
 export function addStructure(w, id, x, z, saved = {}, reserved) {
   const def = unitDef(id, cleanSettings(id, saved.settings));
+  if (carries(saved.vehicle, id)) def.vehicle = saved.vehicle; // parked on a vehicle from a pack, and drawn on it
   const y = hereU(x, z);
   const s = { def, health: def.health || 30, pos: new Vector3(x, y, z), cd: 0, aim: 0, beamTarget: null };
   // unless it is told otherwise, it faces away from what is defended, so it follows a drawn area or a walking patrol
@@ -51,13 +52,18 @@ export function placementProblem(w, x, z, def, cost = def.cost) {
   return null;
 }
 
-// Returns the reason it can't be placed, or null if it was.
-export function place(w, id, x, z, settings) {
+// A system on a vehicle stands at the vehicle's mast height, as in a patrol.
+export const onVehicle = (id, settings, vehicle) => (vehicle && STRUCTURES[id].mount != null ? { ...settings, mount: PATROL_VEHICLES[vehicle].mast } : settings);
+
+// Returns the reason it can't be placed, or null if it was. With a vehicle, the system is parked on it.
+export function place(w, id, x, z, settings, vehicle) {
+  if (vehicle != null && !carries(vehicle, id)) return `A ${PATROL_VEHICLES[vehicle]?.name ?? 'vehicle'} cannot carry the ${STRUCTURES[id].name}`;
+  settings = onVehicle(id, settings, vehicle);
   const cost = unitCost(id, cleanSettings(id, settings));
   const problem = placementProblem(w, x, z, STRUCTURES[id], cost);
   if (problem) return problem;
   w.state.budget -= cost; w.ledger.capex += cost;
-  addStructure(w, id, x, z, { settings });
+  addStructure(w, id, x, z, { settings, vehicle });
   return null;
 }
 
@@ -80,6 +86,7 @@ export function captureLaydown(w) {
       id: s.def.id, x: s.pos.x, z: s.pos.z, uplink: s.uplink || null, cellBand: s.cellBand, jam: s.jamBands ? [...s.jamBands] : null,
       ...(s.jamOn && s.def.trigger === 'manual' ? { on: true } : {}), // switched on by hand
       ...(Object.keys(s.def.settings).length ? { settings: { ...s.def.settings } } : {}),
+      ...(s.def.vehicle ? { vehicle: s.def.vehicle } : {}),
       ...(s.custom?.name ? { name: s.custom.name } : {}),
       ...(s.custom?.callsign ? { callsign: s.custom.callsign } : {}),
     }))

@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from conftest import sign_up
 from app.services.packs import BuildBusy, PackBuilder, PackLibrary, read_summary
 
 API = "/api/v1/packs"
@@ -29,6 +30,7 @@ def root(tmp_path, monkeypatch):
 @pytest.fixture
 def client(root, tmp_path):
     with TestClient(create_app(tmp_path / "test.db", game=tmp_path / "no-game"), base_url="http://localhost") as c:
+        sign_up(c)
         yield c
 
 

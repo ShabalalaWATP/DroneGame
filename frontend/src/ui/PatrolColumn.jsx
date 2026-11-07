@@ -1,15 +1,24 @@
 // The patrol's column: each vehicle, the system it carries and where it keeps along the route, ahead of the soldiers or behind.
-// Changing it rebuilds the patrol on the same route, so it is only open before the first wave.
+// Changing it rebuilds the patrol on the same route, so it is only open before the first wave. With a deployment pack that has
+// vehicles, the column takes only those, each as many times as the pack has less any parked on the map.
 
 import { MAX_ESCORTS, MAX_ESCORT_GAP, MOUNTS, PATROL, PATROL_VEHICLES, STRUCTURES } from '../sim/config/index.js';
 import { useGame } from './hooks.js';
+import { useAccount } from './account/pack.js';
 import { NumberInput } from './NumberInput.jsx';
 
 const carried = (vehicle) => Object.keys(MOUNTS).filter((id) => MOUNTS[id] <= PATROL_VEHICLES[vehicle].carries);
 
 export function PatrolColumn({ patrol, locked }) {
-  const game = useGame();
-  const column = patrol.column;
+  const game = useGame(), pack = useAccount()?.activeUnit;
+  const column = patrol.column, packed = pack?.assets.vehicles.length ? pack.assets.vehicles : null;
+  const spare = (id, row) => { // how many more of this vehicle the pack has for the given row (-1 for a new one)
+    if (!packed) return Infinity;
+    const parked = game.sim.structures.filter((s) => !s.escort && s.def.vehicle === id).length;
+    return (packed.find((l) => l.id === id)?.count ?? 0) - parked - column.filter((e, j) => j !== row && e.vehicle === id).length;
+  };
+  const choices = (row) => Object.keys(PATROL_VEHICLES).filter((id) => id === column[row]?.vehicle || spare(id, row) > 0);
+  const added = Object.keys(PATROL_VEHICLES).find((id) => spare(id, -1) > 0); // with a pack, the first it has spare
   const apply = (next) => {
     const refused = game.commands.setPatrol(patrol.route, next);
     if (refused) game.toast(refused);
@@ -28,7 +37,7 @@ export function PatrolColumn({ patrol, locked }) {
         {column.map((e, i) => (
           <li key={i} data-escort={i}>
             <select aria-label={`Vehicle ${i + 1}`} value={e.vehicle} onChange={(ev) => change(i, { vehicle: ev.target.value })}>
-              {Object.entries(PATROL_VEHICLES).map(([id, v]) => <option key={id} value={id}>{v.name}</option>)}
+              {choices(i).map((id) => <option key={id} value={id}>{PATROL_VEHICLES[id].name}{packed && spare(id, i) < 1 ? ' (beyond your pack)' : ''}</option>)}
             </select>
             <select aria-label={`What vehicle ${i + 1} carries`} value={e.system} onChange={(ev) => change(i, { system: ev.target.value })}>
               {carried(e.vehicle).map((id) => <option key={id} value={id}>{STRUCTURES[id].name}</option>)}
@@ -39,7 +48,9 @@ export function PatrolColumn({ patrol, locked }) {
         ))}
       </ul>
       <p className="muted">Gap is metres ahead of the soldiers, or behind if negative. A Mule carries light systems, a Hilux medium ones too, and a Patria anything here.</p>
-      {column.length < MAX_ESCORTS && <button id="escort-add" onClick={() => apply([...live(), { vehicle: 'mule', system: 'gun_hmg', gap: -PATROL.foot.escortGap * live().length }])}>Add a vehicle</button>}
+      {packed && <p className="muted">The column takes your pack&apos;s vehicles: {packed.map((l) => `${l.count} ${PATROL_VEHICLES[l.id].name}`).join(', ')}, less any parked on the map.</p>}
+      {column.length < MAX_ESCORTS && (added ? <button id="escort-add" onClick={() => apply([...live(), { vehicle: packed ? added : 'mule', system: 'gun_hmg', gap: -PATROL.foot.escortGap * live().length }])}>Add a vehicle</button>
+        : <p className="muted">Every vehicle in your pack is in use.</p>)}
     </div>
   );
 }

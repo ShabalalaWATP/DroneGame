@@ -226,13 +226,7 @@ table.mini i { display: inline-block; width: 9px; height: 9px; border-radius: 50
 .tool.poor .c { color: #ef5350; }
 .tool-row { position: relative; }
 .tool-row .tool { width: 100%; }
-.tool.sized { padding-bottom: 6px; }
-.tool.sized .k { display: block; }
 .tool .k { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 200px; }
-.tool.sized .k { max-width: 105px; }
-.tool-sizes { position: absolute; right: 6px; bottom: 3px; display: flex; gap: 2px; }
-.tool-sizes button { width: 24px; height: 18px; padding: 0; font-size: 10px; line-height: 1; }
-.tool-sizes button.chosen { background: #5c7bb0; border-color: #8fb4ff; color: #fff; font-weight: 700; }
 
 #toast { position: fixed; z-index: 6; top: 70px; left: 50%; transform: translateX(-50%); padding: 8px 16px;
   background: rgba(12, 20, 34, 0.9); border: 1px solid #3a5280; border-radius: 6px;
@@ -307,11 +301,11 @@ body.track-hi .tlabel { color: #ffcc66; font-size: 11px; opacity: 1; }
 .slabel.selected { outline: 2px solid #fff; z-index: 1; }
 #tool-picker { left: 256px; top: 12px; width: clamp(220px, calc(100vw - 778px), 300px); max-height: calc(100vh - 24px); overflow-y: auto; z-index: 5; font-size: 12px; line-height: 16px; color: #b9c7dc; }
 .pick-list { display: flex; flex-direction: column; gap: 3px; margin: 8px 0; }
-.pick-list button { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; padding: 4px 8px; text-align: left; font-size: 12px; line-height: 16px; }
-.pick-list button > span { grid-column: 1 / -1; }
-.pick-list button > .pick-price { grid-column: 2; grid-row: 1; color: #ffd54f; }
-.pick-list button.poor > .pick-price { color: #ef5350; }
-.pick-list button[aria-pressed="true"] { background: #2f4468; border-color: #8fb4ff; box-shadow: 0 0 0 1px #8fb4ff inset; }
+.pick-list button, .pick-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 8px; padding: 4px 8px; text-align: left; font-size: 12px; line-height: 16px; }
+.pick-list button > span, .pick-card > span { grid-column: 1 / -1; }
+.pick-list button > .pick-price, .pick-card > .pick-price { grid-column: 2; grid-row: 1; color: #ffd54f; }
+.pick-card.poor > .pick-price { color: #ef5350; }
+.pick-list button[aria-pressed="true"], .pick-card[aria-pressed="true"] { background: #2f4468; border-color: #8fb4ff; box-shadow: 0 0 0 1px #8fb4ff inset; }
 .pick-list b { color: #fff; }
 .up-sides { display: flex; gap: 4px; margin: 6px 0; }
 .up-sides button { flex: 1; padding: 3px 0; font-size: 12px; }
