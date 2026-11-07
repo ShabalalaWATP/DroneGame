@@ -6,6 +6,7 @@ import { fieldsFor, setSetting, unitDef } from './sim/unit-config.js';
 import { predictRange, usesPath } from './sim/site-range.js';
 import { terrainState } from './sim/terrain.js';
 import { createSimulation, SIM_STEP } from './sim/simulation.js';
+import { onVehicle } from './sim/laydown.js';
 import { createGameView } from './render/game-view.js';
 import { hereU } from './sim/units.js';
 import { PLACING_PICK_PX, createPlacement, pickStructure, selectionFrom, slideToShow } from './render/placement.js';
@@ -94,7 +95,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   // A card let go over the map: a system is placed like a click with it picked, and a group of people where it fell.
   function dropAt(item, x, z) {
     if (item.system) {
-      tools.use(item.system);
+      tools.use(item.system, item.vehicle);
       groundClick(x, z);
     } else if (state.started && !state.over) {
       refusal = commands.placePeople(x, z, item.people.count, item.people.protection);
@@ -157,7 +158,8 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
       }
       return;
     }
-    refusal = Object.keys(loadoutFor(tool)).length ? commands.place(tool, x, z, { ...loadoutFor(tool) }) : commands.place(tool, x, z);
+    const loadout = Object.keys(loadoutFor(tool)).length ? { ...loadoutFor(tool) } : undefined, vehicle = tools.vehicle();
+    refusal = vehicle ? commands.place(tool, x, z, loadout, vehicle) : loadout ? commands.place(tool, x, z, loadout) : commands.place(tool, x, z);
     if (refusal) { toast(refusal); return; }
     const esc = tools.dragging() ? '' : ', or press Esc to stop placing'; // a drag puts the last tool back itself
     toast(`${placedSummary()}${selectHinted ? '' : `. Click a system for details${esc}`}`);
@@ -260,7 +262,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     gameView = createGameView(canvas, labelLayer, sim, mapSource);
     placement = createPlacement({
       scene: gameView.scene, camera: gameView.camera, canvas, getWorldMesh: gameView.getWorldMesh, sim,
-      getTool: tools.get, defFor: (id) => unitDef(id, loadoutFor(id)), onGroundClick: groundClick, onSelect: mapClick, onDrop: dropAt,
+      getTool: tools.get, defFor: (id) => unitDef(id, onVehicle(id, loadoutFor(id), tools.vehicle())), onGroundClick: groundClick, onSelect: mapClick, onDrop: dropAt,
     });
     replay = createReplay({
       scene: gameView.scene, rec: sim.rec, droneTemplate, makeLabel: gameView.labels.make, placeLabel: gameView.labels.place, trackColour,
@@ -274,7 +276,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   return {
     packs, loadPack, ensureWorld, mapSource, cursor: () => placement?.cursor() ?? null,
     sim, commands, clock, setSpeed, reviewClock, subscribe, getTick, bump, attach, debug, api, saver, storage, pageClosing,
-    getTool: tools.get, setTool, toolChoice: tools.choice, cycleTool: tools.cycle, loadoutFor, setLoadout, lastRefusal: () => refusal, select, getSelected, reveal,
+    getTool: tools.get, toolVehicle: tools.vehicle, setTool, toolChoice: tools.choice, cycleTool: tools.cycle, loadoutFor, setLoadout, lastRefusal: () => refusal, select, getSelected, reveal,
     catalogue: tools.catalogue, openCatalogue: tools.openCatalogue, pickFromTray: tools.pickFromTray, startDrag: tools.startDrag, endDrag: tools.endDrag, dropAt,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },

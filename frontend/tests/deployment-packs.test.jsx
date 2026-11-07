@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGame } from '../src/game.js';
 import { ApiError } from '../src/api/client.js';
 import { DRAG_TYPE, readDrop } from '../src/drag.js';
-import { STRUCTURES, resetAllFigures } from '../src/sim/config/index.js';
+import { PATROL_VEHICLES, STRUCTURES, resetAllFigures } from '../src/sim/config/index.js';
 import { view } from '../src/render/view.js';
 import { App } from '../src/ui/App.jsx';
 import { AccountContext, bump, describeTotals, packTotals, remaining } from '../src/ui/account/pack.js';
@@ -183,7 +183,7 @@ describe('the pack tray in the game', { timeout: 30000 }, () => {
     const tray = $('#tool-picker');
     expect(tray.getAttribute('aria-label')).toBe('Deployment pack: 1 Troop');
     expect(tray.textContent).toContain('2 of 2 to place');
-    expect(tray.textContent).toContain('2 × Patria 6x6');
+    expect($('[data-tray-vehicle="patria"]').textContent).toContain('2 of 2 to place');
     act(() => { game.sim.addStructure('radar_a800', 20, 0); game.bump(); });
     expect($('[data-pick="radar_a800"]').textContent).toContain('1 of 2 to place');
     act(() => { game.sim.addStructure('radar_a800', -20, 0); game.bump(); });
@@ -233,6 +233,59 @@ describe('the pack tray in the game', { timeout: 30000 }, () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(game.getTool()).toBeNull();
     expect(game.catalogue()).toBe('unit'); // Esc puts the system down, and the tray stays
+  });
+
+  it('parks a pack system on a pack vehicle, at its mast height, and counts both', () => {
+    page();
+    const carry = screen.getByLabelText('What the Patria 6x6 carries');
+    expect(carry.value).toBe('radar_a800'); // the first system with some left
+    fireEvent.change(carry, { target: { value: 'jammer' } });
+    const { data, dataTransfer } = drag();
+    fireEvent.dragStart($('[data-tray-vehicle="patria"]'), { dataTransfer });
+    expect(readDrop(data[DRAG_TYPE])).toEqual({ system: 'jammer', vehicle: 'patria' });
+    expect([game.getTool(), game.toolVehicle()]).toEqual(['jammer', 'patria']);
+    act(() => game.dropAt(readDrop(data[DRAG_TYPE]), 30, 0));
+    const [s] = game.sim.structures;
+    expect([s.def.id, s.def.vehicle, s.def.settings.mount]).toEqual(['jammer', 'patria', PATROL_VEHICLES.patria.mast]);
+    expect([game.getTool(), game.toolVehicle()]).toEqual([null, null]); // the drag put both back
+    expect($('[data-tray-vehicle="patria"]').textContent).toContain('1 of 2 to place');
+    expect($('[data-pick="jammer"]').textContent).toContain('All 1 placed');
+    expect(game.sim.currentLaydown().structures[0]).toMatchObject({ id: 'jammer', vehicle: 'patria' }); // and it is saved with it
+  });
+
+  it('picks a vehicle by clicking, apart from the same system on foot', () => {
+    page();
+    fireEvent.click($('[data-tray-vehicle="patria"]'));
+    expect([game.getTool(), game.toolVehicle()]).toEqual(['radar_a800', 'patria']);
+    expect($('[data-tray-vehicle="patria"]').getAttribute('aria-pressed')).toBe('true');
+    expect($('[data-pick="radar_a800"]').getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click($('[data-pick="radar_a800"]'));
+    expect([game.getTool(), game.toolVehicle()]).toEqual(['radar_a800', null]);
+    expect(game.commands.place('radar_a800', 30, 0, undefined, 'patria')).toBeNull(); // a click on the map with the vehicle picked
+    expect(game.sim.structures[0].def.vehicle).toBe('patria');
+  });
+
+  it('says when nothing in the pack fits on a vehicle', () => {
+    page({ id: 2, ...PACK, assets: { systems: [{ id: 'radar_giraffe', count: 1 }], vehicles: [{ id: 'mule', count: 1 }], people: [] } });
+    expect($('#tool-picker').textContent).toContain('Nothing in this pack fits on a Mule UGV.');
+    expect($('[data-tray-vehicle="mule"]').getAttribute('aria-disabled')).toBe('true');
+    expect($('[data-tray-vehicle="mule"]').getAttribute('draggable')).toBe('false');
+  });
+});
+
+describe('a system parked on a vehicle', () => {
+  beforeEach(() => { game.sim.state.started = true; });
+
+  it('is refused on a vehicle too small for it', () => {
+    expect(game.commands.place('radar_giraffe', 30, 0, undefined, 'mule')).toBe('A Mule UGV cannot carry the Giraffe 1X'); // in the patrol's words
+    expect(game.sim.structures).toHaveLength(0);
+  });
+
+  it('comes back on its vehicle from a saved laydown, and a vehicle that cannot carry it is dropped', () => {
+    const spec = { structures: [{ id: 'jammer', x: 30, z: 0, uplink: null, cellBand: 'B8', jam: null, vehicle: 'hilux' }, { id: 'radar_giraffe', x: -30, z: 0, uplink: null, cellBand: 'B8', jam: null, vehicle: 'mule' }], fusionUplinks: [], fusionCell: 'B8' };
+    expect(game.commands.loadLaydown(spec, game.sim.state.terrainSeed)).toBeNull();
+    expect(game.sim.structures.map((s) => s.def.vehicle ?? null)).toEqual(['hilux', null]);
+    expect(readDrop(JSON.stringify({ system: 'radar_giraffe', vehicle: 'mule' }))).toBeNull(); // nor can a drag ask for it
   });
 });
 

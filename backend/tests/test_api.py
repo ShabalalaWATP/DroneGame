@@ -109,6 +109,14 @@ class TestLaydowns:
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["patrol"] == route
 
+    def test_a_system_parked_on_a_vehicle_is_kept_with_the_laydown(self, client):
+        parked = {"id": "jammer", "x": 5.0, "z": 5.0, "uplink": None, "cellBand": "B8", "jam": None, "vehicle": "mule"}
+        made = client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "structures": [parked]}))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["structures"] == [parked]
+        tank = laydown(spec={**SPEC, "structures": [{**parked, "vehicle": "tank"}]})
+        assert client.post(f"{API}/laydowns", json=tank).status_code == 422
+
     def test_a_patrol_column_is_kept_with_the_laydown(self, client):
         column = [{"vehicle": "hilux", "system": "gun_hmg", "gap": 40}, {"vehicle": "mule", "system": "jammer_s", "gap": -25.5}]
         made = client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "patrol": [[10, 10], [30, 10]], "patrolColumn": column}))

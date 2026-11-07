@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints, ValidationInfo, field_validator
 
-from app.schemas import MAX_PEOPLE_PER_GROUP, Callsign, Name, Protection, Strict, SystemId, _no_control_characters
+from app.schemas import MAX_PEOPLE_PER_GROUP, Callsign, Name, PatrolVehicle, Protection, Strict, SystemId, _no_control_characters
 
 MIN_PASSWORD = 10  # length is what makes a password strong, so there are no rules about character classes
 MAX_PASSWORD = 128  # long enough for any passphrase, short enough that hashing cannot be used to tie up the server
@@ -19,7 +19,7 @@ RecoveryCode = Annotated[str, StringConstraints(min_length=1, max_length=64)]
 ProfileText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=60), AfterValidator(_no_control_characters)]
 DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60), AfterValidator(_no_control_characters)]
 Echelon = Literal["fireteam", "section", "platoon", "troop", "company", "squadron", "battery", "battalion"]
-UnitVehicle = Literal["patria", "hilux", "mule"]  # the patrol vehicles in frontend/src/sim/config/units.js
+UnitVehicle = PatrolVehicle  # a pack brings the same vehicles as a patrol
 LineCount = Annotated[int, Field(ge=1, le=MAX_UNIT_COUNT)]
 
 

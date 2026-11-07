@@ -178,7 +178,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     setPatrol: (points, column) => setPatrol(w, points, column),
     setAttack: (ids) => laydown.setAttack(w, ids),
     setConditions: (name) => laydown.setConditions(w, name),
-    place: (id, x, z, settings) => laydown.place(w, id, x, z, settings),
+    place: (id, x, z, settings, vehicle) => laydown.place(w, id, x, z, settings, vehicle),
     sell: (x, z) => laydown.sell(w, x, z),
     placePeople: (x, z, count, protection, role) => people.placePeople(w, x, z, count, protection, role),
     removePeople: (id) => people.removePeople(w, id),

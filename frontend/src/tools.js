@@ -5,12 +5,14 @@ import { STRUCTURES, firstClass } from './sim/config/index.js';
 
 export function createTools(changed) {
   let tool = null; // structure id | 'sell' | 'zone' | 'people' | 'patrol' | null
+  let vehicle = null; // the vehicle the picked system is parked on, from the pack tray; any other pick clears it
   let catalogue = null; // the open list: a kind of system, 'unit' for the deployment pack tray, or null
   let beforeDrag; // the tool in use when a drag began, put back when it ends
   const last = {}; // kind -> the system last picked, which a hotkey offers next
 
-  function use(t) {
+  function use(t, v = null) {
     tool = t;
+    vehicle = v;
     if (STRUCTURES[tool]) last[STRUCTURES[tool].kind] = tool;
     changed();
   }
@@ -24,6 +26,7 @@ export function createTools(changed) {
 
   return {
     get: () => tool,
+    vehicle: () => vehicle,
     use,
     set,
     choice,
@@ -34,7 +37,7 @@ export function createTools(changed) {
       use(null);
     },
     // The pack tray stays open while one of its systems is picked, unlike the toolbar's lists.
-    pickFromTray: (id) => use(tool === id ? null : id),
+    pickFromTray: (id, v = null) => (tool === id && vehicle === v ? use(null) : use(id, v)),
     // A hotkey: the first press picks the kind, and pressing it again moves to the next system. With only one, it switches off.
     cycle(group) {
       const at = group.classes.indexOf(tool);
@@ -44,14 +47,14 @@ export function createTools(changed) {
     // While a card is dragged, its system's preview follows the cursor over the map.
     dragging: () => beforeDrag !== undefined,
     startDrag(item) {
-      beforeDrag = tool;
-      if (item.system && tool !== item.system) use(item.system);
+      beforeDrag = [tool, vehicle];
+      if (item.system && (tool !== item.system || vehicle !== (item.vehicle ?? null))) use(item.system, item.vehicle);
     },
     endDrag() {
       if (beforeDrag === undefined) return;
-      const back = beforeDrag;
+      const [back, onVehicle] = beforeDrag;
       beforeDrag = undefined;
-      if (tool !== back) use(back);
+      if (tool !== back || vehicle !== onVehicle) use(back, onVehicle);
     },
   };
 }

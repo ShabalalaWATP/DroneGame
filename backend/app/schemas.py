@@ -76,6 +76,7 @@ class PlacedSystem(Strict):
     settings: dict[FigureKey, SettingNumber | SettingChoice | SettingArcs | SettingBands] | None = Field(default=None, max_length=MAX_UNIT_SETTINGS, exclude_if=lambda v: v is None)
     name: UnitName | None = Field(default=None, exclude_if=lambda v: v is None)
     callsign: Callsign | None = Field(default=None, exclude_if=lambda v: v is None)
+    vehicle: PatrolVehicle | None = Field(default=None, exclude_if=lambda v: v is None)  # parked on one from a deployment pack
 
 
 class PlacedPeople(Strict):

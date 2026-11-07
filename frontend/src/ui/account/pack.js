@@ -32,7 +32,8 @@ export function bump(lines, id, by) {
   return count > 0 ? lines.map((l, i) => (i === at ? { id, count } : l)) : lines.filter((_, i) => i !== at);
 }
 
-// How many of each system and people group are still to place, counting what is on the map now.
+// How many of each system, people group and vehicle are still to place, counting what is on the map now. A vehicle counts
+// whether it is parked or in the patrol's column.
 export function remaining(assets, sim) {
   const placed = {};
   for (const s of sim.structures) placed[s.def.id] = (placed[s.def.id] ?? 0) + 1;
@@ -46,5 +47,8 @@ export function remaining(assets, sim) {
     if (at >= 0) groups.splice(at, 1);
     return { ...g, left: at < 0 ? 1 : 0 };
   });
-  return { systems, people };
+  const onVehicles = {};
+  for (const s of sim.structures) if (s.def.vehicle) onVehicles[s.def.vehicle] = (onVehicles[s.def.vehicle] ?? 0) + 1;
+  const vehicles = assets.vehicles.map((l) => ({ ...l, left: l.count - Math.min(onVehicles[l.id] ?? 0, l.count) }));
+  return { systems, people, vehicles };
 }

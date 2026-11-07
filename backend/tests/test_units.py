@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.account_schemas import MAX_UNIT_COUNT, MAX_UNIT_LINES, Echelon, UnitVehicle
 from app.main import create_app
+from app.schemas import PatrolVehicle
 from app.services import units
 
 API = "/api/v1/units"
@@ -99,5 +100,6 @@ def test_bad_ids_are_refused(client, path):
 
 def test_the_names_a_pack_accepts_match_the_game():
     source = (Path(__file__).parent.parent.parent / "frontend" / "src" / "sim" / "config" / "units.js").read_text(encoding="utf-8")
-    assert set(re.findall(r"^  (\w+): \{ name: ", source, re.M)) == set(Echelon.__args__) | set(UnitVehicle.__args__)
+    assert set(re.findall(r"^  (\w+): \{ name: ", source, re.M)) == set(Echelon.__args__)
+    assert UnitVehicle is PatrolVehicle  # whose names test_security.py matches to the game
     assert f"lines: {MAX_UNIT_LINES}, count: {MAX_UNIT_COUNT}, peopleGroups: 20" in source

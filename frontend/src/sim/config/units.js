@@ -1,5 +1,7 @@
 // Deployment packs: a military unit and the real systems, vehicles and people assigned to it, kept on the player's profile.
-// The ids match Echelon and UnitVehicle in backend/app/account_schemas.py, whose tests read this file.
+// The ids match Echelon in backend/app/account_schemas.py, whose tests read this file. A pack's vehicles are PATROL_VEHICLES.
+
+import { MOUNTS, PATROL_VEHICLES } from './patrol.js';
 
 export const ECHELONS = {
   fireteam: { name: 'Fire team', desc: 'Four soldiers, often with one handheld system.' },
@@ -12,11 +14,7 @@ export const ECHELONS = {
   battalion: { name: 'Battalion', desc: 'Several companies or batteries under one headquarters.' },
 };
 
-// shortcut: the patrol work defines the same three vehicles as PATROL_VEHICLES in config/patrol.js; use those once it lands on main.
-export const UNIT_VEHICLES = {
-  patria: { name: 'Patria 6x6', desc: 'Armoured six-wheeler, 7.5 by 2.9 m. Carries the heaviest systems that ride with a unit.' },
-  hilux: { name: 'Toyota Hilux', desc: 'Double-cab pickup, 5.3 by 1.9 m, with its system on the load bed.' },
-  mule: { name: 'Mule UGV', desc: 'A tracked uncrewed carrier in the Milrem THeMIS class. Carries light systems.' },
-};
+// Whether a vehicle can carry a system, parked or in a patrol.
+export const carries = (vehicle, id) => Object.hasOwn(PATROL_VEHICLES, vehicle ?? '') && Object.hasOwn(MOUNTS, id) && MOUNTS[id] <= PATROL_VEHICLES[vehicle].carries;
 
 export const UNIT_LIMITS = { lines: 40, count: 50, peopleGroups: 20 }; // MAX_UNIT_LINES, MAX_UNIT_COUNT and the people limit in account_schemas.py

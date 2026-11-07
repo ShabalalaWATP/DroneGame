@@ -7,6 +7,7 @@ import { createGame } from '../src/game.js';
 import { MOUNTS, PATROL, PATROL_VEHICLES, resetAllFigures } from '../src/sim/config/index.js';
 import { GameContext } from '../src/ui/hooks.js';
 import { ZonePanel } from '../src/ui/ZonePanel.jsx';
+import { AccountContext } from '../src/ui/account/pack.js';
 import { createFakeApi, createFakeStorage } from './support/fake-api.js';
 
 const ROUTE = [[10, 10], [30, 10], [30, 30], [10, 30]]; // open, flat ground near the station on terrain 1
@@ -48,5 +49,34 @@ describe('the patrol column', () => {
     show();
     expect($('[aria-label="Vehicle 1"]')).toBeNull();
     expect(document.body.textContent).toContain('Toyota Hilux: Blighter A800, 40 m ahead');
+  });
+});
+
+describe('the patrol column with a deployment pack', () => {
+  const withPack = (vehicles) => render(
+    <AccountContext.Provider value={{ activeUnit: { id: 1, name: '1 Troop', assets: { systems: [], vehicles, people: [] } } }}>
+      <GameContext.Provider value={game}><ZonePanel onClose={() => {}} /></GameContext.Provider>
+    </AccountContext.Provider>,
+  );
+  const options = (label) => [...$(`[aria-label="${label}"]`).options].map((o) => o.textContent);
+
+  it("takes only the pack's vehicles, as many as it has", () => {
+    const pack = [{ id: 'hilux', count: 1 }, { id: 'patria', count: 1 }]; // the default column uses both
+    withPack(pack);
+    expect(options('Vehicle 1')).toEqual(['Toyota Hilux']);
+    expect($('#escort-add')).toBeNull();
+    expect(document.body.textContent).toContain('Every vehicle in your pack is in use.');
+    fireEvent.click($('[aria-label="Remove vehicle 2"]'));
+    cleanup(); withPack(pack); // the game's tick redraws the panel
+    expect(options('Vehicle 1')).toEqual(['Patria 6x6', 'Toyota Hilux']);
+    fireEvent.click($('#escort-add'));
+    expect(column().map((e) => e.vehicle)).toEqual(['hilux', 'patria']);
+  });
+
+  it('counts vehicles parked on the map, and marks one beyond the pack', () => {
+    expect(game.commands.place('jammer', 60, 60, undefined, 'hilux')).toBeNull();
+    withPack([{ id: 'hilux', count: 1 }, { id: 'patria', count: 2 }]);
+    expect(options('Vehicle 1')).toEqual(['Patria 6x6', 'Toyota Hilux (beyond your pack)']);
+    expect(document.body.textContent).toContain("The column takes your pack's vehicles: 1 Toyota Hilux, 2 Patria 6x6, less any parked on the map.");
   });
 });

@@ -22,7 +22,7 @@ export function dragProps(game, item, enabled = true) {
   };
 }
 
-const onKeys = (fn) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
+export const onKeys = (fn) => (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
 
 export function SystemCard({ id, pressed, onPick, children, className = '', disabled = false }) {
   const game = useGame();

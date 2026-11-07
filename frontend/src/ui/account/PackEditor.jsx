@@ -1,7 +1,7 @@
 // Building a deployment pack: a unit's name, size and callsign, and the real systems, vehicles and people assigned to it.
 
 import { useState } from 'react';
-import { ECHELONS, PEOPLE, PEOPLE_LIMITS, STRUCTURES, TOOLBAR, UNIT_LIMITS, UNIT_VEHICLES } from '../../sim/config/index.js';
+import { ECHELONS, PEOPLE, PEOPLE_LIMITS, STRUCTURES, TOOLBAR, UNIT_LIMITS, PATROL_VEHICLES } from '../../sim/config/index.js';
 import { money } from '../../sim/economy.js';
 import { NumberInput } from '../NumberInput.jsx';
 import { TextField, useRequest } from './parts.jsx';
@@ -96,7 +96,7 @@ export function PackEditor({ api, pack, onSaved, onCancel }) {
           <fieldset>
             <legend>Vehicles</legend>
             <div className="acct-lines">
-              {Object.entries(UNIT_VEHICLES).map(([id, v]) => (
+              {Object.entries(PATROL_VEHICLES).map(([id, v]) => (
                 <Line key={id} title={v.name} detail={v.desc} count={count(assets.vehicles, id)} onChange={(by) => setAssets({ vehicles: bump(assets.vehicles, id, by) })} />
               ))}
             </div>
