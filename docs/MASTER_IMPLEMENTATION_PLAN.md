@@ -144,6 +144,9 @@ All under `/api/v1`, JSON only.
 | Method and path | Purpose |
 |---|---|
 | `GET /health` | Liveness check |
+| `POST /auth/register`, `/auth/sign-in`, `/auth/sign-out`, `/auth/reset` | Accounts: sign up, sign in and out, reset with a recovery code |
+| `GET, PUT /auth/me`, `POST /auth/password`, `/auth/recovery-code` | Profile, change password, new recovery code |
+| `GET, POST /units`, `GET, PUT, DELETE /units/{id}` | Deployment packs, for the signed-in account only |
 | `GET, POST /laydowns` | List, create |
 | `GET, PUT, DELETE /laydowns/{id}` | Read, replace, delete |
 | `GET, POST /runs` | List with paging, record a finished run |
@@ -157,7 +160,7 @@ Run results are reported by the browser, so they cannot be trusted as proof of a
 
 ## Security
 
-Runs locally with no sign-in, which is the main thing to design around.
+Runs locally. Accounts were added later (Feature E), so every route except `/health`, `/auth` and the OpenAPI schema needs a session, but laydowns, runs and figure sets stay shared by every account on the machine.
 
 - **Bind to `127.0.0.1` only.** This also fixes the `serve.py` issue of exposing the folder to the LAN.
 - **Block attacks from web pages you visit:** `TrustedHostMiddleware` limited to `localhost` and `127.0.0.1` stops DNS rebinding. With no CORS and JSON-only writes, other sites cannot post to the API.
@@ -166,7 +169,7 @@ Runs locally with no sign-in, which is the main thing to design around.
 - **No raw HTML from data in React:** `dangerouslySetInnerHTML` is banned. Source links in the Sources tab allow `https:` only.
 - **Content Security Policy** on served pages, with no inline scripts and same-origin connections only.
 - **Keep the database out of reach:** only the built frontend folder is served as static files, never the project root.
-- **Hosting is not covered:** it would need sign-in, per-user ownership checks on every object, and a new security review before any deployment.
+- **Hosting is not covered:** it would need HTTPS, per-user ownership checks on every object, and a new security review before any deployment.
 
 ## Phases
 
@@ -743,6 +746,16 @@ A popup that guides a new player from an empty site to the first wave. Built, ap
 - **Progress comes from the game,** not from stored state, so loading a laydown or selling a radar moves it. Skipped steps are remembered until the run ends.
 - **The zone is a rule.** It began as a planning aid, and Alex then asked for drones to attack it. A closed zone goes to `sim/` through `setZone`, and saves in the laydown's `spec`. With no zone a run is unchanged, so the digests still hold.
 - **No tips during a wave,** so a run plays like a simulation. It closes when the first wave starts.
+
+### Feature E: Accounts and deployment packs
+
+Built. Alex asked for a login page, a profile for each person, and deployment packs: a military unit with the real sensors, effectors, vehicles and people assigned to it, to make deploying easier. Alex chose a recovery code for forgotten passwords, a required login, a tray to drag a pack's kit from, and shared saves. See [ADR 0004](adr/0004-local-accounts-with-recovery-codes.md).
+
+- **Backend:** migration `0002_accounts.sql` adds `users`, `sessions` and `units`. `services/accounts.py` holds the rules (scrypt, lockout, sessions, recovery codes) and `services/units.py` the pack limits. Unit queries always include the account's id.
+- **Frontend:** `ui/account/Root.jsx` gates the game behind `AuthScreen.jsx`, then shows `ProfileHub.jsx`. `PackEditor.jsx` builds packs from the same catalogue as the toolbar. A deployed pack reaches the game through `AccountContext`.
+- **The catalogue:** the S, M and L buttons are gone. A toolbar row opens its list of real systems (`ToolPicker.jsx`), and each card can be dragged onto the map (`drag.js`, `render/placement.js`) or clicked, then the map clicked. `tools.js` holds the tool and the open list. A deployed pack opens as its own list, the tray, with how many of each are left.
+- **The wizard** gives three numbered steps for each system it recommends, and the ring moves from the toolbar row to the card in the list.
+- **Vehicles** are a roster only: there is no placeable vehicle yet.
 
 ### Threat names and real drones
 

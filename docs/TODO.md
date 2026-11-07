@@ -120,6 +120,16 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [ ] Model site, live OS map and place search (these need an OS API key), Wales and Scotland lidar, sharper aerial photos, and a test on a dense city
 - [ ] Read coordinate limits from the world. The backend still checks against the fixed `WORLD_LIMIT` in `backend/app/schemas.py`, one of the mapping plan's small asks of the rebuild, and it matters once real worlds differ in size.
 
+**Accounts and deployment packs** (Feature E)
+
+- [x] Login page with sign-in, sign-up and recovery-code reset, a profile hub, and deployment packs dragged from a tray in the game
+- [x] The toolbar's S, M and L buttons replaced by each kind's list of real systems, dragged or clicked onto the map, with the wizard's numbered steps
+- [ ] Place a pack's vehicles on the map. They are a roster only, until vehicles exist in the game; `UNIT_VEHICLES` repeats the patrol work's vehicle list and should become one list when that lands
+- [ ] Delete an account
+- [ ] Keep the deployed pack across a page reload. It is held in the page, so a reload goes back to the profile hub
+- [ ] Sign out without a page reload, so a half-built laydown is not lost. The reload is there so nothing of one account's game carries into the next
+- [ ] A run whose save is refused while signed out says the server is not running. It is kept and saved after the next sign-in, so only the words are wrong
+
 ## Known limits to fix if they start to matter
 
 - [ ] **A test that sometimes fails.** `save-panels.test.jsx`, "shows kept runs and saves them when the server is back", failed in about 1 of 4 runs on a busy machine: it checks for the error message before the list has finished reloading.
@@ -132,4 +142,4 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 ## Only if this is ever hosted
 
-- [ ] Work through "Before hosting" in `docs/SECURITY_NOTES.md`: sign-in, ownership checks, rate limits, HTTPS, a move off SQLite and a new security review.
+- [ ] Work through "Before hosting" in `docs/SECURITY_NOTES.md`: ownership of shared saves, rate limits, HTTPS and `Secure` cookies, a move off SQLite and a new security review.
