@@ -107,14 +107,15 @@ function PackCard({ pack, active, onDeploy, onEdit, onDelete }) {
 
 function Packs({ api, account, onEnter }) {
   const [packs, setPacks] = useState(null);
-  const [editing, setEditing] = useState(null);
+  const [editing, setEditing] = useState(() => (account.editActive ? account.activeUnit : null)); // opened from the game's pack tray
   const { error, run } = useRequest();
   // the list holds summaries, so each card's contents are fetched too; a profile has at most 50 packs
   const load = () => run(async () => setPacks(await Promise.all((await api.units.list()).map((p) => api.units.get(p.id)))));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, []);
   const remove = (id) => run(async () => { await api.units.remove(id); if (account.activeUnit?.id === id) account.deploy(null); await load(); });
-  if (editing) return <PackEditor api={api} pack={editing} onCancel={() => setEditing(null)} onSaved={(saved) => { setEditing(null); if (account.activeUnit?.id === saved.id) account.deploy(saved); load(); }} />;
+  const back = () => { setEditing(null); if (account.editActive) account.doneEditing(); };
+  if (editing) return <PackEditor api={api} pack={editing} onCancel={back} onSaved={(saved) => { if (account.activeUnit?.id === saved.id) account.deploy(saved); load(); back(); }} />;
   return (
     <section className="acct-box" aria-label="Deployment packs">
       <h3>Deployment packs<button className="acct-ghost" onClick={() => setEditing(blankPack())}>New pack</button></h3>

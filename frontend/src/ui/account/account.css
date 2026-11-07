@@ -136,6 +136,8 @@
 .acct-line.on { border-color: var(--a-line-hi); background: #0f1c33; }
 .acct-line b { display: block; color: #fff; font-size: 13px; }
 .acct-line span { font-size: 12px; color: var(--a-muted); }
+.acct-settings { margin: 2px 0 6px 12px; padding: 2px 10px 6px; border-left: 2px solid var(--a-line-hi); font-size: 12px; color: #dbe4f0; }
+.acct-settings summary { cursor: pointer; padding: 4px 0; color: var(--a-muted); }
 .acct-price { font: 12px var(--a-mono); color: #ffd54f; }
 .acct-step { display: flex; align-items: center; gap: 4px; }
 .acct-step button { width: 26px; height: 26px; padding: 0; border-radius: 6px; border: 1px solid var(--a-line-hi); background: #0b1526; cursor: pointer; font-weight: 700; }

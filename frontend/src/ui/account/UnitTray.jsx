@@ -1,5 +1,5 @@
 // The deployment pack tray: the kit of the unit deployed from the profile, to drag onto the map. Counts come from the map itself,
-// so selling a system puts it back in the tray. They are a guide, not a limit: the toolbar still buys anything.
+// so selling a system puts it back in the tray. They are the limit too: while a pack is deployed, only its kit can be placed.
 
 import { useState } from 'react';
 import { PATROL_VEHICLES, PEOPLE, STRUCTURES, carries } from '../../sim/config/index.js';
@@ -46,6 +46,7 @@ export function UnitTray({ withWizard }) {
     <div id="tool-picker" className={`panel${withWizard ? ' with-wizard' : ''}`} role="region" aria-label={`Deployment pack: ${unit.name}`}>
       <PanelHead title={`${unit.callsign ? `${unit.callsign}: ` : ''}${unit.name}`} color={LIME} onHide={() => game.openCatalogue('unit', false)} />
       <p className="pick-hint">Drag each item onto the map to deploy it. The count shows what is still to place. A system or vehicle can also be clicked, then placed by clicking the map.</p>
+      <button type="button" id="btn-edit-pack" onClick={account.editPack}>Edit this pack</button>
       {systems.length > 0 && <p className="opt-h">Sensors and effectors</p>}
       <div className="pick-list">
         {systems.map((l) => (

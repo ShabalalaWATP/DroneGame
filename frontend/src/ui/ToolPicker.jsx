@@ -14,6 +14,7 @@ import { UnitField } from './UnitEditor.jsx';
 import { PeoplePicker } from './PeoplePicker.jsx';
 import { PanelHead, SystemCard } from './SystemCard.jsx';
 import { UnitTray } from './account/UnitTray.jsx';
+import { useAccount } from './account/pack.js';
 
 const km = (m) => `${(m / 1000).toFixed(1)} km`;
 
@@ -54,17 +55,31 @@ export function ToolPicker() {
   if (open === 'unit') return <UnitTray withWizard={withWizard} />;
   const group = TOOLBAR.find((g) => g.kind === open);
   if (!group) return null;
-  const picked = group.classes.includes(tool) ? tool : null;
+  return <KindList game={game} group={group} tool={tool} withWizard={withWizard} />;
+}
+
+// One kind's list: every real system of that kind, or with a deployment pack deployed, only what the pack holds and how many are left.
+function KindList({ game, group, tool, withWizard }) {
+  const account = useAccount(), kit = game.sim.state.kit;
+  const classes = kit ? group.classes.filter((id) => kit[id]) : group.classes;
+  const left = (id) => kit[id] - game.sim.structures.filter((s) => s.def.id === id).length;
+  const picked = classes.includes(tool) ? tool : null;
   return (
     <div id="tool-picker" className={`panel${withWizard ? ' with-wizard' : ''}`} role="region" aria-label={`Choose a ${group.name}`}>
-      <PanelHead title={`${group.name}: ${group.classes.length} real systems`} color={STRUCTURES[picked ?? game.toolChoice(group)].color} onHide={() => game.openCatalogue(group.kind, false)} />
+      <PanelHead title={kit ? `${group.name}: ${classes.length} in your pack` : `${group.name}: ${group.classes.length} real systems`} color={STRUCTURES[picked ?? classes[0] ?? game.toolChoice(group)].color} onHide={() => game.openCatalogue(group.kind, false)} />
       <p className="pick-hint" id="pick-hint">
         {picked
-          ? <><b>{STRUCTURES[picked].product}</b> is picked: click the map to place one, as many times as you like. Or drag any card onto the map.</>
-          : <>Drag a system onto the map to place it there. Or click one, then click the map.</>}
+          ? <><b>{STRUCTURES[picked].product}</b> is picked: click the map to place one{kit ? '' : ', as many times as you like'}. Or drag any card onto the map.</>
+          : classes.length ? <>Drag a system onto the map to place it there. Or click one, then click the map.</>
+            : <>Your deployment pack holds no {group.name.toLowerCase()} systems.</>}
       </p>
+      {kit && account?.editPack && <button type="button" id="btn-edit-pack" onClick={account.editPack}>{classes.length ? 'Edit this pack' : 'Add some to the pack'}</button>}
       <div className="pick-list">
-        {group.classes.map((id) => <SystemCard key={id} id={id} pressed={id === tool} onPick={() => { if (id !== tool) game.setTool(id); }} />)}
+        {classes.map((id) => (
+          <SystemCard key={id} id={id} pressed={id === tool} onPick={() => { if (id !== tool) game.setTool(id); }} className={kit && left(id) <= 0 ? 'tray-line used' : undefined}>
+            {kit && <span className="tray-left">{left(id) > 0 ? `${left(id)} of ${kit[id]} to place` : `All ${kit[id]} placed`}</span>}
+          </SystemCard>
+        ))}
       </div>
       {picked && <Settings tool={picked} />}
       <p className="muted">Click a placed system to change it, or to rename it. Esc closes this list.</p>

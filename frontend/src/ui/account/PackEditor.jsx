@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { ECHELONS, PEOPLE, PEOPLE_LIMITS, STRUCTURES, TOOLBAR, UNIT_LIMITS, PATROL_VEHICLES } from '../../sim/config/index.js';
 import { money } from '../../sim/economy.js';
 import { NumberInput } from '../NumberInput.jsx';
+import { UnitField } from '../UnitEditor.jsx';
+import { fieldsFor, setSetting, settingValue, unitCost, unitDef } from '../../sim/unit-config.js';
 import { TextField, useRequest } from './parts.jsx';
-import { bump, describeTotals, packTotals } from './pack.js';
+import { bump, describeTotals, packTotals, withSettings } from './pack.js';
 
 const CALLSIGN = /^[A-Za-z0-9][A-Za-z0-9 -]{0,11}$/; // Callsign in backend/app/schemas.py
 const km = (m) => `${(m / 1000).toFixed(1).replace(/\.0$/, '')} km`;
@@ -27,6 +29,22 @@ function Line({ title, detail, price, count, onChange }) {
       {price ? <span className="acct-price">{price}</span> : <span />}
       <Stepper label={title} count={count} onChange={onChange} />
     </div>
+  );
+}
+
+// The settings every one of a line's systems is placed with: the same fields as a placed system's own panel.
+function LineSettings({ id, settings = {}, onChange }) {
+  const fields = fieldsFor(id), changed = Object.keys(settings).length;
+  if (!fields.length) return null;
+  const def = unitDef(id, settings);
+  return (
+    <details className="acct-settings">
+      <summary>Settings for each {STRUCTURES[id].product}{changed ? `: ${changed} changed` : ''}</summary>
+      {fields.map((f) => (
+        <UnitField key={f.key} field={f} id={id} prefix={`pack-${id}`} value={settingValue(def, f)} changed={settings[f.key] != null}
+          onChange={(v) => { const next = { ...settings }; setSetting(next, f, id, v); onChange(next); return settingValue(unitDef(id, next), f); }} />
+      ))}
+    </details>
   );
 }
 
@@ -85,9 +103,14 @@ export function PackEditor({ api, pack, onSaved, onCancel }) {
                 <p className="acct-kind">{group.name}</p>
                 <div className="acct-lines">
                   {group.classes.map((id) => {
-                    const def = STRUCTURES[id];
-                    return <Line key={id} title={def.product} detail={`${def.role === 'sensor' ? 'Sensor' : 'Effector'} · ${km(def.range)}${def.shotCost ? ` · ${money(def.shotCost)} a shot` : ''}`}
-                      price={money(def.cost)} count={count(assets.systems, id)} onChange={(by) => setAssets({ systems: bump(assets.systems, id, by) })} />;
+                    const def = STRUCTURES[id], line = assets.systems.find((l) => l.id === id);
+                    return (
+                      <div key={id}>
+                        <Line title={def.product} detail={`${def.role === 'sensor' ? 'Sensor' : 'Effector'} · ${km(unitDef(id, line?.settings).range)}${def.shotCost ? ` · ${money(def.shotCost)} a shot` : ''}`}
+                          price={money(unitCost(id, line?.settings))} count={line?.count ?? 0} onChange={(by) => setAssets({ systems: bump(assets.systems, id, by) })} />
+                        {line && <LineSettings id={id} settings={line.settings} onChange={(s) => setAssets({ systems: withSettings(assets.systems, id, s) })} />}
+                      </div>
+                    );
                   })}
                 </div>
               </div>

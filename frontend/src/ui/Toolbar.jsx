@@ -22,7 +22,7 @@ function PackRow() {
 export function Toolbar() {
   useTick();
   const game = useGame();
-  const tool = game.getTool(), budget = game.sim.state.budget, open = game.catalogue();
+  const tool = game.getTool(), budget = game.sim.state.budget, open = game.catalogue(), kit = game.sim.state.kit;
   return (
     <div id="toolbar" className="panel">
       <PackRow />
@@ -39,7 +39,7 @@ export function Toolbar() {
               onClick={() => game.openCatalogue(group.kind)}
             >
               <div className="n">{group.name}</div><div className="c">{picked ? money(picked.cost) : `from ${money(from)}`}</div>
-              <div className="k">[{group.key}] {picked ? picked.product : `${group.classes.length} real systems`}</div>
+              <div className="k">[{group.key}] {picked ? picked.product : kit ? `${group.classes.filter((id) => kit[id]).length} in your pack` : `${group.classes.length} real systems`}</div>
             </button>
           </div>
         );

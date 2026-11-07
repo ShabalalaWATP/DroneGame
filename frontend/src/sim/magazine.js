@@ -1,9 +1,16 @@
 // Rounds ready to fire, rounds in storage, and the wait to move one to the other. These limit firing on top of the budget,
 // which still pays for every shot. A laser's magazine is seconds of stored beam: it has no storage and recharges instead.
 
+import { STRUCTURES } from './config/index.js';
 import { money } from './economy.js';
 
 const isBeam = (def) => def.fire === 'beam';
+
+// A large system (NASAMS, Skynex, Gepard) reloads from its storage only once the fighting stops: in the field that takes a
+// reload vehicle and its crew. A small or medium one, such as a GPMG or a launcher with its rounds beside it, reloads as it fights.
+export const reloadsInFight = (def) => isBeam(def) || (def.size ?? STRUCTURES[def.variantOf]?.size) !== 'L';
+// A wave, or an attack launched in the sandbox, still under way.
+const fighting = (w) => w.state.waveActive || (w.state.sandbox && (w.drones.length > 0 || w.state.sbQueue.length > 0));
 
 export function fillMagazine(s) {
   s.fired = 0; s.reload = 0; s.prepaid = 0;
@@ -16,7 +23,7 @@ export const outOfRounds = (s) => !!s.def.magazine && !isBeam(s.def) && s.rounds
 
 // In words. def is passed separately because a moment being reviewed does not carry one.
 export function magazineWord(now, def) {
-  if (now.reload > 0) return 'Reloading';
+  if (now.reload > 0) return now.reloadHeld ? 'Reloads after the wave' : 'Reloading';
   if (now.rounds <= 0) return 'EMPTY';
   return now.rounds <= def.magazine * 0.25 ? 'LOW' : 'Ready';
 }
@@ -74,6 +81,8 @@ export function updateMagazine(w, s, dt) {
   const def = s.def;
   if (!def.magazine) return;
   if (s.reload > 0) {
+    s.reloadHeld = !reloadsInFight(def) && fighting(w);
+    if (s.reloadHeld) return;
     s.reload = Math.max(0, s.reload - dt);
     if (s.reload === 0) {
       s.rounds = isBeam(def) ? def.magazine : Math.min(def.magazine, s.storage);

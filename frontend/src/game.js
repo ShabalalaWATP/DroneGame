@@ -2,7 +2,7 @@
 
 import * as THREE from 'three';
 import { DRONES, WORLD } from './sim/config/index.js';
-import { fieldsFor, setSetting, unitDef } from './sim/unit-config.js';
+import { cleanSettings, fieldsFor, setSetting, unitDef } from './sim/unit-config.js';
 import { predictRange, usesPath } from './sim/site-range.js';
 import { terrainState } from './sim/terrain.js';
 import { createSimulation, SIM_STEP } from './sim/simulation.js';
@@ -111,6 +111,13 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     if (fieldsFor(id).includes(field)) setSetting(loadoutFor(id), field, id, value);
     bump();
   }
+  // A deployed pack's lines: each system is placed with the settings its line holds, or the catalogue's.
+  function usePackLoadouts(lines) {
+    for (const l of lines) loadouts[l.id] = cleanSettings(l.id, l.settings);
+    bump();
+  }
+  // With a pack's kit, a hotkey opens its kind's list of what the pack holds rather than picking a system to place.
+  const cycleTool = (group) => (sim.state.kit ? tools.openCatalogue(group.kind, true) : tools.cycle(group));
 
   // What the system just placed really gets from where it stands, against the open field it is advertised for.
   function placedSummary() {
@@ -276,7 +283,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
   return {
     packs, loadPack, ensureWorld, mapSource, cursor: () => placement?.cursor() ?? null,
     sim, commands, clock, setSpeed, reviewClock, subscribe, getTick, bump, attach, debug, api, saver, storage, pageClosing,
-    getTool: tools.get, toolVehicle: tools.vehicle, setTool, toolChoice: tools.choice, cycleTool: tools.cycle, loadoutFor, setLoadout, lastRefusal: () => refusal, select, getSelected, reveal,
+    getTool: tools.get, toolVehicle: tools.vehicle, setTool, toolChoice: tools.choice, cycleTool, loadoutFor, setLoadout, usePackLoadouts, lastRefusal: () => refusal, select, getSelected, reveal,
     catalogue: tools.catalogue, openCatalogue: tools.openCatalogue, pickFromTray: tools.pickFromTray, startDrag: tools.startDrag, endDrag: tools.endDrag, dropAt,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },
     onFrame(fn) { frameListeners.add(fn); return () => frameListeners.delete(fn); },

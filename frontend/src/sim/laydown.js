@@ -48,8 +48,22 @@ export function placementProblem(w, x, z, def, cost = def.cost) {
   if (terrainState.data.coverAt(xm, zm) === 4) return 'You cannot build in water';
   if (terrainState.data.slope(xm, zm) > 0.4) return 'The ground is too steep';
   if (w.structures.some((s) => hdist(s.pos, { x, z }) < u(BUILD.spacing))) return 'Too close to another structure';
+  const kit = w.state.kit;
+  if (kit) {
+    const held = kit[def.id] ?? 0, placed = w.structures.filter((s) => s.def.id === def.id).length;
+    if (placed >= held) return held ? `All ${held} ${def.product} in your deployment pack are placed` : `The ${def.product} is not in your deployment pack`;
+  }
   if (!w.state.packed && w.state.budget < cost) return `Not enough budget (${money(cost)} needed, ${money(w.state.budget)} left)`;
   return null;
+}
+
+// A deployment pack in use: the budget only counts the cost, and a kit ({ system id: how many }) limits what can be placed.
+// true is a pack with no kit limit, as older run logs have; anything falsy is no pack.
+export function setPacked(w, kit) {
+  w.state.packed = !!kit;
+  w.state.kit = kit && typeof kit === 'object'
+    ? Object.fromEntries(Object.entries(kit).filter(([id, n]) => STRUCTURES[id] && Number.isInteger(n) && n > 0))
+    : null;
 }
 
 // A system on a vehicle stands at the vehicle's mast height, as in a patrol.

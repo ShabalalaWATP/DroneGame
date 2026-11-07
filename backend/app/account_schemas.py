@@ -5,7 +5,22 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints, ValidationInfo, field_validator
 
-from app.schemas import MAX_PEOPLE_PER_GROUP, Callsign, Name, PatrolVehicle, Protection, Strict, SystemId, _no_control_characters
+from app.schemas import (
+    MAX_PEOPLE_PER_GROUP,
+    MAX_UNIT_SETTINGS,
+    Callsign,
+    FigureKey,
+    Name,
+    PatrolVehicle,
+    Protection,
+    SettingArcs,
+    SettingBands,
+    SettingChoice,
+    SettingNumber,
+    Strict,
+    SystemId,
+    _no_control_characters,
+)
 
 MIN_PASSWORD = 10  # length is what makes a password strong, so there are no rules about character classes
 MAX_PASSWORD = 128  # long enough for any passphrase, short enough that hashing cannot be used to tie up the server
@@ -84,6 +99,8 @@ class NewRecoveryCode(BaseModel):
 class SystemLine(Strict):
     id: SystemId
     count: LineCount
+    # What each one is placed with. Shape and coarse bounds only, as for a placed system: the game clamps them to the class's limits.
+    settings: dict[FigureKey, SettingNumber | SettingChoice | SettingArcs | SettingBands] | None = Field(default=None, max_length=MAX_UNIT_SETTINGS, exclude_if=lambda v: v is None)
 
 
 class VehicleLine(Strict):

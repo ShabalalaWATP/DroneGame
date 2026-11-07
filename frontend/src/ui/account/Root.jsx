@@ -8,7 +8,7 @@ import { SIGNED_OUT } from '../../api/client.js';
 import { App } from '../App.jsx';
 import { AuthScreen } from './AuthScreen.jsx';
 import { ProfileHub } from './ProfileHub.jsx';
-import { AccountContext } from './pack.js';
+import { AccountContext, kitOf } from './pack.js';
 import { initials } from './parts.jsx';
 import './account.css';
 
@@ -35,6 +35,7 @@ export function Root({ game }) {
   const [screen, setScreen] = useState('hub'); // hub | game
   const [entered, setEntered] = useState(false);
   const [activeUnit, setActiveUnit] = useState(null); // the pack whose kit the tray lists
+  const [editActive, setEditActive] = useState(false); // the deployed pack is being edited from inside the game, which it goes back to
   const [notice, setNotice] = useState(null); // for the login page, after signing out or deleting the account
   const last = useRef(null); // who was signed in, so a lapsed session can only be picked up by the same person
   const who = user?.username;
@@ -48,7 +49,10 @@ export function Root({ game }) {
     if (pack?.username !== who) return;
     api.units.get(pack.id).then((p) => setActiveUnit((now) => now ?? p), (e) => { if (!e.retryable) keep(storage, null); }); // deleted meanwhile
   }, [who, api, game, storage]);
-  useEffect(() => { game.commands.setPacked(!!activeUnit); }, [game, activeUnit]); // with a pack, the budget only counts the cost
+  useEffect(() => { // with a pack, the budget only counts the cost and only the pack's kit can be placed, with its settings
+    game.commands.setPacked(activeUnit ? kitOf(activeUnit.assets) : false);
+    if (activeUnit) game.usePackLoadouts(activeUnit.assets.systems);
+  }, [game, activeUnit]);
   useEffect(() => {
     const lost = () => { if (game.sim.state.waveActive) game.setSpeed(0); setUser(null); }; // a wave waits under the login page
     addEventListener(SIGNED_OUT, lost);
@@ -72,9 +76,12 @@ export function Root({ game }) {
         if (pack) game.openCatalogue('unit', true); // the tray opens with it
       },
       openProfile: () => { if (game.sim.state.waveActive) game.setSpeed(0); setScreen('hub'); },
+      editActive,
+      editPack: () => { if (game.sim.state.waveActive) game.setSpeed(0); setEditActive(true); setScreen('hub'); },
+      doneEditing: () => { setEditActive(false); setScreen('game'); },
       signOut: () => api.auth.signOut().catch(() => null).then(() => leave('You are signed out.')),
     };
-  }, [user, screen, activeUnit, api, game, storage, clear]);
+  }, [user, screen, activeUnit, editActive, api, game, storage, clear]);
 
   if (user === undefined) return <main className="acct"><div className="acct-sky" aria-hidden="true" /></main>;
   const signedIn = (u) => {

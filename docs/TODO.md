@@ -120,6 +120,16 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] Crews off the network (`networked: false`): they cannot be wired and nothing tasks them. They see a drone by eye 100 to 200 m off by its size (half that at night), and a wearable detector warns them of a drone with a radio link within 400 m, so they are ready when it comes into sight and a jammer can be pointed down its bearing
 - [x] A handheld jammer's beam (30°, published for the Kvertus, assumed for the rest) points at the drone its soldier is jamming. The DroneGun Tactical and MkIII are handheld crew entries of their own; the standard small and medium jammers are now generic networked tripod jammers with the same figures, so saved laydowns and results do not move
 - [ ] Every gun's hit chance, range and price is an assumption; the crews' sight, detector range and reaction time are assumptions too
+- [x] Fast rounds passed through their targets: a GPMG round flies about 42 m a step against a 2 m fuze, so it never burst, and the .50 cal hit about a third as often as its figure. Rounds now burst where their path came closest, and gun rounds leave the muzzle aimed at the target rather than climbing like a missile. The reference digests did not move
+
+**From the figures audit (2026-11-07)**
+
+- [ ] Ammunition: 8 of the 17 systems that fire rounds take their magazine from a published figure; storage is published for Starstreak only, and reload time for the DroneHunter only. The Sting's magazine, storage and reload, which decide play more than any other, are all assumed
+- [ ] Hit chance: 5 of 17 rest on a reported figure (NASAMS, Sting, DroneHunter, P1-SUN, Gepard). The Paladin's 1.0 and the Gepard's 0.4 come from the same Gepard crew reports, which needs a look, and the Paladin's 300 m/s round is about a quarter of the other 30 to 35 mm guns
+- [ ] No effector has a ceiling or a minimum range: reach is a sphere round the system. Starstreak's published 300 m minimum is ignored, and interceptor drones can climb to a Geran at 2 to 4 km
+- [ ] Starstreak, NASAMS, Rapid Ranger and Sky Sabre are capped at 400 m/s, well below the real missiles. Guns now fly at 840 to 1,175 m/s and hit, so the reason for the cap needs checking
+- [ ] The P1-SUN flies at 80 m/s, copied from the Sting, though its own source gives 310 km/h (about 86 m/s)
+- [ ] Heights are reported for only about 7 of 30 real drones, and warheads are assumed or unverified for the Matrice 30T, Matrice 300, EVO Max 4T, Agras T30, ASN-301 and Skywalker. No range is published for the AUDS jammer or the K-CEMA Jupiter
 - [ ] The Skywalker is drawn at 0.35 m, its type's size, as its own span is not public; a Skywalker X8 is 2.1 m. Lancet-3's 1 m span is assumed and its length taken as 1.65 times that
 
 **Patrol prototype** (see `docs/PATROL_MODE.md`)
@@ -146,8 +156,11 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] A run whose save is refused while signed out says to sign in again, not that the server is down
 - [x] An end-of-deployment report, for a fixed site and a patrol: how it ended, drones launched, intercepted and through, what shot down what, rounds, missiles and beam fired and time spent jamming, the cost, systems lost and casualties. An End deployment button ends a run by choice
 - [x] With a pack deployed, the budget is no limit and only counts the cost, so the pack and magazines are the limits. The HUD hides the budget and site integrity then, apart from in the sandbox
-- [ ] With a pack deployed, nothing stops you placing kit the pack does not hold, and now the budget does not either. Should a pack limit the toolbar to its own kit?
-- [ ] With a pack deployed, resupply between waves refills every launcher, as a pack holds no reserve of rounds. A reserve per pack would make magazine depth count across waves
+- [x] A deployed pack is all that can be placed: each toolbar row lists only the pack's systems of its kind, with how many are left, a hotkey opens that list rather than picking a system, and placing beyond the pack is refused
+- [x] Each system line in a pack holds the settings its systems are placed with (the Unit panel's fields), and a pack can be edited from inside the game with Edit this pack, which goes back to the game
+- [x] Large systems (size L, such as NASAMS, Skynex and Gepard) reload from storage only once the wave is over; small and medium ones, such as a GPMG, reload as they fight. Alex chose this over a reserve of rounds per pack
+- [ ] With a pack deployed, resupply between waves still refills every launcher in full
+- [ ] A loaded saved laydown and the patrol column's systems are not checked against the pack's kit
 
 ## Known limits to fix if they start to matter
 

@@ -43,7 +43,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     started: false, over: false, autoStart: false, zone: null, zoneCentre: SITE_POS, attack: DEFAULT_MIX, conditions: 'day',
     waveActive: false, queue: [], waveTime: 0, autoTimer: -1,
     sandbox: false, sbLevel: 1, sbQueue: [], sbTime: 0, sbSpent: 0, // sandbox: attacks without consequences, before the first wave
-    packed: false, ended: false, // packed: a deployment pack is in use, so the budget only counts; ended: the operator ended the deployment
+    packed: false, kit: null, ended: false, // packed: a deployment pack is in use, so the budget only counts; kit: how many of each system it holds; ended: the operator ended the deployment
   };
   const w = { state, drones: [], structures: [], missiles: [], people: [], peopleUid: 0, peopleRev: 0, patrol: null, ledger: createLedger(), emit, droneUid: 0, startLaydown: null, startFigures: null, runEnded: false };
   laydown.applyConditions(w, 'day'); // the conditions are module state that physics reads: a new simulation starts on a clear day
@@ -116,7 +116,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     w.startFigures = exportFigures();
     // settings from before the rebuild that still apply, so the log alone can reproduce the run
     log.push({ step: 0, name: 'setAuthority', args: [FUSION.authority] }, { step: 0, name: 'setAutoStart', args: [state.autoStart] });
-    if (state.packed) log.push({ step: 0, name: 'setPacked', args: [true] });
+    if (state.packed) log.push({ step: 0, name: 'setPacked', args: [state.kit ?? true] });
   }
 
   // A run that has started is reported once, however it ends.
@@ -196,7 +196,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     startWave: () => startWave(w, beginRun),
     reset: (mode) => resetRun(mode),
     setAutoStart: (on) => { state.autoStart = on; },
-    setPacked: (on) => { state.packed = !!on; },
+    setPacked: (kit) => laydown.setPacked(w, kit),
     endDeployment,
     setAuthority: (mode) => { FUSION.authority = mode; },
     decide: (id, approve) => w.net.decide(id, approve),

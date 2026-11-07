@@ -22,9 +22,8 @@ export function labelLift(def) {
   return b * (def.modelScale || 1) * Math.max(4.5, mast + 1.5);
 }
 const ringOpacity = () => (onRealMap() ? 0.8 : 0.35);
-const SELECTED_RING_OPACITY = 0.95;
 const ringColour = (def) => (onRealMap() ? new THREE.Color(def.color).multiplyScalar(0.7) : def.color);
-const OPEN_RING_OPACITY = 0.45;
+const SELECTED_RING_OPACITY = 0.5; // the faint white line shown when selected, as the placement preview draws it
 const ringKey = (s) => `${s.def.range}|${s.def.mount}|${coverKey(s.def)}`; // a radar's facing follows what is defended
 const _m = new THREE.Vector3();
 const turn = (deg) => Math.PI - (deg * Math.PI) / 180; // a compass bearing as a turn of a head whose front is +z
@@ -35,15 +34,16 @@ export function createStructureViews(scene, sim, labels) {
   const views = new Map(); // structure -> view
 
   function makeRing(s, v) {
-    for (const old of [v.ringObj, v.openRing]) if (old) { v.holder.remove(old.mesh); old.dispose(); }
+    for (const old of [v.ringObj, v.selectRing]) if (old) { v.holder.remove(old.mesh); old.dispose(); }
     const r = u(s.def.range), m = WORLD.metresPerUnit;
-    // The bright line is what this spot really gets against a small drone. The faint circle, shown when selected, is the open field.
+    // Both lines are what this spot really gets against a small drone, with line of sight: the coloured one with the range rings,
+    // the faint white one when the system is selected.
     const radii = usesPath(s.def) ? Array.from(predictRange(s.def, DRONES.fpv, terrainState.data, s.pos.x * m, s.pos.z * m).first, (metres) => u(metres)) : null;
     v.ringObj = drapedRing(r, ringThickness(r), ringColour(s.def), ringOpacity(), 160, 0.5, radii);
-    v.openRing = drapedRing(r, ringThickness(r) * 0.5, 0xffffff, OPEN_RING_OPACITY);
-    for (const ring of [v.ringObj, v.openRing]) { ring.update(s.pos.x, s.pos.z); v.holder.add(ring.mesh); }
+    v.selectRing = drapedRing(r, ringThickness(r) * 1.5, 0xffffff, SELECTED_RING_OPACITY, 160, 0.5, radii);
+    for (const ring of [v.ringObj, v.selectRing]) { ring.update(s.pos.x, s.pos.z); v.holder.add(ring.mesh); }
     v.ringObj.mesh.visible = view.rings;
-    v.openRing.mesh.visible = false;
+    v.selectRing.mesh.visible = false;
     v.ringKey = ringKey(s);
     v.ringAt = { x: s.pos.x, z: s.pos.z };
   }
@@ -99,9 +99,7 @@ export function createStructureViews(scene, sim, labels) {
       if (v.ringKey !== ringKey(s)) { makeRing(s, v); setModel(s, v); } // this unit was reconfigured
       if (v.unit !== unit) { v.model.scale.setScalar(unit * (s.def.modelScale || 1)); v.parts.raise(unit / TRUE_UNIT); v.unit = unit; } // true size up close
       const selected = s === view.selected;
-      v.ringObj.mesh.visible = view.rings || selected;
-      v.openRing.mesh.visible = selected;
-      v.ringObj.mesh.material.opacity = selected ? SELECTED_RING_OPACITY : ringOpacity();
+      v.selectRing.mesh.visible = selected;
       v.label.classList.toggle('selected', selected);
       if (v.parts.spin) v.parts.spin.rotation.y += real * 2.2;
       else v.parts.head.rotation.y = headTurn(s);

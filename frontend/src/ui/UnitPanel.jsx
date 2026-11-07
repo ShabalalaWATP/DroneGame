@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { COMMS, DRONES, DRONE_CLASSES, SENSING, SPECTRUM, WORLD } from '../sim/config/index.js';
 import { money } from '../sim/economy.js';
-import { magazineWord } from '../sim/magazine.js';
+import { magazineWord, reloadsInFight } from '../sim/magazine.js';
 import { burnTime, hitChance, layTime } from '../sim/hit-chance.js';
 import { ERROR_AT_LIMIT, predictRange, reachFor, usesPath } from '../sim/site-range.js';
 import { arcsText, coverArc, elevationBand } from '../sim/sensor-model.js';
@@ -92,7 +92,7 @@ function Stores({ s, now, state, frame }) {
       <Row label="Magazine">{now.rounds} / {def.magazine} rounds{shown}</Row>
       <Row label="Fired">{plural(now.fired, 'round')}</Row>
       <Row label="In storage">{plural(now.storage, 'round')}{state.sandbox ? ', not used up in the sandbox' : ''}</Row>
-      <Row label="Reload">{def.reloadTime} s to fill the magazine, {def.cooldown} s between shots</Row>
+      <Row label="Reload">{def.reloadTime} s to fill the magazine{reloadsInFight(def) ? '' : ', only once the wave is over'}, {def.cooldown} s between shots</Row>
       <Row label="Per round"><PerShot def={def} state={state} frame={frame} /></Row>
     </>
   );

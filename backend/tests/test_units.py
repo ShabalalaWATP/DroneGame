@@ -50,6 +50,18 @@ def test_create_read_list_replace_delete(client):
     assert client.put(f"{API}/{body['id']}", json=unit()).status_code == 404
 
 
+def test_a_pack_keeps_the_settings_its_systems_are_placed_with(client):
+    systems = [{"id": "radar_a800", "count": 2, "settings": {"mount": 12, "clutter": "high"}}, {"id": "jammer", "count": 1, "settings": {"fitted": ["control24", "gnss"]}}]
+    made = client.post(API, json=unit(assets={"systems": systems}))
+    assert made.status_code == 201
+    assert client.get(f"{API}/{made.json()['id']}").json()["assets"]["systems"] == systems
+
+
+@pytest.mark.parametrize("settings", [{"mount": "tall" * 10}, {"bad key!": 1}, {f"k{i}": 1 for i in range(17)}, {"mount": 1e13}])
+def test_bad_pack_settings_are_refused(client, settings):
+    assert client.post(API, json=unit(assets={"systems": [{"id": "radar_a800", "count": 1, "settings": settings}]})).status_code == 422
+
+
 def test_an_empty_pack_is_allowed(client):
     assert client.post(API, json=unit(assets={})).status_code == 201
 
