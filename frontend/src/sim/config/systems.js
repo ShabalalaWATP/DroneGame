@@ -18,7 +18,7 @@ export const TOOLBAR = [
   { kind: 'jammer', name: 'RF jammer', key: '4', classes: ['jammer_mk4', 'jammer_dgmk3', 'jammer_s', 'jammer_dgtac', 'jammer_kvertus', 'jammer_skywiper', 'jammer', 'jammer_neo', 'jammer_jupiter', 'jammer_auds', 'jammer_l', 'jammer_sf'] },
   { kind: 'interceptor', name: 'Interceptor drones', key: '5', classes: ['interceptor_s', 'interceptor', 'interceptor_p1', 'interceptor_l'] },
   { kind: 'missile', name: 'Missile', key: '6', classes: ['missile_s', 'missile_rr', 'missile_hvm', 'missile', 'missile_l', 'missile_skysabre'] },
-  { kind: 'gun', name: 'Gun', key: '9', classes: ['gun_s', 'gun_50', 'gun_hmg', 'missile_paladin', 'gun_skyranger', 'gun_gepard', 'gun_l'] },
+  { kind: 'gun', name: 'Gun', key: '0', classes: ['gun_s', 'gun_50', 'gun_hmg', 'missile_paladin', 'gun_skyranger', 'gun_gepard', 'gun_l'] },
   { kind: 'laser', name: 'Laser', key: '7', classes: ['laser_rfdew', 'laser_s', 'laser', 'laser_l'] },
 ];
 export const firstClass = ({ classes }) => classes.find((id) => STRUCTURES[id].size === 'M' && !STRUCTURES[id].variantOf) ?? classes[0];

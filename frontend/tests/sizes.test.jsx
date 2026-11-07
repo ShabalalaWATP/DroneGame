@@ -136,6 +136,8 @@ describe('the hotkeys', () => {
     expect(game.getTool()).toBe('acoustic');
     press('9');
     expect(game.getTool()).toBe('people');
+    press('0');
+    expect(group('gun').classes).toContain(game.getTool());
   });
 
   it('switches a system with one size off on the second press', () => {
