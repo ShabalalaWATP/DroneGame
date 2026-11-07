@@ -1,5 +1,6 @@
 import { REAL_DRONES } from './real-drones.js';
 import { EXTRA_REAL_DRONES } from './real-drones-extra.js';
+import { COTS_DRONES } from './real-drones-cots.js';
 
 export const DRONES = {
   // model: 'quad' | 'fw'. alt: spawn altitude range above ground (m). minAgl: lowest it will fly above ground until
@@ -71,7 +72,7 @@ export const DRONES = {
   },
 };
 // A real drone starts from its type's rules and adds what is publicly known, so anything not public stays a labelled class value.
-for (const [id, real] of Object.entries({ ...REAL_DRONES, ...EXTRA_REAL_DRONES })) DRONES[id] = { ...DRONES[real.variantOf], ...real };
+for (const [id, real] of Object.entries({ ...REAL_DRONES, ...EXTRA_REAL_DRONES, ...COTS_DRONES })) DRONES[id] = { ...DRONES[real.variantOf], ...real };
 for (const [id, def] of Object.entries(DRONES)) def.id = id;
 
 // The four types the waves send and the wizard reasons about. Every real drone belongs to one of them (variantOf).

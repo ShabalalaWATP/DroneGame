@@ -72,15 +72,18 @@ describe('the fusion node with its threat library', () => {
   it('keeps a jammer off for a drone it knows is fibre-optic', () => {
     const { sim, step } = run([['radar', 600, 0], ['camera', 300, 300], ['camera', -300, -300], ['jammer', 0, 300], ['jammer', 0, -300]], ['kvn', 'fpv7inch'], 30000, '7');
     let pointless = 0, fibreOnly = 0;
+    const since = new Map(); // when each jammer last had only fibre-optic drones near it
     step(() => {
       for (const j of jammers(sim)) {
         const near = [...sim.net.tracks.values()].filter((tr) => tr.status === 'confirmed' && !tr.killWatch && sim.net.distToTrack(j, tr) <= j.def.range);
-        if (!near.length || !near.every((tr) => tr.model === 'KVN')) continue;
+        if (!near.length || !near.every((tr) => tr.model === 'KVN')) { since.delete(j); continue; }
+        if (!since.has(j)) since.set(j, sim.state.time);
+        if (sim.state.time - since.get(j) < 3) continue; // a switch off takes a tasking pass and the network to arrive
         fibreOnly++;
-        if (j.mode === 'Jam' && j.modePending !== 'Standby') pointless++;
+        if (j.mode === 'Jam') pointless++;
       }
     });
     expect(fibreOnly).toBeGreaterThan(0); // there were times when only fibre-optic drones were near it
-    expect(pointless / fibreOnly).toBeLessThan(0.05); // a switch takes a moment to arrive
+    expect(pointless).toBe(0);
   }, 120000);
 });

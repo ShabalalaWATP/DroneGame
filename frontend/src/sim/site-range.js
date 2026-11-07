@@ -23,7 +23,8 @@ const STEPS = 32;                // points checked along each direction
 
 const isRadio = (def) => def.kind === 'radar' || def.kind === 'rf' || def.kind === 'jammer';
 export const usesPath = (def) => def.fire !== 'guided';
-export const typicalAltitude = (droneDef) => (droneDef.alt[0] + droneDef.alt[1]) / 2;
+// A drone's usual height: the middle of its height band, or the average of the middles of its bands if it flies more than one.
+export const typicalAltitude = (droneDef) => { const bands = droneDef.altModes ?? [droneDef.alt]; return bands.reduce((sum, [lo, hi]) => sum + (lo + hi) / 2, 0) / bands.length; };
 export const antennaHeight = (def) => def.mount ?? (def.fire === 'beam' ? 4 : 0);
 
 // How far this sensor reaches for this type of drone in an open field, before terrain and clutter. 0 means it can never detect it.

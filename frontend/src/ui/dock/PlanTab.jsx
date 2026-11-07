@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { DRONES } from '../../sim/config/index.js';
+import { typicalAltitude } from '../../sim/site-range.js';
 import { view } from '../../render/view.js';
 import { useAnimation, useGame, useTick } from '../hooks.js';
 import { ThreatOptions } from '../ThreatOptions.jsx';
@@ -22,7 +23,7 @@ export function PlanTab({ active }) {
       <div className="plan-tools">
         <label><input type="checkbox" id="cov-on" checked={coverageOn} onChange={(e) => game.setViewOption('coverageOn', e.target.checked)} /> Sensor coverage for</label>
         <select id="cov-threat" value={threat} onChange={(e) => game.setViewOption('coverageThreat', e.target.value)}>
-          <ThreatOptions text={(d) => `${d.name} (${d.rfEmitter ? 'radio link' : 'no radio link'}, ${Math.round((d.alt[0] + d.alt[1]) / 2)} m)`} />
+          <ThreatOptions text={(d) => `${d.name} (${d.rfEmitter ? 'radio link' : 'no radio link'}, ${Math.round(typicalAltitude(d))} m)`} />
         </select>
         <span className="muted" id="cov-legend">{coverageOn && 'red: unseen · green: 1 sensor · blue: 2 · white: 3+'}</span>
       </div>

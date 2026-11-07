@@ -6,7 +6,7 @@
 // independent test results. Edit freely, or use the in-game Tuning panel.
 
 // Stored with saved laydowns and runs. Raise it when a change means old saves no longer replay the same.
-export const GAME_VERSION = '0.13.0';
+export const GAME_VERSION = '0.14.0';
 
 export const WORLD = {
   metresPerUnit: 20,     // 3D scene scale: 1 scene unit = this many metres
@@ -24,6 +24,7 @@ export const GEO = { originLat: 0, originLon: 0 };
 export const SITE = {
   radius: 150,           // a drone that gets this close hits the site (the power station is about 300 m across)
   targetAlt: 20,         // drones aim at this height above the ground (m)
+  diveAngle: 45,         // degrees: a fixed-wing strike drone holds its height until it can reach its target at this angle, then dives: an assumption
   maxHealth: 100,
 };
 

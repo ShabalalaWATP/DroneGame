@@ -29,7 +29,9 @@ export function spawnDrone(w, type, bearing, rolls = {}) {
   const altFrac = rolls.altFrac ?? rand();
   const a = bearing + jitter;
   const { x: sx, z: sz } = launchPoint(w.state.zoneCentre, a);
-  const agl = def.alt[0] + altFrac * (def.alt[1] - def.alt[0]); // metres above the ground at the spawn point
+  // metres above the ground at the spawn point: the roll picks one of its height bands, if it flies more than one, then a height in it
+  const bands = def.altModes ?? [def.alt], b = Math.min(bands.length - 1, Math.floor(altFrac * bands.length)), [lo, hi] = bands[b];
+  const agl = lo + (altFrac * bands.length - b) * (hi - lo);
   const y = hereU(sx, sz) + u(agl);
   const pos = new Vector3(sx, y, sz);
   const aim = w.state.zone && def.role !== 'spotter' ? aimInZone(w.state.zone, rand) : null; // only a drawn area uses a random draw, so runs without one are unchanged
@@ -37,7 +39,7 @@ export function spawnDrone(w, type, bearing, rolls = {}) {
   const d = {
     uid, def, type, pos, launch: pos.clone(),
     hp: def.hp, evade, jamResist, jamT: 0, detected: false, dead: false,
-    agl0: agl, h0: aim ? Math.max(Math.hypot(sx - aim.x, sz - aim.z), 1) : Math.hypot(sx, sz),                       // launch height above ground and distance, for the descent profile
+    agl0: agl, h0: aim ? Math.max(Math.hypot(sx - aim.x, sz - aim.z), 1) : Math.hypot(sx, sz), // launch height above ground and distance, for the descent
     mode: 'approach', angle: 0, orbitT: 0, bank: 0, heading: 0, // spotter state
     vel: new Vector3(), track: null, nav: 0, videoJammed: false, targetStructure: null, aim,
   };
@@ -121,13 +123,15 @@ function moveStrike(w, d, spd) {
   const tgt = pickTarget(w, d);
   const hrem = Math.hypot(tgt.x - d.pos.x, tgt.z - d.pos.z);
   if (tgt.structure || d.aim || tgt.patrol ? hrem < u(30) : hrem < u(SITE.radius)) { if (tgt.structure) hitStructure(w, d, tgt.structure); else impact(w, d, tgt.patrol && tgt); return false; }
-  // height above ground eases from the launch height down to the target height, never below the type's minimum until it
-  // is within 400 m, and climbing early over rising ground
+  // height above ground: a fixed-wing drone holds its cruise height until it can reach the target diving at SITE.diveAngle, then dives;
+  // a multirotor eases down over its whole run, as an operator brings it in low. Never below the type's minimum until within 400 m,
+  // and climbing early over rising ground
   let dirx = (tgt.x - d.pos.x) / hrem, dirz = (tgt.z - d.pos.z) / hrem;
   if (d.nav) { const c = Math.cos(d.nav), sn = Math.sin(d.nav); [dirx, dirz] = [dirx * c - dirz * sn, dirx * sn + dirz * c]; } // GNSS drift
   d.pos.x += dirx * spd; d.pos.z += dirz * spd;
-  const f = 1 - clamp(hrem / d.h0, 0, 1);
-  const want = Math.max(d.agl0 + (SITE.targetAlt - d.agl0) * f, (d.def.minAgl || 0) * Math.min(1, hrem / u(400)));
+  const dive = SITE.targetAlt + hrem * WORLD.metresPerUnit * Math.tan((SITE.diveAngle * Math.PI) / 180);
+  const glide = d.agl0 + (SITE.targetAlt - d.agl0) * (1 - clamp(hrem / d.h0, 0, 1));
+  const want = Math.max(d.def.airframe === 'Fixed wing' ? Math.min(d.agl0, dive) : glide, (d.def.minAgl || 0) * Math.min(1, hrem / u(400)));
   const ahead = Math.max(groundM(d.pos.x, d.pos.z), groundM(d.pos.x + dirx * u(150), d.pos.z + dirz * u(150)));
   d.pos.y += clamp(u(ahead + want) - d.pos.y, -spd * 1.2, spd * 0.8);
   d.pos.y = Math.max(d.pos.y, hereU(d.pos.x, d.pos.z) + u(3));

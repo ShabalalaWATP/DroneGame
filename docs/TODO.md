@@ -101,6 +101,9 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 - [x] Letting the waves send real drones. The Attack button picks any mix of types, real drones included, and it saves with the laydown.
 - [ ] Spelling out the systems' own short names (RDR, RFS, EO/IR, RF) as the threat names now are. They appear on the map, in the node list and in logs.
+- [x] More commercial drones reported with Russian forces: DJI Mavic 3T and Mavic 3 Pro, Autel EVO II Dual 640T, a DJI Mini 4 Pro as a reconnaissance spotter, and 10-inch and 13-inch first-person-view classes. The Agras T50 was left out: no report names it with either side
+- [x] Realistic heights, speeds and agility. Shahed-type drones fly low (50 to 300 m) or high (2 to 4 km), as Ukrainian officials report, and fixed-wing strike drones hold their height, then dive at 45°; multirotors still ease down over their run. Other heights are reported or set from their ceiling and role, and labelled. Agility is set by a stated rule, from airframe and who flies it. The four generic types keep their figures
+- [ ] Heights for most military drones are set by role, as only the Shahed family, Gerbera, Orlan-10 and CH-901 have reported operating heights. Lancet's 500 to 800 m rests on an unverified summary
 
 **Patrol prototype** (see `docs/PATROL_MODE.md`)
 

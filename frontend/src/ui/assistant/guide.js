@@ -3,6 +3,7 @@
 
 import { DRONE_CLASSES, STRUCTURES, TOOLBAR } from '../../sim/config/index.js';
 import { reachFor } from '../../sim/network/sensors.js';
+import { typicalAltitude } from '../../sim/site-range.js';
 
 export const STEP_IDS = ['zone', 'sensors', 'effectors', 'network', 'coverage', 'people', 'rehearse', 'refine', 'preflight'];
 
@@ -39,7 +40,7 @@ export const kindName = (kind) => familyOf(kind).name;
 // How far out along the ground this system reaches this drone at its usual height: 0 if the drone flies above its reach.
 // Ground clutter also hides a low flyer from radar beyond its low-flyer range.
 export function reachAgainst(def, drone) {
-  const flies = (drone.alt[0] + drone.alt[1]) / 2;
+  const flies = typicalAltitude(drone);
   const reach = def.role !== 'sensor' ? def.range : Math.min(reachFor(def, drone), def.lowAlt && flies < def.lowAlt ? def.lowRange : Infinity);
   return Math.sqrt(Math.max(reach ** 2 - flies ** 2, 0));
 }
