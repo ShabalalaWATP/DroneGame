@@ -150,6 +150,11 @@ class AccountService:
         self.store.update(user_id, recovery_hash=hash_secret(_clean_code(code)), failed_attempts=0)
         return code
 
+    def delete_account(self, user_id: int, password: str) -> None:
+        """Deletes the account with its sessions and packs, once the password is confirmed. Shared saves stay."""
+        self._confirm(user_id, password)
+        self.store.delete_user(user_id)
+
     def profile(self, user_id: int) -> dict[str, Any]:
         return self.store.profile(user_id)
 

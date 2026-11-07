@@ -41,6 +41,10 @@ class SqliteAccountStore:
         with self.conn:
             self.conn.execute(f"UPDATE users SET {', '.join(f'{k} = ?' for k in fields)} WHERE id = ?", (*fields.values(), user_id))
 
+    def delete_user(self, user_id: int) -> None:
+        with self.conn:  # its sessions and packs go with it (ON DELETE CASCADE)
+            self.conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
     def count_attempt(self, user_id: int, now: int) -> int | None:
         """Counts one more try in a single statement, so tries made at the same moment cannot overwrite each other's count.
         Returns the new count, or None while the account is locked."""

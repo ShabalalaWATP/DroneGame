@@ -60,14 +60,18 @@ def sign_in(body: SignIn, response: Response, service: Accounts) -> Profile:
     return service.profile(user_id)
 
 
+def _signed_out() -> Response:
+    response = Response(status_code=NO_CONTENT)
+    response.delete_cookie(COOKIE, path="/api", httponly=True, samesite="strict")
+    return response
+
+
 @router.post("/auth/sign-out", status_code=NO_CONTENT)
 def sign_out(request: Request, service: Accounts) -> Response:
     token = request.cookies.get(COOKIE)
     if token:
         service.sign_out(token)
-    response = Response(status_code=NO_CONTENT)
-    response.delete_cookie(COOKIE, path="/api", httponly=True, samesite="strict")
-    return response
+    return _signed_out()
 
 
 @router.post("/auth/reset")
@@ -89,6 +93,12 @@ def update_me(body: ProfileIn, user_id: UserId, service: Accounts) -> Profile:
 def change_password(body: ChangePassword, request: Request, user_id: UserId, service: Accounts) -> Response:
     service.change_password(user_id, body.current_password, body.new_password, request.cookies[COOKIE])
     return Response(status_code=NO_CONTENT)
+
+
+@router.post("/auth/delete-account", status_code=NO_CONTENT)  # POST, so the JSON-only guard covers it as it does every write
+def delete_account(body: ConfirmPassword, user_id: UserId, service: Accounts) -> Response:
+    service.delete_account(user_id, body.password)
+    return _signed_out()
 
 
 @router.post("/auth/recovery-code")

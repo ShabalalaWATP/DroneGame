@@ -198,6 +198,27 @@ class TestProfile:
         assert sign_in(client, password="a brand new passphrase").status_code == 200
 
 
+class TestDeletingAnAccount:
+    def test_needs_the_password_then_takes_its_sessions_and_packs(self, client, db_path):
+        client.post("/api/v1/units", json={"name": "1 Troop", "echelon": "troop", "callsign": None, "assets": {"systems": [], "vehicles": [], "people": []}})
+        client.post("/api/v1/laydowns", json=laydown())
+        other = sign_in(client).cookies["sg_session"]  # a second session, as from another browser
+        assert client.post(f"{API}/delete-account", json={"password": "wrong password"}).status_code == 401
+        assert client.get(f"{API}/me").status_code == 200
+
+        gone = client.post(f"{API}/delete-account", json={"password": PASSWORD})
+        assert gone.status_code == 204 and 'sg_session=""' in gone.headers["set-cookie"]
+        with closing(connect(db_path)) as db:
+            assert [db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in ("users", "sessions", "units", "laydowns")] == [0, 0, 0, 1]  # shared saves stay
+        client.cookies.set("sg_session", other, domain="localhost.local", path="/api")
+        assert client.get(f"{API}/me").status_code == 401
+        assert sign_in(client).status_code == 401
+        assert sign_up(client).status_code == 201  # the name is free again
+
+    def test_refused_without_a_session(self, anon):
+        assert anon.post(f"{API}/delete-account", json={"password": PASSWORD}).status_code == 401
+
+
 def test_tries_made_at_the_same_moment_still_lock_the_account(db_path, anon, monkeypatch):
     """Tries sent at once used to each write back their count after the slow hash, overwriting the others' and the lock."""
     sign_up(anon)

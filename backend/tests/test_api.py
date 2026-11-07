@@ -24,6 +24,7 @@ def test_the_api_matches_the_documented_table(client):
         f"{API}/auth/me": ["GET", "PUT"],
         f"{API}/auth/password": ["POST"],
         f"{API}/auth/recovery-code": ["POST"],
+        f"{API}/auth/delete-account": ["POST"],
         f"{API}/units": ["GET", "POST"],
         f"{API}/units/{{unit_id}}": ["DELETE", "GET", "PUT"],
         f"{API}/laydowns": ["GET", "POST"],
