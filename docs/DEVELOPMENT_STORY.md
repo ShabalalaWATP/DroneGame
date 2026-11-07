@@ -345,6 +345,8 @@ A walk through in a real browser found four things the tests had not. The bright
 
 Alex then asked for the open items to be fixed. An account can now be deleted with its password, and the database's cascades take its sessions and packs. Signing out no longer reloads the page. The reload had been there so nothing of one account carried into the next, but saves are shared, so only the deployed pack and its tray belonged to the account, and those are now cleared by hand while the half-built laydown stays. The deployed pack now survives a reload, keyed by its owner's username so it never comes back for someone else. The wrong "server not running" message for a run saved while signed out had already been fixed in the review pass, so only the to-do list needed ticking.
 
+The last item, placing a pack's vehicles, waited for main, where the patrol work had added the same three vehicles. Merging it in clashed in only two places: an import in the placing code and this story. Asked how pack vehicles should work, Alex chose both ways offered: parked on the map with a system on board, and filling the patrol's column. A parked vehicle reuses what the patrol already had: what each vehicle can carry, its mast height, and drawing the system on top of it. So it is a system with a `vehicle` on its definition, saved with the laydown. Standing on the vehicle's short mast instead of its own, a radar on a Hilux costs less and sees less far, by the existing price per metre of mast. The pack's own vehicle list went, so there is one list.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

@@ -134,7 +134,7 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 
 - [x] Login page with sign-in, sign-up and recovery-code reset, a profile hub, and deployment packs dragged from a tray in the game
 - [x] The toolbar's S, M and L buttons replaced by each kind's list of real systems, dragged or clicked onto the map, with the wizard's numbered steps
-- [ ] Place a pack's vehicles on the map. They are a roster only, until vehicles exist in the game; `UNIT_VEHICLES` repeats the patrol work's vehicle list and should become one list when that lands
+- [x] Place a pack's vehicles on the map: parked with one of the pack's systems on board, and as the patrol's column, which a pack with vehicles limits to its own. One vehicle list, `PATROL_VEHICLES`
 - [x] Delete an account, with its password. Its sessions and packs go with it; shared saves stay
 - [x] Keep the deployed pack across a page reload. Its id is kept in the browser with the owner's username, so only they get it back
 - [x] Sign out without a page reload, so a half-built laydown is not lost. The game stays for whoever signs in next; the last account's pack and tray are cleared

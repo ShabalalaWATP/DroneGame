@@ -765,7 +765,7 @@ Built. Alex asked for a login page, a profile for each person, and deployment pa
 - **Frontend:** `ui/account/Root.jsx` gates the game behind `AuthScreen.jsx`, then shows `ProfileHub.jsx`. `PackEditor.jsx` builds packs from the same catalogue as the toolbar. A deployed pack reaches the game through `AccountContext`, and its id is kept in the browser so a reload keeps it. Signing out or deleting the account clears the pack but keeps the game, without a reload.
 - **The catalogue:** the S, M and L buttons are gone. A toolbar row opens its list of real systems (`ToolPicker.jsx`), and each card can be dragged onto the map (`drag.js`, `render/placement.js`) or clicked, then the map clicked. `tools.js` holds the tool and the open list. A deployed pack opens as its own list, the tray, with how many of each are left.
 - **The wizard** gives three numbered steps for each system it recommends, and the ring moves from the toolbar row to the card in the list.
-- **Vehicles** are a roster only: there is no placeable vehicle yet.
+- **Vehicles** are the patrol's (`PATROL_VEHICLES`). A pack's vehicle is parked with one of the pack's systems it can carry (`carries` in `sim/config/units.js`), which stands at the vehicle's mast height and is saved with a `vehicle` field. With a pack that has vehicles, the patrol's column takes only those, as many as it has less any parked (`PatrolColumn.jsx`).
 
 ### Threat names and real drones
 

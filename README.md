@@ -273,7 +273,7 @@ The game opens on a login page. **Create account** asks for your name, a usernam
 
 Signing in opens your profile, where you can change your name, rank and organisation, your password or your recovery code. The badge at the bottom left of the game brings it back, and pauses a wave in progress.
 
-A deployment pack is a military unit, from a fireteam to a battalion, with a callsign and the real sensors, effectors, vehicles and groups of people assigned to it. Press **Deploy** on a pack and the game lists its kit in a tray at the top of the toolbar, with how many of each are left to place. Drag each onto the map. A pack's systems come out of the same budget as any other. Vehicles are listed for planning and are not placed on the map yet.
+A deployment pack is a military unit, from a fireteam to a battalion, with a callsign and the real sensors, effectors, vehicles and groups of people assigned to it. Press **Deploy** on a pack and the game lists its kit in a tray at the top of the toolbar, with how many of each are left to place. Drag each onto the map. A pack's systems come out of the same budget as any other. A vehicle is placed with one of the pack's systems on board, chosen in the tray, and stands it at the vehicle's mast height. With a pack deployed, a patrol's column takes only the pack's vehicles, as many as it has less any parked.
 
 Packs belong to your profile. Laydowns, runs and figure sets are shared by every account on this computer.
 
