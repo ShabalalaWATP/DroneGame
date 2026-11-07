@@ -2,6 +2,7 @@
 says nothing about where a pack is. Only the base map tiles and the satellite picture ask for one area."""
 
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -18,7 +19,7 @@ from rasterio.transform import from_origin
 from rasterio.windows import from_bounds
 from shapely.geometry import mapping
 
-from .estonia_files import AGENT, BUILDINGS, CRS, HEIGHTS, LAND, SURFACE, TRANSPORT, UTILITIES, WATER, _retrying, ensure  # noqa: F401 - ensure is part of this module's face
+from .estonia_files import AGENT, BUILDINGS, CRS, HEIGHTS, LAND, PLACES, SURFACE, TRANSPORT, UTILITIES, WATER, _retrying, ensure  # noqa: F401 - ensure is part of this module's face
 from .grid import CELL, Window
 
 FIRST_NORTH = 6_000_000  # Great Britain's northings stop at 1,300 km, so a position says which grid it is on
@@ -35,6 +36,9 @@ MIN_BUILDING_PIXELS = 2  # of the 16 in a cell, before a footprint makes the cel
 FOREST = 10  # type "Mets" in ETAK: the other woody types are bushes and lone trees, too low to count as woodland
 MIN_LINE_KV = 35  # the local lines below this hang on poles, not the pylons OS maps show
 ROAD_CLASS = {10: "Primary", 20: "A Road", 30: "B Road", 40: "B Road", 50: "Local", 60: "Minor", 70: "Restricted", 80: "Restricted"}
+# Settlement types, sized as OS sizes its names: cities and towns large, and small towns, city districts, boroughs and villages medium
+NAME_SIZE = {"4": "Large", "5": "Large", "3": "Medium", "6": "Medium", "7": "Medium", "8": "Medium"}
+TYPE_WORD = re.compile(r" (linn|alev|alevik|küla|linnaosa)(?= /|$)")  # official names end in their type, as in "Tapa linn", which a map leaves off
 
 # The basic map, as pre-made tiles: the agency asks for these rather than its live map service, and for an unhurried pace.
 TILE = "https://tiles.maaamet.ee/tm/tms/1.0.0/epk_v/10/{x}/{y}.png&ASUTUS=SITEGUARD&KESKKOND=LIVE&IS=MAPBUILD"
@@ -136,6 +140,25 @@ class Etak:
         return shapely.from_wkb(geometry), dict(zip(meta["fields"], data))
 
 
+def place_names(data_root: str, window: Window) -> tuple[np.ndarray, dict]:
+    """A point and a name for each settlement in the window, in the fields OS names come in. A settlement in several pieces is named once, on its largest."""
+    w = window
+    meta, _, geometry, data = ogr_read(f"/vsizip/{_need(data_root, PLACES)}/asustusyksus.shp", bbox=(w.west, w.south, w.right, w.top), columns=["ANIMI", "AKOOD", "TYYP"], force_2d=True)
+    shapes, fields = shapely.from_wkb(geometry), dict(zip(meta["fields"], data))
+    largest = {}
+    for i, code in enumerate(fields["AKOOD"]):
+        if code not in largest or shapes[i].area > shapes[largest[code]].area:
+            largest[code] = i
+    keep = np.array(sorted(largest.values()), int)
+    shapes = shapes[keep]
+    middle = shapely.centroid(shapes)
+    middle = np.where(shapely.contains(shapes, middle), middle, shapely.point_on_surface(shapes))  # a curved village can have its middle outside it
+    inside = shapely.contains_xy(shapely.box(w.west, w.south, w.right, w.top), shapely.get_x(middle), shapely.get_y(middle))
+    names = np.array([TYPE_WORD.sub("", str(n)) for n in fields["ANIMI"][keep]], dtype=object)
+    sizes = np.array([NAME_SIZE.get(str(t), "Small") for t in fields["TYYP"][keep]], dtype=object)
+    return middle[inside], {"DISTNAME": names[inside], "CLASSIFICA": np.full(inside.sum(), "Populated Place", dtype=object), "FONTHEIGHT": sizes[inside]}
+
+
 def road_rows(shapes: np.ndarray, types: np.ndarray) -> tuple[np.ndarray, dict]:
     """Split into plain lines, each with the game's name for its class, and leave out anything the game would not draw."""
     parts, index = shapely.get_parts(shapes, return_index=True)
@@ -228,14 +251,15 @@ def gather(data_root: str, window: Window, lidar_km: int, say) -> Inputs:
     water = [etak.read(WATER, layer)[0] for layer in ("E_201_meri_a", "E_202_seisuveekogu_a", "E_203_vooluveekogu_a")]
     road_shapes, road_fields = etak.read(TRANSPORT, "E_501_tee_j", ["tyyp"])
     roads, classes = road_rows(road_shapes, road_fields["tyyp"])
-    say(f"ETAK: {len(houses)} buildings, {len(wood)} woods, {len(roads)} roads, {len(power)} power lines")
+    names, name_fields = place_names(data_root, window)
+    say(f"ETAK: {len(houses)} buildings, {len(wood)} woods, {len(roads)} roads, {len(power)} power lines. Settlements: {len(names)}")
     power = shapely.get_parts(power)
-    return Inputs(np.nan_to_num(ground).astype("float32"), no_data, wood, houses, power, np.concatenate(water), roads, classes, np.array([], dtype=object), {},
+    return Inputs(np.nan_to_num(ground).astype("float32"), no_data, wood, houses, power, np.concatenate(water), roads, classes, names, name_fields,
                   lidar(data_root, window, lidar_km * 500, ground, houses) if lidar_km else None)
 
 
 def credits(lidar_km: int, year: int) -> dict[str, str]:
     """The licence asks for the owner, the title and the age of the data, and for the licence itself to travel with data given to others."""
-    found = {"osmap": f"Estonian basic map {year} and topographic data: {OWNER}. Licence: {LICENCE}"}
+    found = {"osmap": f"Estonian basic map {year}, topographic data, and administrative and settlement units: {OWNER}. Licence: {LICENCE}"}
     found["lidar"] = f"Elevation data 2020-2023: {OWNER}" if lidar_km else f"Elevation data: {OWNER}"
     return found

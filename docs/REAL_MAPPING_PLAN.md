@@ -552,6 +552,7 @@ Estonia was added as a second grid, starting with Tapa. Alex asked for it after 
 | Ground heights | `DTM_10m_eesti.tif`, 10 m, from lidar | 2.2 GB | No, whole country |
 | Tree and building heights | `ndsm_5m_2020-2023_kogu_Eesti.zip`, 5 m, one file per square km | 3.8 GB | No, whole country |
 | Buildings, woods, water, roads, power lines | Five `ETAK_Eesti_SHP_*.zip` themes | 1.3 GB | No, whole country |
+| Place names | `asustusyksus_shp.zip`, the settlement units, from the agency's file store at `s3.pilw.io` | 16 MB | No, whole country |
 | Map picture | `epk_v` tiles at 3.9 m per pixel, 930 for a 30 km pack | About 16 MB, in about 10 minutes | Yes, to the agency |
 | Satellite | Sentinel-2, as in Great Britain | Fetched | Yes, to AWS |
 
@@ -561,7 +562,7 @@ Estonia was added as a second grid, starting with Tapa. Alex asked for it after 
 
 **Things the data taught.** The lidar zip uses Deflate64, which Python's `zipfile` cannot read, so it is read through GDAL, and only a spread of its sheets can be checked after download. A `where` filter on a shapefile needs its field among the columns read, or it silently matches nothing.
 
-**Known limits.** Estonian data stops at the national border. At Narva, about half of a 14 km world around the city has no heights or detail, and the builder treats ground with no data as water, as it does for sea. The start card says so, and a site well west of the city avoids most of it. Copernicus 30 m heights could fill the Russian side, but that is untested. Place names are not in ETAK, so names come only from the map picture, and `EGM2008` stands in for the local height system when reporting altitude, as PROJ has no grid for EH2000.
+**Known limits.** Estonian data stops at the national border. At Narva, about half of a 14 km world around the city has no heights or detail, and the builder treats ground with no data as water, as it does for sea. The start card says so, and a site well west of the city avoids most of it. Copernicus 30 m heights could fill the Russian side, but that is untested. Place names are not in ETAK, so they come from the settlement units instead: each is named once, at the middle of its area, with its type word ("linn", "küla") left off. Cities and towns are drawn large, and small towns, city districts, boroughs and villages medium, as OS sizes towns and villages. A village's area is its whole parish of farmland, so its name can sit some way from its houses. `EGM2008` stands in for the local height system when reporting altitude, as PROJ has no grid for EH2000.
 
 ## Assumptions to confirm
 

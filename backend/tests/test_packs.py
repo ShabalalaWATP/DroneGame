@@ -166,6 +166,8 @@ def test_lists_only_finished_os_downloads(client, root):
         (root / "estonia" / f"ETAK_Eesti_SHP_{theme}.zip").write_bytes(b"x")
     assert client.get(f"{API}/downloads").json()["estonia"] == {"heights": True, "surface": False, "features": False}  # one theme is missing
     (root / "estonia" / "ETAK_Eesti_SHP_tehnovorgud.zip").write_bytes(b"x")
+    assert client.get(f"{API}/downloads").json()["estonia"]["features"] is False  # the settlement names are missing
+    (root / "estonia" / "asustusyksus_shp.zip").write_bytes(b"x")
     assert client.get(f"{API}/downloads").json()["estonia"]["features"] is True
 
 

@@ -142,7 +142,7 @@ export function MapControls() {
         view.me = null;
         const text = geo ? `outside this world` : 'and this is generated ground';
         if (onGrid(fix.e, fix.n)) say(`You are at ${where}, ${text}.`, { e: fix.e, n: fix.n, note: `Your location, ${quality}.` });
-        else say('You appear to be outside Great Britain, which these maps cover.');
+        else say('You appear to be outside Great Britain and Estonia, which these maps cover.');
       }
     } catch (problem) { say(problem.message); }
     setLocating(false);
@@ -219,13 +219,13 @@ export function MapControls() {
           {showContours && <TopoLegend data={data} />}
           {geo && (
             <form id="map-goto" onSubmit={placeHere}>
-              <input id="map-ref" type="text" spellCheck="false" maxLength={20} placeholder="Grid ref, e.g. SU 220 660" title="Move there, or place the selected system there" value={typed} onChange={(e) => setTyped(e.target.value)} />
+              <input id="map-ref" type="text" spellCheck="false" maxLength={20} placeholder={`Grid ref, e.g. ${gridRef(geo.e0, geo.n0)}`} title="Move there, or place the selected system there" value={typed} onChange={(e) => setTyped(e.target.value)} />
               <button type="submit">Go</button>
             </form>
           )}
           {message}
           {view.baseMap === 'live' && geo && <div className="muted map-note">Live tiles tell OpenStreetMap which area you are viewing.</div>}
-          {geo && geo.lidarHalf < WORLD.radius && <div className="muted map-note">Terrain 50 ground: tree and building heights are assumed.</div>}
+          {geo && geo.lidarHalf < WORLD.radius && <div className="muted map-note">No lidar on part of this map, so tree and building heights there are assumed.</div>}
           <button id="map-change-world" title="Go back to the start screen to pick generated ground or another real map. This clears your laydown." onClick={change.confirm('world', () => game.leaveWorld())}>{change.armed ? 'Sure? This clears your laydown' : 'Change world'}</button>
         </div>
       )}

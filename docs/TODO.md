@@ -71,6 +71,7 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] Choosing the site without the wizard, or with the guide's first part on the start card, with what is on this computer highlighted on the map and what a build would download listed.
 - [x] Real maps of Estonia, starting with Tapa. See "Estonia" in `docs/REAL_MAPPING_PLAN.md`.
 - [ ] Narva. Estonian data stops at the border, so about half of a world around the city counts as water. Test Copernicus 30 m heights for the Russian side.
+- [x] Place names on Estonian maps, from the agency's settlement units, as ETAK has none. A pack built before this has none: rebuild it.
 - [ ] Real maps of other countries. Each needs its own open data and grid, as Estonia did. A spot elsewhere is refused.
 - [ ] Typing the site's location as MGRS. Not in the mapping plan, and not small: it needs the lettering of MGRS squares and a UTM conversion that the code does not have.
 - [ ] The Ask box, for typing your own questions. Not built, and the one part still to decide: it needs a language model, so it would go through FastAPI, off by default and blocked on real-site worlds.

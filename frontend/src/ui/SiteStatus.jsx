@@ -26,7 +26,7 @@ function britishRows(point, downloads, lidar) {
 
 function estonianRows(downloads, lidar) {
   const have = downloads.estonia || {};
-  const rows = [['Estonian ground heights', have.heights ? 0 : ESTONIA_HEIGHTS_GB], ['Estonian buildings, roads, water and woods', have.features ? 0 : ESTONIA_FEATURES_GB]];
+  const rows = [['Estonian ground heights', have.heights ? 0 : ESTONIA_HEIGHTS_GB], ['Estonian buildings, roads, water, woods and place names', have.features ? 0 : ESTONIA_FEATURES_GB]];
   if (lidar) rows.push(['Lidar tree and building heights', have.surface ? 0 : ESTONIA_SURFACE_GB]);
   return rows;
 }
@@ -101,7 +101,7 @@ export function SiteStatus({ site, decoded, wanted, downloads, onBuilt }) {
   return (
     <div id="site-info">
       <b className="site-ok">Ready to play, nothing to download</b>
-      Start point <b>{gridRef(site.e, site.n, 8)}</b> on {header.name}. The red square is your 14 km world. {allLidar ? 'Lidar heights across this world.' : 'Part or all of this world uses Terrain 50, with assumed tree and building heights.'}
+      Start point <b>{gridRef(site.e, site.n, 8)}</b> on {header.name}. The red square is your 14 km world. {allLidar ? 'Lidar heights across this world.' : 'Part or all of this world has no lidar, so its tree and building heights are assumed.'}
     </div>
   );
 }
