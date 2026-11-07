@@ -10,6 +10,7 @@ import { u, hereU, hdist } from './units.js';
 import { affordable, spend } from './economy.js';
 import { damageDrone } from './drones.js';
 import { canFire, updateMagazine, useRound } from './magazine.js';
+import { crewTask, crewed } from './crew.js';
 
 const _v = new Vector3(), _m = new Vector3();
 const MISS_COLOUR = 0x90a4ae;
@@ -87,6 +88,7 @@ export function updateStructures(w, dt) {
     s.cd = Math.max(0, s.cd - dt);
     if (def.role === 'sensor') continue;
     updateMagazine(w, s, dt);
+    if (crewed(def)) crewTask(w, s, dt); // off the network, its crew picks its own target
     const t = s.task && state.time >= (s.task.activeAt || 0) && !s.task.drone.dead && s.pos.distanceTo(s.task.drone.pos) <= u(def.range) ? s.task.drone : null; // acts once its task has arrived
     FIRE[def.fire](w, s, t, dt);
   }

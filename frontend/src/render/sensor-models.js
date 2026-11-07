@@ -81,6 +81,13 @@ export function acoustic(b, h, def, r) {
 }
 
 export function jammer(b, h, def, r) {
+  if (def.handheld) { // a jammer gun held by a soldier, who turns to point it at the drone
+    const m = 1 / SYSTEM_UNIT_M;
+    h.geo('figure', soldierFigure().scale(m, m, m));
+    h.box('body', 0.1 * m, 0.16 * m, 0.55 * m, 0.05 * m, 1.18 * m, 0.4 * m);
+    for (const x of [0, 0.1]) h.cyl('dark', 0.03 * m, 0.25 * m, x * m, 1.22 * m, 0.78 * m, { r2: 0.05 * m, rx: Math.PI / 2 });
+    return { headY: 0 };
+  }
   if (def.id === 'jammer_neo') { // Kirintec K-CEMA NEO: carried in a bergen on a soldier's back, its antennas up from the pack
     const m = 1 / SYSTEM_UNIT_M; // the soldier is in metres
     b.geo('figure', soldierFigure().scale(m, m, m));
@@ -91,10 +98,9 @@ export function jammer(b, h, def, r) {
   const at = stand(b, r, def);
   const whips = (pts, len, y) => { for (const [x, z] of pts) h.post('dark', 0.025, len, x, y + len / 2, z); };
   switch (def.id) {
-    case 'jammer': case 'jammer_s': // DroneShield DroneGun: a rifle-shaped jammer with its antennas forward
-      h.box('body', 0.25, 0.3, 0.9, 0, 0.2, 0);
-      h.box('dark', 0.1, 0.3, 0.15, 0, -0.05, -0.1);
-      for (const x of [-0.08, 0.08]) h.cyl('dark', 0.06, 0.5, x, 0.28, 0.6, { r2: 0.09, rx: PI / 2 });
+    case 'jammer': case 'jammer_s': // a portable jammer on a tripod: its electronics box with two panel antennas angled apart
+      h.box('dark', 0.4, 0.3, 0.3, 0, 0.15, 0);
+      for (const a of [-0.35, 0.35]) h.box('body', 0.4, 0.55, 0.06, Math.sin(a) * 0.15, 0.6, 0.15 + Math.cos(a) * 0.05, { ry: a });
       break;
     case 'jammer_auds': // AUDS: a pan-and-tilt head carrying a large directional antenna
       h.box('dark', 0.5, 0.4, 0.4, 0, 0.2, 0);

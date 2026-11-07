@@ -17,7 +17,7 @@ export const MAX_K = STRUCT_SCALE / TRUE_UNIT; // the most a system is drawn lar
 export function systemMats(def) {
   const std = (color, e = 0) => new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.3, emissive: color, emissiveIntensity: e, flatShading: true, side: THREE.DoubleSide });
   return {
-    body: std(def.color, 0.3), metal: std(0x6b7480), dark: std(0x2a2f36), drab: std(0x5a6346), glass: std(0xffffff, 0.6),
+    body: std(def.color, 0.3), metal: std(0x6b7480), dark: std(0x2a2f36), drab: std(0x5a6346), sand: std(0xb5a27f), glass: std(0xffffff, 0.6),
     figure: new THREE.MeshLambertMaterial({ vertexColors: true }), // a person, coloured by figures.js
     spin: new THREE.MeshBasicMaterial({ color: 0xdddddd, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide }),
   };

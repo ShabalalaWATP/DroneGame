@@ -84,7 +84,8 @@ function placeAll(w) {
 
 // Every system in the column and its terminal, and a terminal for the fusion node if it has none. The vehicles themselves are
 // not priced: the budget is for counter-drone systems.
-const escortCost = (w, column) => column.reduce((sum, e) => sum + STRUCTURES[e.system].cost, 0) + COMMS.starlink.cost * (column.length + (w.net.fusion.uplinks.has('starlink') ? 0 : 1));
+const escortCost = (w, column) => column.reduce((sum, e) => sum + STRUCTURES[e.system].cost, 0)
+  + COMMS.starlink.cost * (column.filter((e) => STRUCTURES[e.system].networked !== false).length + (w.net.fusion.uplinks.has('starlink') ? 0 : 1));
 
 function startPatrol(w, route, column) {
   const [x, z] = route[0];
@@ -92,7 +93,7 @@ function startPatrol(w, route, column) {
     const s = addStructure(w, system, x, z, { settings: STRUCTURES[system].mount == null ? {} : { mount: PATROL_VEHICLES[vehicle].mast } }); // its mast on the vehicle
     s.escort = true; s.def.vehicle = vehicle; // the unit's own definition, so the drawing puts it on the vehicle
     w.state.budget -= s.def.cost; w.ledger.capex += s.def.cost;
-    wireNode(w, s, 'starlink'); // shortcut: assumes a terminal that works on the move. Model cellular or a mesh radio if escorts need a choice.
+    if (s.def.networked !== false) wireNode(w, s, 'starlink'); // shortcut: assumes a terminal that works on the move. Model cellular or a mesh radio if escorts need a choice.
     return { s, gap };
   });
   wireFusion(w, 'starlink', true);

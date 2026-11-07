@@ -9,7 +9,7 @@ import { weatherRange } from './conditions.js';
 import { JAM_BANDS, LIBRARIES, covers, parseBands } from './rf-model.js';
 
 const each = (ids, limits) => Object.fromEntries(ids.map((id) => [id, limits]));
-const RADARS = ['radar_s', 'radar_a400', 'radar', 'radar_a800', 'radar_giraffe', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_airfence', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_neo', 'jammer_jupiter', 'jammer_auds', 'jammer_l', 'jammer_sf'], ACOUSTICS = ['acoustic_s', 'acoustic', 'acoustic_l'];
+const RADARS = ['radar_s', 'radar_a400', 'radar', 'radar_a800', 'radar_giraffe', 'radar_l'], RFS = ['rf_s', 'rf', 'rf_elysion', 'rf_airfence', 'rf_l'], CAMERAS = ['camera_s', 'camera', 'camera_l'], JAMMERS = ['jammer_s', 'jammer', 'jammer_neo', 'jammer_jupiter', 'jammer_auds', 'jammer_l', 'jammer_sf', 'jammer_mk4', 'jammer_skywiper', 'jammer_kvertus', 'jammer_dgmk3', 'jammer_dgtac'], ACOUSTICS = ['acoustic_s', 'acoustic', 'acoustic_l'];
 const PANELLED = { radar_s: [1, 3], radar_l: [1, 3], radar_a800: [1, 4], radar_a400: [1, 4] }; // fixed-panel radars: up to all round
 const MEDIUM_UP = RADARS.filter((id) => STRUCTURES[id].size !== 'S'); // 2D is offered on Medium and Large radars
 const TOP_EDGE = Object.fromEntries(RADARS.filter((id) => STRUCTURES[id].elevation + lowestEdge > 15).map((id) => [id, [15, STRUCTURES[id].elevation + lowestEdge]])); // a narrow beam keeps its top
@@ -208,7 +208,7 @@ export const UNIT_FIELDS = [
     help: 'Longer holds a track for more looks, and leaves other tracks waiting.',
   },
   {
-    key: 'reload', label: 'Time between shots', unit: 's', step: 0.5, base: (c) => c.cooldown, direct: 'cooldown', limits: { interceptor_s: [2, 8], interceptor: [1.5, 6], interceptor_p1: [1.5, 6], interceptor_l: [1.5, 6], missile_rr: [2, 8], missile_hvm: [2, 8], missile_paladin: [0.5, 3], gun_hmg: [0.5, 4], missile_skysabre: [3, 10], missile_s: [1, 4], missile: [2, 8], missile_l: [3, 10] },
+    key: 'reload', label: 'Time between shots', unit: 's', step: 0.5, base: (c) => c.cooldown, direct: 'cooldown', limits: { interceptor_s: [2, 8], interceptor: [1.5, 6], interceptor_p1: [1.5, 6], interceptor_l: [1.5, 6], missile_rr: [2, 8], missile_hvm: [2, 8], missile_paladin: [0.5, 3], gun_hmg: [0.5, 4], gun_s: [0.5, 4], gun_50: [0.5, 4], gun_l: [0.5, 3], gun_skyranger: [0.5, 3], gun_gepard: [0.5, 3], missile_skysabre: [3, 10], missile_s: [1, 4], missile: [2, 8], missile_l: [3, 10] },
     price: (v, c) => (c.cooldown - v) * RELOAD_PRICE * c.cost,
     help: 'Faster launchers cost more.',
   },

@@ -153,10 +153,10 @@ export const UK_SYSTEMS = {
     },
   },
   missile_paladin: {
-    product: 'MSI-DS Terrahawk Paladin (30 mm gun)', variantOf: 'missile_s', size: 'S', name: 'Terrahawk Paladin', short: 'PAL', model: 'missile', modelScale: 0.8, cost: 3000000, shotCost: 2000, color: 0xff6e40, role: 'effector', kind: 'missile', published: 2000, muzzleY: 2.2, fire: 'guided',
+    product: 'MSI-DS Terrahawk Paladin (30 mm gun)', variantOf: 'gun_hmg', size: 'M', name: 'Terrahawk Paladin', short: 'PAL', model: 'gun', modelScale: 0.8, cost: 3000000, shotCost: 2000, color: 0xff6e40, role: 'effector', kind: 'gun', published: 2000, muzzleY: 2.2, fire: 'guided',
     health: 30, signature: 0.2, emits: [],
     pk: 1, damage: 60, splash: 25, fuze: 25, cooldown: 1, missileSpeed: 300, magazine: 30, storage: 60, reloadTime: 120,
-    desc: 'British 30 mm remote gun firing programmable airburst rounds. It is short range, but each burst costs little, so it can fire at any drone that comes close. Listed here until the game has a row for guns.',
+    desc: 'British 30 mm remote gun firing programmable airburst rounds. It is short range, but each burst costs little, so it can fire at any drone that comes close.',
     sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Gun', 'Airburst'], scan: 'SCAN_TYPE_STEERABLE' },
     ref: {
       class: 'Remote 30 mm air defence gun',

@@ -18,6 +18,7 @@ describe('system models', () => {
     expect(height(group)).toBeLessThan(5.5);
     let meshes = 0, tris = 0;
     group.traverse((o) => { if (o.isMesh) { meshes++; tris += o.geometry.attributes.position.count / 3; } });
+    group.traverse((o) => { if (o.isMesh) expect(o.material.type === 'MeshBasicMaterial' && !o.material.transparent, `${id}: a part with no material`).toBe(false); });
     expect(meshes).toBeLessThanOrEqual(12);
     expect(tris).toBeLessThan(3000);
     expect(!!parts.spin).toBe(def.kind === 'radar' && def.arc == null); // only a radar that turns all round spins

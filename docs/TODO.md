@@ -115,6 +115,11 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [x] Casualties are killed or injured. Each drone carries its reported warhead, and its lethal and injury radii grow with the cube root of it (9 and 25 m per cube-root kg, anchored on the M67 grenade). The HUD and the debrief count both
 - [ ] The vehicles are not priced and drive at walking pace with the soldiers; sensors on them are assumed to work on the move
 - [ ] The casualty radii are anchored on one small munition; bigger warheads are likely more lethal than K x cube root gives. A second published anchor (a mortar or shell with its fill and radii) would firm them up
+- [x] A Gun row of its own (key 9): a crewed L7A2 GPMG and L111A1 .50 cal on pickups, the 12.7 mm remote weapon station, Terrahawk Paladin, Skyranger 30, Gepard and Skynex. Guns with a radar of their own are networked; the hit chances of the crewed machine guns (8% and 12% a burst) are well below the networked guns'
+- [x] Handheld jammers carried by a soldier, off the network: DroneShield DroneGun Mk4, NT Service EDM4S SkyWiper and Kvertus AD G-6
+- [x] Crews off the network (`networked: false`): they cannot be wired and nothing tasks them. They see a drone by eye 100 to 200 m off by its size (half that at night), and a wearable detector warns them of a drone with a radio link within 400 m, so they are ready when it comes into sight and a jammer can be pointed down its bearing
+- [x] A handheld jammer's beam (30°, published for the Kvertus, assumed for the rest) points at the drone its soldier is jamming. The DroneGun Tactical and MkIII are handheld crew entries of their own; the standard small and medium jammers are now generic networked tripod jammers with the same figures, so saved laydowns and results do not move
+- [ ] Every gun's hit chance, range and price is an assumption; the crews' sight, detector range and reaction time are assumptions too
 - [ ] The Skywalker is drawn at 0.35 m, its type's size, as its own span is not public; a Skywalker X8 is 2.1 m. Lancet-3's 1 m span is assumed and its length taken as 1.65 times that
 
 **Patrol prototype** (see `docs/PATROL_MODE.md`)

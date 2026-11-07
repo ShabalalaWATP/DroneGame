@@ -11,9 +11,12 @@ import { u, hdist } from './units.js';
 
 // Does this jammer reach the drone on this band? It needs a radio path, the same as a radio detector, worked out on that band, and a
 // sector antenna has to face it. k scales its reach, for a link that is easier or harder to jam than the one its range is quoted for.
+// A handheld jammer's beam (def.beam, degrees wide) points where its soldier aims it (s.aim, crew.js).
+const inBeam = (s, d) => !s.def.beam || Math.abs(((Math.atan2(d.pos.x - s.pos.x, d.pos.z - s.pos.z) - (s.aim ?? 0) + 3 * Math.PI) % (2 * Math.PI)) - Math.PI) <= (s.def.beam * Math.PI) / 360;
+
 export function jamReaches(s, d, band, k = 1) {
   const dist = s.pos.distanceTo(d.pos);
-  if (dist > u(s.def.range * k) || !inArcOf(s.def, s.pos, d.pos)) return false;
+  if (dist > u(s.def.range * k) || !inArcOf(s.def, s.pos, d.pos) || !inBeam(s, d)) return false;
   const m = WORLD.metresPerUnit;
   const from = { x: s.pos.x * m, y: s.pos.y * m + antennaHeight(s.def), z: s.pos.z * m }, to = { x: d.pos.x * m, y: d.pos.y * m, z: d.pos.z * m };
   return dist <= u(reachOnPath(s.def, d.def, terrainState.data, from, to, bandGhz(band)) * k);

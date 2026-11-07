@@ -205,6 +205,7 @@ function measuresOf(def) {
 }
 
 function NetworkRow({ s, comms }) {
+  if (s.def.networked === false) return <Row label="Network"><span className="muted">Worked by its crew, off the network: it cannot be wired, and fires or jams at what its crew can see.</span></Row>;
   if (!s.uplink) return <Row label="Network"><span className="warn">No terminal: this system is offline</span></Row>;
   const info = comms.nodeLink(s), path = comms.pathFor(s);
   const via = s.uplink === 'cellular' ? `Cellular ${COMMS.cellular.bands[s.cellBand].label}` : COMMS[s.uplink].name;

@@ -3,7 +3,6 @@
 // of their effector's muzzleY.
 
 import { trailer, truck, tracked, tripodLegs, cabin } from './system-parts.js';
-import { hilux } from './vehicle-models.js';
 
 const { PI } = Math;
 
@@ -66,22 +65,6 @@ export function missile(b, h, def) {
       h.box('body', 0.5, 0.6, 0.6, 0, 0.5, 0);
       for (const x0 of [-0.55, 0.55]) pack(h, 2, 2, 0.2, 1.3, 0.3, 0.7, { x0 });
       return { headY: roof, headZ: def.id === 'missile_hvm' ? 0 : -0.6 };
-    }
-    case 'missile_paladin': { // Terrahawk Paladin: a 30 mm gun turret on a trailer, with its ammunition box
-      const deck = trailer(b);
-      h.box('body', 0.8, 0.6, 1.0, 0, 0.5, 0);
-      h.box('drab', 0.4, 0.4, 0.6, 0.6, 0.5, -0.1);
-      h.cyl('dark', 0.1, 1.8, 0, 0.9, 1.2, { rx: PI / 2 - 0.3 }); // the barrel, raised 0.3 rad, and its muzzle brake at the end
-      h.cyl('dark', 0.16, 0.25, 0, 0.9 + 0.9 * Math.sin(0.3), 1.2 + 0.9 * Math.cos(0.3), { rx: PI / 2 - 0.3 });
-      return { headY: deck };
-    }
-    case 'gun_hmg': { // a 12.7 mm gun on a remote weapon station, on a Hilux's load bed: sight box, gun and ammunition box
-      const { roof, z } = hilux(b);
-      h.box('body', 0.3, 0.22, 0.3, 0, 0.11, 0);
-      h.box('dark', 0.12, 0.12, 0.14, 0.2, 0.2, 0.05);
-      h.cyl('dark', 0.025, 0.75, -0.05, 0.25, 0.45, { rx: PI / 2 - 0.25 });
-      h.box('drab', 0.12, 0.12, 0.18, -0.2, 0.18, -0.05);
-      return { headY: roof, headZ: z };
     }
     case 'missile_skysabre': { // Sky Sabre: a block of canisters standing upright on a truck, fired straight up
       const bed = truck(b, 4.2);

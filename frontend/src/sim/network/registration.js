@@ -139,7 +139,7 @@ export function createRegistration(core, raiseAlert) {
   function checkContact() {
     if (!ctx.monitoring || !ctx.monitoring()) return;
     for (const s of nodes.values()) {
-      if ((s.def.role !== 'sensor' && s.def.role !== 'effector') || s.def.id === 'perimeter' || s.offline) continue;
+      if ((s.def.role !== 'sensor' && s.def.role !== 'effector') || s.def.id === 'perimeter' || s.def.networked === false || s.offline) continue; // a crew off the network is never expected
       if (T() - s.lastHeard > FUSION.statusInterval * 3.2) { // three status reports in a row missed
         s.offline = true;
         const why = comms.pathFor(s);

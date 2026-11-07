@@ -1,0 +1,51 @@
+// Systems off the network (def.networked === false) fight on their own: the crew picks the nearest drone it can see in reach, and
+// fires or jams once it has reacted. A machine gunner or a soldier with a jammer sees by eye, 100 to 200 m in daylight, worse in poor
+// light. A wearable detector warns of a drone with a radio link within 400 m: the crew is ready by the time it comes into sight, and
+// a jammer is pointed down its bearing straight away. Nothing here draws a random number.
+
+import { CREW, TERRAIN, WORLD } from './config/index.js';
+import { CONDITIONS, ENV } from './conditions.js';
+import { terrainState } from './terrain.js';
+import { u } from './units.js';
+
+const SCAN = 0.5; // seconds between looks round for a new target
+const EYE_HEIGHT = 2.5; // metres: a gunner standing in a vehicle, when the system has no mast height of its own
+
+export const crewed = (def) => def.networked === false;
+
+// How far (m) this crew can see this drone.
+export const sightRange = (drone) => Math.min(CREW.eyeMax, CREW.eyeBase + CREW.eyePerMetre * drone.def.size) * Math.max(CREW.nightFloor, CONDITIONS[ENV.now].visible);
+// Does its detector warn of this drone? It hears a radio link, so not a fibre-optic or silent one.
+export const alerts = (s, d) => !!d.def.rfEmitter && s.pos.distanceTo(d.pos) * WORLD.metresPerUnit <= CREW.alertRange;
+
+export function crewSees(s, d) {
+  const m = WORLD.metresPerUnit;
+  if (s.pos.distanceTo(d.pos) * m > sightRange(d)) return false;
+  const r = terrainState.data.los(s.pos.x * m, s.pos.y * m + (s.def.mount ?? EYE_HEIGHT), s.pos.z * m, d.pos.x * m, d.pos.y * m, d.pos.z * m);
+  return r.clear && r.canopy <= TERRAIN.opticalCanopyTol;
+}
+
+// Keep the target while it can still be seen in reach, else look round for the nearest one that can; a jammer may also take one its
+// detector warns of. A crew warned for longer than its reaction time fires the moment a drone comes into sight. A jammer is on while
+// it has a target, pointed at it.
+export function crewTask(w, s, dt) {
+  const jammer = s.def.fire === 'jam', reach = u(s.def.range);
+  const ok = (d) => !d.dead && s.pos.distanceTo(d.pos) <= reach && (crewSees(s, d) || (jammer && alerts(s, d)));
+  if (s.task && !ok(s.task.drone)) s.task = null;
+  s.scanT = (s.scanT ?? 0) - dt;
+  if (s.scanT <= 0) {
+    s.scanT = SCAN;
+    const warned = w.drones.some((d) => !d.dead && alerts(s, d));
+    s.alertSince = warned ? (s.alertSince ?? w.state.time) : null;
+    if (!s.task) {
+      let best = null, bd = Infinity;
+      for (const d of w.drones) { const dist = s.pos.distanceTo(d.pos); if (dist < bd && ok(d)) { bd = dist; best = d; } }
+      const ready = s.alertSince != null && w.state.time - s.alertSince >= CREW.reaction;
+      if (best) s.task = { drone: best, activeAt: ready ? w.state.time : w.state.time + CREW.reaction, crew: true };
+    }
+  }
+  if (!jammer) return;
+  const on = !!s.task && w.state.time >= s.task.activeAt;
+  s.mode = on ? 'Jam' : 'Standby';
+  if (on) s.aim = Math.atan2(s.task.drone.pos.x - s.pos.x, s.task.drone.pos.z - s.pos.z);
+}

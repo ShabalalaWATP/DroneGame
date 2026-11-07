@@ -49,7 +49,7 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
   function breakers(tr) {
     const b = believe(tr), links = b.breakable && b.model ? [b.model.links.control, b.model.links.video].filter(Boolean) : [];
     if (!links.length) return [];
-    return [...nodes.values()].filter((j) => j.def.kind === 'jammer' && !j.offline && (!['receiver', 'manual'].includes(j.def.trigger) || j.mode === 'Jam')
+    return [...nodes.values()].filter((j) => j.def.kind === 'jammer' && !j.offline && j.def.networked !== false && (!['receiver', 'manual'].includes(j.def.trigger) || j.mode === 'Jam')
       && links.some((band) => j.jamBands.has(band)) && (j.def.technique !== 'reactive' || libraryKnows(j.def, b.model)));
   }
   // How holding fire for a jammer has gone against each model: a model that keeps outlasting the jammers is not waited for again,
@@ -215,6 +215,7 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
     reachMemo = new Map();
     cueCameras(live);
     for (const s of nodes.values()) {
+      if (s.def.networked === false) continue; // its crew works it by hand (crew.js)
       if (s.def.kind === 'jammer') { switchJammer(s, live); continue; }
       if (s.def.role !== 'effector' || s.offline) continue; // an effector we have lost contact with can't be tasked
       // Out of rounds or reloading: give the target up so another launcher can take it, and offer this one nothing for now.

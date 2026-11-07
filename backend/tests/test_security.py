@@ -242,7 +242,7 @@ def test_every_drone_the_waves_can_send_fits_the_shape_a_save_allows():
 def test_the_names_the_api_accepts_match_the_game():
     """The backend does not import the frontend, so check its config directly: this fails if a system or band is added on one side only."""
     config = Path(__file__).parent.parent.parent / "frontend" / "src" / "sim" / "config"
-    systems = "".join((config / name).read_text(encoding="utf-8") for name in ("sensors.js", "effectors.js", "uk-systems.js", "eu-systems.js"))
+    systems = "".join((config / name).read_text(encoding="utf-8") for name in ("sensors.js", "effectors.js", "uk-systems.js", "eu-systems.js", "crew.js"))
     comms = (config / "comms.js").read_text(encoding="utf-8")
     assert set(re.findall(r"^  (\w+): \{$", systems, re.M)) == set(SystemId.__args__)
     assert set(Uplink.__args__) <= set(re.findall(r"^  (\w+): \{$", comms, re.M))

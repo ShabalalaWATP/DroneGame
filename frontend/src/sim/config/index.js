@@ -1,6 +1,7 @@
 export * from './world.js';
 export * from './comms.js';
 export * from './systems.js';
+export * from './crew.js';
 export * from './drones.js';
 export * from './people.js';
 export * from './patrol.js';

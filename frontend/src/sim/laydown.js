@@ -186,13 +186,15 @@ export function renameUnit(w, s, name, callsign) {
 // Every sensor and effector reaches the fusion node through a terminal (Starlink or cellular) that costs money; the fusion
 // node needs its own.
 export const designLocked = (w) => BUILD.lockAfterStart && w.state.wave > 0;
-const isNode = (s) => (s.def.role === 'sensor' || s.def.role === 'effector') && s.def.id !== 'perimeter';
+// a system the network can wire: not the perimeter, and not one its crew works by hand off the network
+const isNode = (s) => (s.def.role === 'sensor' || s.def.role === 'effector') && s.def.id !== 'perimeter' && s.def.networked !== false;
 const locked = (w) => { if (!designLocked(w)) return false; w.emit('toast', 'The network is locked once the first wave starts'); return true; };
 
 export const unwired = (w) => [...w.net.nodes.values()].filter((s) => isNode(s) && !s.uplink);
 
 // kind: 'starlink' | 'cellular' | null (unplug)
 export function wireNode(w, s, kind) {
+  if (kind && s.def.networked === false) { w.emit('toast', `${s.name} is worked by its crew and cannot be networked`); return false; }
   if (locked(w)) return false;
   if ((s.uplink || null) === kind) return true;
   if (!buyTerminal(w, s.uplink, kind)) return false;

@@ -6,13 +6,14 @@ import { buildDrone, kit } from './drone-models.js';
 import { MAX_K, systemMats } from './system-parts.js';
 import { radar, rf, camera, acoustic, jammer } from './sensor-models.js';
 import { interceptor, missile, laser } from './effector-models.js';
+import { gun } from './gun-models.js';
 import { VEHICLES } from './vehicle-models.js';
 import { SYSTEM_UNIT_M } from '../sim/config/index.js';
 
 // A system's model: what it stands on, a head that the view turns to aim (or spins, for a rotating radar), and for a sensor
 // or jammer the mast or legs it is raised on. parts.raise(k) sets those for a system drawn k times larger than life. One riding
 // in a patrol (def.vehicle) sits on its vehicle instead, a sensor on a pole to its mast height.
-const SYSTEM_SHAPES = { radar, rf, camera, acoustic, jammer, interceptor, missile, laser };
+const SYSTEM_SHAPES = { radar, rf, camera, acoustic, jammer, interceptor, missile, gun, laser };
 export function buildModel(def) {
   const base = kit(), head = kit(), riser = kit(), mats = systemMats(def), carrier = VEHICLES[def.vehicle];
   const own = carrier ? [kit(), kit()] : [base, riser]; // a mounted system's own stand is not drawn

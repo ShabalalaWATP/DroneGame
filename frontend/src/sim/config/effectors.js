@@ -4,16 +4,16 @@
 // missile, laser shot) is used. Each system's `ref` says where its numbers come from. Prices marked ASSUMPTION had no verified public figure.
 export const EFFECTORS = {
   jammer: {
-    product: 'DroneShield DroneGun Tactical', size: 'M', name: 'Medium RF jammer', short: 'JAM', cost: 60000, shotCost: 0, color: 0x7c4dff, role: 'effector', kind: 'jammer', published: 1000, mount: 1.5, mobile: 'manpack', fire: 'jam',
+    product: 'Generic portable jammer on a tripod, networked', size: 'M', name: 'Medium RF jammer', short: 'JAM', cost: 60000, shotCost: 0, color: 0x7c4dff, role: 'effector', kind: 'jammer', published: 1000, mount: 1.5, mobile: 'manpack', fire: 'jam',
     health: 30, signature: 1.5, emits: [], bands: ['control24', 'video58'], // which bands it jams (changeable per jammer); loud while jamming
     slow: 0.5, killTime: 5, // jammed drones slow down; after killTime seconds of full jamming they lose link and crash
-    desc: 'RF jammer. Switched on only while tracks are in range. Autonomous/fibre drones ignore it. No cost per use.',
+    desc: 'Portable RF jammer on a tripod, networked, so the fusion node switches it on only while tracks are in range. Autonomous/fibre drones ignore it. No cost per use.',
     sapient: { nodeType: 'NODE_TYPE_JAMMER', subType: ['RF', 'GNSS'], scan: 'SCAN_TYPE_FIXED', modes: ['Standby', 'Jam'] },
     ref: {
-      class: 'Handheld / fixed RF and GNSS jammer',
-      analogues: ['DroneShield DroneGun Tactical', 'DroneGun MkIII (shorter range)'],
+      class: 'Portable networked RF jammer (generic)',
+      analogues: ['DroneShield DroneGun Tactical class, on a tripod'],
       published: 'DroneGun Tactical: up to ~1 km effective (older or promotional figures say 2 km). MkIII is rated ~500 m.',
-      basis: 'Game range is the 1 km figure. Typical jamming bands are 2.4 GHz, 5.8 GHz and GNSS. Crash-after-N-seconds is a game rule. It is handheld, so it stands 1.5 m up.',
+      basis: 'A generic networked jammer with the DroneGun Tactical class figures; the handheld DroneGun itself is listed as a crew system. Game range is the 1 km figure. Typical jamming bands are 2.4 GHz, 5.8 GHz and GNSS. Crash-after-N-seconds is a game rule. Its antenna stands 1.5 m up.',
       confidence: 'Vendor claims; figures conflict across sources',
       sources: [
         { label: 'DroneDJ: DroneGun Tactical', url: 'https://dronedj.com/2021/06/23/dronegun-tactical-jammer-provides-powerful-but-flexible-anti-uav-neutralization/' },
@@ -30,15 +30,15 @@ export const EFFECTORS = {
     },
   },
   jammer_s: {
-    product: 'DroneShield DroneGun MkIII', size: 'S', name: 'Small RF jammer', short: 'JMS', model: 'jammer', modelScale: 0.7, cost: 40000, shotCost: 0, color: 0xb388ff, role: 'effector', kind: 'jammer', published: 500, mount: 1.5, mobile: 'manpack', fire: 'jam',
+    product: 'Generic small jammer on a tripod, networked', size: 'S', name: 'Small RF jammer', short: 'JMS', model: 'jammer', modelScale: 0.7, cost: 40000, shotCost: 0, color: 0xb388ff, role: 'effector', kind: 'jammer', published: 500, mount: 1.5, mobile: 'manpack', fire: 'jam',
     health: 30, signature: 0.8, emits: [], bands: ['control24', 'video58'], slow: 0.5, killTime: 5,
-    desc: 'Handheld RF jammer. Cheaper and quieter than the larger jammers, with half the reach. Autonomous/fibre drones ignore it. No cost per use.',
+    desc: 'Small RF jammer on a tripod, networked. Cheaper and quieter than the larger jammers, with half the reach. Autonomous/fibre drones ignore it. No cost per use.',
     sapient: { nodeType: 'NODE_TYPE_JAMMER', subType: ['RF', 'GNSS'], scan: 'SCAN_TYPE_FIXED', modes: ['Standby', 'Jam'] },
     ref: {
-      class: 'Handheld RF jammer',
-      analogues: ['DroneShield DroneGun MkIII'],
+      class: 'Small networked RF jammer (generic)',
+      analogues: ['DroneShield DroneGun MkIII class, on a tripod'],
       published: 'Effective range up to 500 m. 433 and 915 MHz, 2.4 and 5.8 GHz, with GNSS as an option. An operator manual lists up to 1,000 m in rural conditions.',
-      basis: 'Game range is the 500 m launch figure. It is handheld, so it stands 1.5 m up.',
+      basis: 'A generic networked jammer with the DroneGun MkIII class figures; the handheld MkIII itself is listed as a crew system. Game range is the 500 m launch figure. Its antenna stands 1.5 m up.',
       confidence: 'Vendor figures; the manual conflicts',
       sources: [
         { label: 'DroneShield: 2019 specification', url: 'https://www.asx.com.au/asxpdf/20190715/pdf/446lzqk0qszn9n.pdf' },
@@ -303,7 +303,7 @@ export const EFFECTORS = {
     },
   },
   gun_hmg: {
-    product: '12.7 mm machine gun on a remote weapon station', variantOf: 'missile_s', size: 'S', name: 'Heavy machine gun', short: 'HMG', model: 'missile', cost: 250000, shotCost: 150, color: 0xffab40, role: 'effector', kind: 'missile', published: 1200, muzzleY: 1.2, fire: 'guided', mobile: 'vehicle',
+    product: '12.7 mm machine gun on a remote weapon station', size: 'M', name: 'Heavy machine gun', short: 'HMG', model: 'gun', cost: 250000, shotCost: 150, color: 0xffab40, role: 'effector', kind: 'gun', published: 1200, muzzleY: 1.2, fire: 'guided', mobile: 'vehicle',
     health: 30, signature: 0.1, emits: [],
     pk: 0.2, damage: 60, splash: 0, fuze: 3, cooldown: 1.5, missileSpeed: 850, magazine: 20, storage: 60, reloadTime: 60,
     desc: 'A heavy machine gun on a remote weapon station, here on a Hilux: the mobile fire groups that down many Shaheds over Ukraine. Cheap to fire and short-ranged, and its gunner needs to see the drone.',

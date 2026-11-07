@@ -25,7 +25,8 @@ export const PATROL_VEHICLES = {
 export const MOUNTS = {
   rf: 1, rf_s: 1, camera_s: 1, jammer: 1, jammer_s: 1, gun_hmg: 1, interceptor: 1, interceptor_p1: 1, missile_s: 1,
   radar_s: 2, radar_a400: 2, radar_a800: 2, camera: 2, jammer_jupiter: 2, jammer_sf: 2, missile_rr: 2,
-  radar_giraffe: 3, missile_paladin: 3,
+  gun_s: 2, gun_50: 2, // a gunner stands in the back, so not on an uncrewed Mule
+  radar_giraffe: 3, missile_paladin: 3, gun_skyranger: 3,
 };
 export const MAX_ESCORTS = 6; // MAX_ESCORTS in backend/app/schemas.py
 export const MAX_ESCORT_GAP = 200; // metres
