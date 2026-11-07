@@ -84,8 +84,13 @@ export function buildWorldView(scene, data, siteMat) {
   }
 
   // ---------- trees ----------
+  // On a real map, one tree fills each tree cell, centred on it, so the drawing shows exactly the grid the rules use.
+  // Generated ground is invented anyway, so its trees are thinned and scattered to look natural.
+  const scenery = [];
   const trng = mulberry32(hashSeed(`${data.seed}:trees`));
-  const k = Math.max(1, Math.round(TERRAIN.treeStep / data.cell));
+  const k = data.geo ? 1 : Math.max(1, Math.round(TERRAIN.treeStep / data.cell));
+  const scatter = data.geo ? 0 : data.cell * k;
+  const crown = data.geo ? data.cell / 2 : 5 * vs;
   const treeSpots = [];
   const treeR = 4500;
   for (let j = 0; j < data.N; j += k) {
@@ -94,15 +99,16 @@ export function buildWorldView(scene, data, siteMat) {
       if (x * x + z * z > treeR * treeR) continue;
       const idx = j * data.N + i;
       if (data.cover[idx] !== 1 || !data.canopy[idx]) continue;
-      treeSpots.push({ x: x + (trng() - 0.5) * data.cell * k, z: z + (trng() - 0.5) * data.cell * k, h: data.canopy[idx] });
+      treeSpots.push({ x: x + (trng() - 0.5) * scatter, z: z + (trng() - 0.5) * scatter, h: data.canopy[idx] });
     }
   }
   if (treeSpots.length) {
     const trees = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 5).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: 0x24442a }), treeSpots.length);
+    scenery.push(trees);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3();
     treeSpots.forEach((t, n) => {
       p.set(u(t.x), u(data.groundAt(t.x, t.z)), u(t.z));
-      sc.set(u(5 * vs), u(t.h * vs), u(5 * vs));
+      sc.set(u(crown), u(t.h * vs), u(crown));
       m4.compose(p, q, sc);
       trees.setMatrixAt(n, m4);
     });
@@ -112,6 +118,7 @@ export function buildWorldView(scene, data, siteMat) {
   // ---------- hamlet buildings ----------
   if (data.buildings.length) {
     const houses = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), data.buildings.length);
+    scenery.push(houses);
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
     const palette = [0xc9c2b4, 0xb88a6a, 0xd8d4cc, 0x9aa3ad];
     data.buildings.forEach((b, n) => {
@@ -189,7 +196,7 @@ export function buildWorldView(scene, data, siteMat) {
       if (o.isInstancedMesh) o.dispose();
     });
   }
-  return { group, mesh, dispose };
+  return { group, mesh, scenery, dispose };
 }
 
 // A ring that follows the ground: a flat ribbon whose vertices are raised to the terrain height. `update(cx, cz)` re-fits

@@ -156,7 +156,7 @@ describe('choosing a world', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, blob: async () => new NodeBlob([buffer]) })));
     vi.stubGlobal('indexedDB', undefined);
     game = createGame({ seed: '1', terrainSeed: '1', api, storage: createFakeStorage() });
-    Object.assign(view, { baseMap: 'os', mapRoads: false, mapGrid: true, mapContours: false, mapPanel: true, mapLoading: false, startAt: null, planView: false, me: null, osm: false, zone: null, wizard: 'closed' });
+    Object.assign(view, { baseMap: 'os', mapRoads: false, mapGrid: true, mapContours: false, scenery: true, mapPanel: true, mapLoading: false, startAt: null, planView: false, me: null, osm: false, zone: null, wizard: 'closed' });
     history.replaceState(null, '', '/');
   });
   afterEach(() => { cleanup(); resetAllFigures(); vi.unstubAllGlobals(); });
@@ -490,6 +490,9 @@ describe('choosing a world', () => {
       fireEvent.click($('#map-overlay-mapContours'));
       expect(view.mapContours).toBe(true);
       expect($('#topo-legend')).toBeTruthy();
+      fireEvent.click($('#map-overlay-scenery'));
+      expect(view.scenery).toBe(false);
+      expect($('#map-overlay-scenery').getAttribute('aria-pressed')).toBe('false');
       fireEvent.click($('#map-close'));
       expect($('#map-panel')).toBeNull();
     }, 30000);

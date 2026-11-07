@@ -13,6 +13,7 @@ export const view = {
   mapRoads: false, // roads and names on the map: with satellite, this is the hybrid view
   mapGrid: true, // the national grid on the map
   mapContours: false, // height lines on the map
+  scenery: true, // the 3D trees and buildings on a real map. Hiding them only changes the picture, not the rules
   mapPanel: false, // the map switcher is open
   mapLoading: false, // a new map picture is on its way
   startAt: null, // a real place the start screen should open on: { e, n, note }

@@ -178,6 +178,7 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
     drones.updateLabels();
     zone.sync();
     showMe();
+    for (const m of worldView.scenery) m.visible = view.scenery || !terrainState.data.geo; // the switch is only offered on a real map
     fly(real);
     flash = Math.max(0, flash - real);
     siteMat.emissiveIntensity = flash > 0 ? flash * 1.5 : 0;

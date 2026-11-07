@@ -9,7 +9,9 @@ import { createSimulation } from '../src/sim/simulation.js';
 import { terrainState } from '../src/sim/terrain.js';
 import { hereU } from '../src/sim/units.js';
 import { bus, location } from '../src/sim/sapient.js';
-import { resetAllFigures } from '../src/sim/config/index.js';
+import { resetAllFigures, WORLD } from '../src/sim/config/index.js';
+import * as THREE from 'three';
+import { buildWorldView } from '../src/render/terrain-view.js';
 import { CENTRE, fixtureParts, gridsHash } from './support/fixture-pack.js';
 import { MIXED, setUp } from './support/scenarios.js';
 
@@ -190,6 +192,18 @@ describe('cutting a world', () => {
     expect(a.towers).toEqual(b.towers);
     expect(a.towers.length).toBeGreaterThan(0);
     for (const t of a.towers) expect(t.x).toBeLessThan(5000);
+  });
+  it('draws one tree on each tree cell, centred on it, so the picture is the grid the rules use', () => {
+    const w = cutWorld(pack(), E, N);
+    const [trees, houses] = buildWorldView(new THREE.Scene(), w, new THREE.MeshStandardMaterial()).scenery;
+    expect(trees.count).toBe(39 * 49); // the fixture wood's cells: x 820 to 1580, z 520 to 1480
+    expect(houses.count).toBe(w.buildings.length);
+    const m4 = new THREE.Matrix4(), p = new THREE.Vector3(), cell = 20 / WORLD.metresPerUnit;
+    for (let n = 0; n < trees.count; n++) {
+      p.setFromMatrixPosition((trees.getMatrixAt(n, m4), m4));
+      expect(Math.abs(p.x / cell - Math.round(p.x / cell))).toBeLessThan(1e-6);
+      expect(Math.abs(p.z / cell - Math.round(p.z / cell))).toBeLessThan(1e-6);
+    }
   });
   it('works out positions from the pack fit', () => {
     const w = cutWorld(pack(), E, N);

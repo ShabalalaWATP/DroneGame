@@ -34,6 +34,7 @@ const OVERLAYS = [
   ['mapRoads', 'Roads and names', 'Also what makes satellite a hybrid view'],
   ['mapContours', 'Contours (C)', 'Height lines from this world\'s own ground'],
   ['mapGrid', 'National grid (G)', 'Labelled 1 km squares'],
+  ['scenery', 'Trees and buildings', 'The 3D trees and buildings. Hide them to place against the map picture: they still block sight lines'],
 ];
 const CLOSE_ZOOM = 200; // how far the camera sits, at most, after centring on the player: about 4 km of ground in view
 
