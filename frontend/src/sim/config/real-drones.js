@@ -17,7 +17,7 @@ export const REAL_DRONES = {
   // ---------- Russia ----------
   geran2: {
     variantOf: 'fw', origin: 'Russia', name: 'Geran-2 (fixed-wing strike)', label: 'Geran-2',
-    evade: 0.9, speed: 50, alt: [50, 4000], altModes: [[50, 300], [2000, 4000]], size: 2.5, damage: blast(50), cost: 48800,
+    evade: 0.9, speed: 50, alt: [50, 4000], altModes: [[50, 300], [2000, 4000]], size: 2.5, warhead: 50, cost: 48800,
     usedBy: 'Russia. Widely documented against Ukraine.',
     published: 'Cruise about 180 km/h, top about 185 km/h. Reported flying either low, at about 50 to 300 m and at times 10 to 20 m, or high, at 2 to 4 km out of reach of mobile fire teams, before diving at the target (Ukrainian Air Force and officials, 2025 to 2026). Ceiling about 4,000 m. Range 1,000 to 2,500 km. Wingspan 2.5 m, up to 240 kg. Warhead 40 to 90 kg (game uses 50). Piston engine. Satellite and inertial navigation; later versions add cellular and radio modems. Press figures, several uncited.',
     assumed: 'Agility 0.9, as a drone flying a set route; it learns to manoeuvre wave by wave, as newer Gerans and Gerberas are reported to.',
@@ -37,7 +37,7 @@ export const REAL_DRONES = {
   },
   lancet3: {
     variantOf: 'fw', origin: 'Russia', name: 'Lancet-3 (loitering munition)', label: 'Lancet-3',
-    evade: 0.75, speed: 26, alt: [500, 800], size: 1, rcs: 0.05, sound: 1, damage: blast(4), cost: 35000, seeksEmitters: true,
+    evade: 0.75, speed: 26, alt: [500, 800], size: 1, rcs: 0.05, sound: 1, warhead: 4, cost: 35000, seeksEmitters: true,
     links: { control: 'control900', gnss: true }, rfEmitter: true, protocol: 'tactical',
     usedBy: 'Russia.',
     published: 'Cruise 80 to 110 km/h (game uses 95). Ceiling about 5,000 m. Range about 40 km, about 40 minutes. 12 kg. Warhead 3 to 5 kg (game uses 4). Electric. 868 to 928 MHz reported for ZALA drones generally. Typical height and wingspan are not public, so size is assumed. Press figures.',
@@ -70,7 +70,7 @@ export const REAL_DRONES = {
   },
   molniya2: {
     variantOf: 'fpv', origin: 'Russia', name: 'Molniya-2 (first-person-view fixed wing)', label: 'Molniya-2',
-    evade: 0.75, model: 'fw', airframe: 'Fixed wing', speed: 29, alt: [30, 150], size: 1.5, rcs: 0.05, damage: blast(4.5), cost: 1600,
+    evade: 0.75, model: 'fw', airframe: 'Fixed wing', speed: 29, alt: [30, 150], size: 1.5, rcs: 0.05, warhead: 4.5, cost: 1600,
     usedBy: 'Russia. Its use is solid; the maker rests on Wikipedia alone.',
     published: 'Cruise 90 to 120 km/h (game uses 105). One source gives about 400 m up, but a Ukrainian electronic warfare adviser says it flies too low for radar (2026), which the game follows. Range 30 to 60 km. Wingspan about 1.5 m, about 10 kg. Warhead 3 to 6 kg (game uses 4.5). Electric. Flown over a first-person video radio link; which bands is not public, so they are its type’s. One analyst and press figures.',
     assumed: 'Height 30 to 150 m, for low. Agility 0.75, as an operator-guided small fixed-wing drone; it is reported to manoeuvre erratically near the end.',
@@ -87,7 +87,7 @@ export const REAL_DRONES = {
   },
   kvn: {
     variantOf: 'fo', origin: 'Russia', name: 'KVN (fibre-optic, Knyaz Vandal Novgorodsky)', label: 'KVN',
-    evade: 0.7, speed: 18, damage: blast(4.5), cost: 17000,
+    evade: 0.7, speed: 18, warhead: 4.5, cost: 17000,
     usedBy: 'Russia.',
     published: 'Normal speed 50 to 80 km/h (game uses 65) and top 100 to 140 km/h, as Ukrainian military intelligence declares them. Range 15 to 42 km, the longer figures being Russian developer claims. Warhead 3 to 6 kg (game uses 4.5). Fibre-optic control and video. Height and size are not public, so they are its type’s. Thin apart from range.',
     assumed: 'Agility 0.7: an operator-flown quad, a little slower to turn than a radio one for its fibre spool.',
@@ -104,7 +104,7 @@ export const REAL_DRONES = {
   },
   gerbera: {
     variantOf: 'fw', origin: 'Russia', name: 'Gerbera (decoy, some armed)', label: 'Gerbera',
-    evade: 0.9, speed: 44, alt: [20, 3000], altModes: [[20, 300], [2000, 3000]], size: 2.5, damage: blast(6), cost: 10000, rfEmitter: true,
+    evade: 0.9, speed: 44, alt: [20, 3000], altModes: [[20, 300], [2000, 3000]], size: 2.5, warhead: 6, cost: 10000, rfEmitter: true,
     usedBy: 'Russia.',
     published: 'Top speed about 160 km/h. Ceiling about 3,000 m. Range 300 to 600 km. Wingspan 2.5 m. Mostly a decoy; warheads of 2 to 10 kg reported (game uses 6). Small piston engine. Later versions relay through radio mesh modems. Cruise speed, height and mass are not public. Press figures.',
     assumed: 'Height is low or high: a reported 20 to 30 m, or up to its declared 3,000 m. Agility 0.9, as a drone flying a set route; it learns to manoeuvre wave by wave, as newer Gerans and Gerberas are reported to.',
@@ -121,7 +121,7 @@ export const REAL_DRONES = {
   // ---------- Iran ----------
   shahed136: {
     variantOf: 'fw', origin: 'Iran', name: 'Shahed-136 (fixed-wing strike)', label: 'Shahed-136',
-    evade: 0.9, speed: 50, alt: [50, 4000], altModes: [[50, 300], [2000, 4000]], size: 2.5, damage: blast(35), cost: 35000,
+    evade: 0.9, speed: 50, alt: [50, 4000], altModes: [[50, 300], [2000, 4000]], size: 2.5, warhead: 35, cost: 35000,
     usedBy: 'Iran, and Russia as the Geran-2. Houthi use is reported by one Newsweek story.',
     published: 'Cruise about 180 km/h, top about 185 km/h. Reported flying either low, at about 50 to 300 m and at times 10 to 20 m, or high, at 2 to 4 km out of reach of mobile fire teams, before diving at the target (Ukrainian Air Force and officials, 2025 to 2026). Range 1,000 to 2,500 km. Wingspan 2.5 to 3 m, 200 kg. Warhead 20 to 50 kg (game uses 35). Piston engine. Satellite and inertial navigation. CSIS and press figures. The only radar cross-section found, 0.01 m², traces to a post on X, so it is not used.',
     assumed: 'Agility 0.9, as a drone flying a set route; it learns to manoeuvre wave by wave, as newer Gerans and Gerberas are reported to.',
@@ -140,7 +140,7 @@ export const REAL_DRONES = {
   },
   shahed131: {
     variantOf: 'fw', origin: 'Iran', name: 'Shahed-131 (fixed-wing strike)', label: 'Shahed-131',
-    evade: 0.9, speed: 50, alt: [50, 4000], altModes: [[50, 300], [2000, 4000]], size: 2.2, damage: blast(15), cost: 20000,
+    evade: 0.9, speed: 50, alt: [50, 4000], altModes: [[50, 300], [2000, 4000]], size: 2.2, warhead: 15, cost: 20000,
     usedBy: 'Iran, and Russia as the Geran-1.',
     published: 'Cruise about 180 km/h. Range 700 to 1,000 km. Wingspan 2.2 m, 135 kg. Warhead 10 to 20 kg (game uses 15). Rotary engine. Satellite and inertial navigation. Top speed and height are not public. Ukrainian military intelligence and CSIS figures.',
     assumed: 'Height copies the Shahed-136: low or high. Agility 0.9, as a drone flying a set route; it learns to manoeuvre wave by wave, as newer Gerans and Gerberas are reported to.',
@@ -189,7 +189,7 @@ export const REAL_DRONES = {
   // ---------- China ----------
   ch901: {
     variantOf: 'fw', origin: 'China', name: 'CH-901 (loitering munition)', label: 'CH-901',
-    evade: 0.75, speed: 39, alt: [100, 150], size: 1, rcs: 0.05, sound: 1, damage: blast(3),
+    evade: 0.75, speed: 39, alt: [100, 150], size: 1, rcs: 0.05, sound: 1, warhead: 3,
     usedBy: 'China. Fielding with the PLA is not confirmed.',
     published: 'Cruise 100 to 180 km/h (game uses 140). Defense Update gives a loiter at 100 to 150 m; other sources say up to 450 m. Range 10 to 15 km, 40 to 120 minutes. 9 kg. Warhead about 3 kg. Wingspan is not public, so size is assumed. Press and analyst figures, which often disagree.',
     assumed: 'Agility 0.75, as an operator-guided loitering munition.',
@@ -205,7 +205,7 @@ export const REAL_DRONES = {
   },
   feilong300d: {
     variantOf: 'fw', origin: 'China', name: 'Feilong-300D (fixed-wing strike)', label: 'Feilong-300D',
-    evade: 0.9, alt: [50, 300], damage: blast(45), cost: 10000,
+    evade: 0.9, alt: [50, 300], warhead: 45, cost: 10000,
     usedBy: 'China, as a showcased export product. PLA use rests on one post on X. No export customer announced.',
     published: 'Range about 1,000 km. Warhead 40 to 50 kg (game uses 45). Piston engine. Inertial and satellite guidance. Speed, height and size are not public, so they are its type’s.',
     assumed: 'Height 50 to 300 m, as it is described flying low. Agility 0.9, as a drone flying a set route; it learns to manoeuvre wave by wave, as newer Gerans and Gerberas are reported to.',
@@ -221,7 +221,7 @@ export const REAL_DRONES = {
   },
   sunflower200: {
     variantOf: 'fw', origin: 'China', name: 'Sunflower-200 (fixed-wing strike)', label: 'Sunflower-200',
-    evade: 0.9, speed: 53, size: 2.5, damage: blast(40),
+    evade: 0.9, speed: 53, size: 2.5, warhead: 40,
     usedBy: 'A showcased Chinese product. Not confirmed in PLA service, and no confirmed sale.',
     published: 'Cruise 160 to 220 km/h (game uses 190). Range 1,500 to 2,000 km. Wingspan 2.5 m, 175 kg. Warhead 40 kg. All the seller’s claims. Height is not public, so it is its type’s.',
     assumed: 'Agility 0.9, as a drone flying a set route; it learns to manoeuvre wave by wave, as newer Gerans and Gerberas are reported to.',

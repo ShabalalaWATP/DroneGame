@@ -1,7 +1,7 @@
 // Short-lived things in the scene: explosions, and missiles in flight.
 
 import * as THREE from 'three';
-import { STRUCT_SCALE } from '../sim/config/index.js';
+import { drawnUnit } from './system-parts.js';
 
 const sphereGeo = new THREE.SphereGeometry(1, 16, 12);
 const missileGeo = new THREE.ConeGeometry(0.35, 1.8, 8).rotateX(Math.PI / 2);
@@ -42,11 +42,11 @@ export function createEffects(scene, sim) {
       if (!mesh) {
         const small = m.def.kind === 'interceptor';
         mesh = new THREE.Mesh(missileGeo, new THREE.MeshBasicMaterial({ color: small ? 0xffcdd2 : 0xffffff }));
-        mesh.scale.setScalar(small ? STRUCT_SCALE * 0.6 : STRUCT_SCALE);
         scene.add(mesh);
         missiles.set(m, mesh);
       }
       mesh.visible = true;
+      mesh.scale.setScalar((m.def.kind === 'interceptor' ? 0.6 : 1) * drawnUnit()); // true size up close
       mesh.position.copy(m.pos);
       mesh.lookAt(_v.copy(m.pos).add(m.vel));
     }

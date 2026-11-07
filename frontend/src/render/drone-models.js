@@ -5,14 +5,19 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { WORLD } from '../sim/config/index.js';
+import { clamp } from '../sim/units.js';
+import { VIEW_HEIGHT, view } from './view.js';
 
-// A drone's drawn span grows with the 0.4 power of its real span, so a 20 m Wing Loong reads bigger than a 2.5 m Shahed
-// without shrinking a 0.3 m quadcopter out of sight.
-export const drawScale = (def) => WORLD.droneVisualScale * 3 * def.size ** -0.6;
+// Scene units per metre. Close up a drone is drawn at true size. Farther out a 2.5 m Shahed's span keeps WORLD.droneOnScreen
+// of the screen's height, other spans growing with the 0.4 power of the real one so a 20 m Wing Loong reads bigger without
+// shrinking a 0.3 m quadcopter out of sight, up to the size it has zoomed right out.
+export const drawScale = (def, zoom = view.zoom) => clamp((WORLD.droneOnScreen * VIEW_HEIGHT * zoom * (def.size / 2.5) ** 0.4) / def.size,
+  1 / WORLD.metresPerUnit, WORLD.droneVisualScale * 3 * def.size ** -0.6);
 
-function kit() {
-  const geos = { body: [], dark: [] }, props = [];
-  const put = (key, g, x = 0, y = 0, z = 0) => { geos[key].push(g.translate(x, y, z)); };
+// Builds a model from simple parts, each given the name of its material; finish() merges them into one mesh per material.
+export function kit() {
+  const geos = {}, props = [];
+  const put = (key, g, x = 0, y = 0, z = 0) => { (geos[key] ??= []).push(g.translate(x, y, z)); };
   const shape = (pts) => new THREE.Shape(pts.map(([a, b]) => new THREE.Vector2(a, b)));
   return {
     // a body of revolution along z; profile is [[z, radius], ...] from tail to nose. squash flattens it top to bottom
@@ -29,7 +34,10 @@ function kit() {
     },
     box(key, w, h, d, x, y, z, { rx = 0, ry = 0, rz = 0 } = {}) { put(key, new THREE.BoxGeometry(w, h, d).rotateX(rx).rotateZ(rz).rotateY(ry), x, y, z); },
     ball(key, r, x, y, z) { put(key, new THREE.SphereGeometry(r, 8, 6), x, y, z); },
+    geo(key, g, x = 0, y = 0, z = 0) { put(key, g, x, y, z); }, // a ready-made geometry
     post(key, r, h, x, y, z) { put(key, new THREE.CylinderGeometry(r, r, h, 8), x, y, z); }, // upright cylinder
+    // a cylinder turned from upright: rz: PI / 2 lays it along x, rx: PI / 2 along z. r2 tapers its top
+    cyl(key, r, h, x, y, z, { r2 = r, rx = 0, ry = 0, rz = 0, seg = 10 } = {}) { put(key, new THREE.CylinderGeometry(r2, r, h, seg).rotateX(rx).rotateZ(rz).rotateY(ry), x, y, z); },
     // a beam from one point to another
     strut(key, [x1, y1, z1], [x2, y2, z2], w, h = w) {
       const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, len = Math.hypot(dx, dy, dz);

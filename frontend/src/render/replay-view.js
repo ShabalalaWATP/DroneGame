@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { WORLD, DRONES, STRUCTURES } from '../sim/config/index.js';
 import { view } from './view.js';
 import { drawScale } from './drone-models.js';
+import { labelLift } from './structure-view.js';
 
 // deps: { scene, rec, droneTemplate, makeLabel, placeLabel, trackColour, getStructures, labelOf, hideLive, getLastSpeed, setPaused, resume }
 export function createReplay(deps) {
@@ -32,7 +33,6 @@ export function createReplay(deps) {
     const model = deps.droneTemplate(d.type, false).clone();
     const unseen = deps.droneTemplate(d.type, true).clone();
     g.add(model, unseen);
-    g.scale.setScalar(drawScale(def));
     group.add(g);
     o = { group: g, model, unseen, label: deps.makeLabel(def.label, '#' + def.color.toString(16).padStart(6, '0'), 'dlabel') };
     droneObjs.set(d.u, o);
@@ -47,9 +47,9 @@ export function createReplay(deps) {
       seen.add(d.u);
       const o = droneObj(d);
       o.group.visible = view.truth;
-      o.group.position.set(d.x, d.y, d.z); o.group.rotation.y = d.ry;
+      o.group.position.set(d.x, d.y, d.z); o.group.rotation.y = d.ry; o.group.scale.setScalar(drawScale(DRONES[d.type]));
       o.model.visible = d.tracked; o.unseen.visible = !d.tracked;
-      deps.placeLabel(o.label, d.x, d.y + 4, d.z, view.truth && view.labels);
+      deps.placeLabel(o.label, d.x, d.y + Math.max(DRONES[d.type].size * o.group.scale.y * 0.7, 0.004 * view.zoom), d.z, view.truth && view.labels);
       o.label.style.opacity = d.tracked ? '1' : '0.5';
     }
     for (const [uid, o] of droneObjs) if (!seen.has(uid)) { o.group.visible = false; o.label.style.display = 'none'; }
@@ -86,7 +86,7 @@ export function createReplay(deps) {
       const label = deps.labelOf(s);
       if (!st) { label.style.display = 'none'; continue; }
       label.textContent = `${s.short} · ${st.mode}${st.trackShort ? ' ▸ ' + st.trackShort : ''}`;
-      deps.placeLabel(label, s.pos.x, s.pos.y + 9, s.pos.z, view.labels);
+      deps.placeLabel(label, s.pos.x, s.pos.y + labelLift(s.def), s.pos.z, view.labels);
       const tgt = st.target != null ? byUid.get(st.target) : null;
       if (tgt) {
         const line = pool(lineObjs, () => {

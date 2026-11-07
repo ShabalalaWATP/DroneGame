@@ -2,7 +2,7 @@
 // once the first wave starts, so runs are comparable.
 
 import { Vector3 } from 'three';
-import { WORLD, BUILD, COMMS, ECONOMY, STRUCTURES } from './config/index.js';
+import { WORLD, BUILD, COMMS, ECONOMY, PATROL, STRUCTURES } from './config/index.js';
 import { terrainState } from './terrain.js';
 import { SITE_POS, u, hdist, hereU } from './units.js';
 import { cleanZone, reachProblem, siteIsFree, zoneCentre } from './attack-area.js';
@@ -89,7 +89,7 @@ export function captureLaydown(w) {
     ...(w.state.zone ? { zone: w.state.zone } : {}),
     ...(isDefaultMix(w.state.attack) ? {} : { attack: w.state.attack }),
     ...(w.state.conditions === 'day' ? {} : { conditions: w.state.conditions }),
-    ...(w.patrol ? { patrol: w.patrol.route } : {}),
+    ...(w.patrol ? { patrol: w.patrol.route, patrolColumn: w.patrol.column } : {}),
   };
 }
 
@@ -119,7 +119,7 @@ export function restoreLaydown(w, spec) {
   applyZone(w, cleanZone(spec.zone));
   w.state.attack = cleanMix(spec.attack);
   applyConditions(w, spec.conditions);
-  const refused = spec.patrol && setPatrol(w, spec.patrol); // a saved route comes from outside the game, so it is checked again
+  const refused = spec.patrol && setPatrol(w, spec.patrol, spec.patrolColumn ?? PATROL.foot.column); // a saved route comes from outside the game, so it is checked again
   if (refused) w.emit('toast', `The saved patrol was left out: ${refused}`);
 }
 

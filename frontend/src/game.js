@@ -134,7 +134,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     if (!view.route?.closed) { bump(); return; }
     const refused = commands.setPatrol(view.route.points);
     view.route = null;
-    toast(refused || 'Patrol set. It starts walking with the first wave, with a radar ahead and a Rapid Ranger behind');
+    toast(refused || 'Patrol set. It starts walking with the first wave. Choose its vehicles in the Area panel');
     setTool('patrol');
   }
 
@@ -142,7 +142,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
     if (!tool || state.over || !state.started) return;
     if (tool === 'sell') { commands.sell(x, z); return; }
     if (tool === 'people') {
-      refusal = commands.placePeople(x, z, view.people.count, view.people.protection);
+      refusal = commands.placePeople(x, z, view.people.count, view.people.protection, view.people.role);
       if (refusal) toast(refusal);
       return;
     }

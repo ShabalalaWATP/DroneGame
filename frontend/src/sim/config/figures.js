@@ -9,7 +9,7 @@ import { PATROL } from './patrol.js';
 // Every number that came from research (or is a labelled assumption) can be edited in the Sources tab. These helpers
 // remember the researched values so each one can be reset, and export/import a set of edits as JSON.
 const STRUCT_KEYS = ['published', 'cost', 'shotCost', 'missileSpeed', 'pk', 'damage', 'splash', 'fuze', 'cooldown', 'magazine', 'storage', 'reloadTime', 'dps', 'falseAlarm', 'lowRange', 'fov', 'dwell', 'slow', 'killTime'];
-const DRONE_KEYS = ['cost', 'speed', 'hp', 'rcs', 'size', 'rfPower', 'sound', 'evade', 'jamResist', 'casualtyRadius'];
+const DRONE_KEYS = ['cost', 'speed', 'hp', 'rcs', 'size', 'rfPower', 'sound', 'evade', 'jamResist', 'warhead'];
 const PEOPLE_KEYS = ['pCasualty', 'reachScale'];
 const PATROL_KEYS = ['walkSpeed', 'escortGap', 'groupSize'];
 
@@ -45,7 +45,7 @@ export const FIGURE_FIELDS = {
   sound: { label: 'Loudness', unit: 'x first-person-view drone reach', step: 0.5, basis: 'assumption' },
   evade: { label: 'Evasion', unit: '1=easy', step: 0.05, basis: 'rule' },
   jamResist: { label: 'Jam resistance', unit: '0–1', step: 0.05, basis: 'rule' },
-  casualtyRadius: { label: 'Casualty radius', unit: 'm', step: 5, basis: 'assumption' },
+  warhead: { label: 'Warhead (explosive)', unit: 'kg', step: 0.5, basis: 'research' }, // reported for real drones; its blast sets the casualty radii
   pCasualty: { label: 'Casualty chance at the blast', unit: '0–1', step: 0.05, basis: 'assumption' },
   reachScale: { label: 'Blast reach', unit: 'x radius', step: 0.05, basis: 'assumption' },
   walkSpeed: { label: 'Walking speed', unit: 'm/s', step: 0.1, basis: 'assumption' },

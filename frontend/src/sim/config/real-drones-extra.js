@@ -3,12 +3,11 @@
 // `published` holds only what public sources say, and `assumed` says what was set by class because nothing is public.
 // Published flight performance and reported warhead mass only (docs/SECURITY_NOTES.md).
 
-import { blast } from './real-drones.js';
 
 export const EXTRA_REAL_DRONES = {
   geran3: {
     variantOf: 'fw', origin: 'Russia', name: 'Geran-3 / Shahed-238 (jet strike)', label: 'Geran-3',
-    evade: 0.9, speed: 90, alt: [50, 4000], altModes: [[50, 300], [2000, 4000]], size: 2.5, sound: 8, jamResist: 0.7, damage: blast(50), cost: 300000,
+    evade: 0.9, speed: 90, alt: [50, 4000], altModes: [[50, 300], [2000, 4000]], size: 2.5, sound: 8, jamResist: 0.7, warhead: 50, cost: 300000,
     usedBy: 'Russia, as the Geran-3. Iran makes the Shahed-238 it is based on.',
     published: 'A turbojet Shahed. Ukrainian forces record a cruise of about 300 to 350 km/h (game uses 325); other reports claim 550 to 600 km/h. Range 1,500 to 2,500 km by different reports. Warhead usually given as 50 kg. Anti-jam satellite navigation antennas of up to 16 elements are reported on Russian Gerans.',
     assumed: 'Height copies the Geran-2: low or high. Agility 0.9, as a drone flying a set route. Loudness (8 times an FPV, against 5 for the piston Shahed) and jam resistance (0.7, for the larger anti-jam antennas) are assumptions.',
@@ -24,7 +23,7 @@ export const EXTRA_REAL_DRONES = {
   },
   asn301: {
     variantOf: 'fw', origin: 'China', name: 'ASN-301 (anti-radar loitering munition)', label: 'ASN-301',
-    evade: 0.9, speed: 61, size: 2.2, damage: blast(30), cost: 50000, seeksEmitters: true, antiRadar: true, seekRange: 8000,
+    evade: 0.9, speed: 61, size: 2.2, warhead: 30, cost: 50000, seeksEmitters: true, antiRadar: true, seekRange: 8000,
     usedBy: 'China. Shown in 2017, and tested and fitted to new trucks since.',
     published: 'An anti-radar loitering munition in the class of the Israeli Harpy, fired from canisters on a truck. About 220 km/h, 135 kg, 2.2 m span, a combat radius of about 280 to 300 km and over 4 hours aloft. One aggregator gives a 30 kg warhead, unverified.',
     assumed: 'It hunts the strongest radar, or a jammer that is on, within 8 km, and otherwise heads for the site. That seeker range is an assumption. Damage uses the unverified 30 kg. Agility 0.9, as a drone flying a set route; it learns to manoeuvre wave by wave, as newer Gerans and Gerberas are reported to.',

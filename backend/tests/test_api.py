@@ -99,6 +99,23 @@ class TestLaydowns:
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["patrol"] == route
 
+    def test_a_patrol_column_is_kept_with_the_laydown(self, client):
+        column = [{"vehicle": "hilux", "system": "gun_hmg", "gap": 40}, {"vehicle": "mule", "system": "jammer_s", "gap": -25.5}]
+        made = client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "patrol": [[10, 10], [30, 10]], "patrolColumn": column}))
+        assert made.status_code == 201
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["patrolColumn"] == column
+
+    @pytest.mark.parametrize("column", [
+        [],
+        [{"vehicle": "tank", "system": "gun_hmg", "gap": 0}],
+        [{"vehicle": "hilux", "system": "nuke", "gap": 0}],
+        [{"vehicle": "hilux", "system": "gun_hmg", "gap": 201}],
+        [{"vehicle": "hilux", "system": "gun_hmg", "gap": 0, "crew": 3}],
+        [{"vehicle": "hilux", "system": "gun_hmg", "gap": 0}] * 7,
+    ])
+    def test_a_bad_patrol_column_is_refused(self, client, column):
+        assert client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "patrol": [[10, 10], [30, 10]], "patrolColumn": column})).status_code == 422
+
     @pytest.mark.parametrize("route", [[[0, 0]], [[i, i] for i in range(33)], [[0, 0], [351, 0]], [[0, 0], ["a", 0]], "here"])
     def test_a_bad_patrol_route_is_refused(self, client, route):
         assert client.post(f"{API}/laydowns", json=laydown(spec={**SPEC, "patrol": route})).status_code == 422
@@ -273,6 +290,11 @@ class TestPeople:
         assert made.status_code == 201
         assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["people"] == [self.GROUP]
 
+    def test_keeps_soldiers_as_soldiers(self, client):
+        soldiers = {**self.GROUP, "role": "military"}
+        made = client.post(f"{API}/laydowns", json=self._with([soldiers, self.GROUP]))
+        assert client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]["people"] == [soldiers, self.GROUP]
+
     def test_a_laydown_saved_before_people_comes_back_without_them(self, client):
         made = client.post(f"{API}/laydowns", json=laydown())
         assert "people" not in client.get(f"{API}/laydowns/{made.json()['id']}").json()["spec"]
@@ -282,6 +304,8 @@ class TestPeople:
         {"count": 501},
         {"count": 1.5},
         {"protection": "tank"},
+        {"role": "civilian"},
+        {"role": "tank"},
         {"x": 351},
         {"extra": 1},
     ])

@@ -15,7 +15,7 @@ import { createEffects } from './effects.js';
 import { createZoneView } from './zone-view.js';
 import { createOsmMap } from './osm-map.js';
 import { createMapTexture } from './map-texture.js';
-import { view } from './view.js';
+import { FOV, view } from './view.js';
 
 const FLIGHT_SECONDS = 0.7;
 // How the scene looks in the run's conditions: sky and fog colour, fog distance (m) and light. The look only; the physics is in sim/conditions.js.
@@ -28,16 +28,17 @@ const LOOKS = {
 
 // getMapSource(world): the pictures, roads and names for a real world. The simulation never sees them.
 export function createGameView(canvas, labelLayer, sim, getMapSource = () => null) {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true }); // the camera goes from metres to kilometres away
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x0b1220);
   scene.fog = new THREE.Fog(0x0b1220, u(12000), u(30000));
-  const camera = new THREE.PerspectiveCamera(55, 1, 0.5, 4000);
+  const camera = new THREE.PerspectiveCamera(FOV, 1, 0.02, 4000);
   camera.position.set(0, 300, 380);
   const controls = new OrbitControls(camera, canvas);
   controls.maxPolarAngle = Math.PI * 0.48;
-  controls.minDistance = 2; // close enough to make out a person, who is drawn to true scale
+  controls.minDistance = 0.25; // 5 m: close enough to see a small quadcopter or a person, drawn at true size up close
+  controls.zoomToCursor = true; // so the camera can close in on a drone in the air, not only on the ground it looks at
   controls.maxDistance = 1200;
   controls.enableDamping = true;
 
@@ -195,7 +196,7 @@ export function createGameView(canvas, labelLayer, sim, getMapSource = () => nul
   return {
     scene, camera, controls, labels, structures, update, showOsm, loadOsm: () => osmMap.load(), refreshMap, mapPreviews, viewFromAbove, centreOn,
     getWorldMesh: () => worldView && worldView.mesh,
-    draw() { controls.update(); renderer.render(scene, camera); },
+    draw() { controls.update(); view.zoom = camera.position.distanceTo(controls.target); renderer.render(scene, camera); },
     start(frame) { renderer.setAnimationLoop(frame); },
     clear() { effects.clear(); beliefs.clear(); },
     // While rewinding, the live objects are hidden and the replay view is shown instead.

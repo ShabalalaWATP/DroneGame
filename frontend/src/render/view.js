@@ -1,5 +1,10 @@
 // View settings shared between the 3D scene and the dock.
+// The camera's distance from what it looks at in the opening view (game-view.js puts it at (0, 300, 380)), in scene units.
+export const OPENING_ZOOM = Math.hypot(300, 380);
+export const FOV = 55; // the camera's vertical field of view, degrees
+export const VIEW_HEIGHT = 2 * Math.tan((FOV / 2) * (Math.PI / 180)); // how tall the view is per unit of distance from the camera
 export const view = {
+  zoom: OPENING_ZOOM, // the camera's distance from what it looks at, scene units, kept by game-view.js each frame
   truth: true, // truth overlay: show every drone where it really is (grey if no sensor has it)
   labels: true, // name tags on every system and drone
   rings: true, // range rings on every system
@@ -14,7 +19,7 @@ export const view = {
   planView: false, // the camera looks straight down
   me: null, // the player's own position, once asked for: { x, z, accuracy } in scene units
   replayT: null, // simulated time being reviewed while rewinding, or null when live
-  people: { count: 10, protection: 'open' }, // the next group the People tool will place
+  people: { count: 10, protection: 'open', role: 'civilian' }, // the next group the People tool will place
   replayCasualties: null, // how many in each group were down at the moment being reviewed, or null when live
   selected: null, // the system the Unit panel is showing
   osm: false, // demo: OpenStreetMap tiles as the picture on the ground

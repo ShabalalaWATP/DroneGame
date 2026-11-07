@@ -35,7 +35,7 @@ export function Hud() {
         <span>Kills <b id="kills">{state.kills}</b></span>
         <span>Leaks <b id="leaks">{state.leaks}</b></span>
       </div>
-      {sim.people.length > 0 && <div className="stats" title="From assumed figures in the Sources tab. Not real casualty data."><span>Simulated casualties <b id="casualties">{state.casualties}</b></span></div>}
+      {sim.people.length > 0 && <div className="stats" title="From assumed figures in the Sources tab. Not real casualty data."><span>Simulated killed <b id="killed">{state.killed}</b> · injured <b id="injured">{state.injured}</b></span></div>}
       <div id="status" className="hint">
         {spot > 0 && <><span className="warn">Fixed-wing spotter on station: strikes +{Math.round(spot * 100)}%</span><br /></>}
         Enemy attack cost {money(enemyCost(ledger.launched))} · shots and rounds bought {money(ledger.consumables)}

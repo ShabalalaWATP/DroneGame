@@ -6,14 +6,17 @@
 // independent test results. Edit freely, or use the in-game Tuning panel.
 
 // Stored with saved laydowns and runs. Raise it when a change means old saves no longer replay the same.
-export const GAME_VERSION = '0.14.0';
+export const GAME_VERSION = '0.15.0';
 
 export const WORLD = {
   metresPerUnit: 20,     // 3D scene scale: 1 scene unit = this many metres
   radius: 7000,          // size of the ground disc
   spawnDist: 6000,       // drones appear this far from the site
   timeScale: 5,          // game seconds per real second at 1x (distances are real-scale, so time is compressed)
-  droneVisualScale: 4,   // drones are drawn this much larger than "true" size so you can see them
+  droneVisualScale: 4,   // zoomed right out, drones are drawn at most this much larger than the models' units (render/drone-models.js)
+  // Closer in, a drone or system keeps at least this share of the screen's height (a Shahed's span, a system's height),
+  // until the camera is close enough to show it at true size.
+  droneOnScreen: 0.06, systemOnScreen: 0.05,
   rangeScale: 1,         // game range = published range x this. 1 = published figures.
 };
 
@@ -115,5 +118,8 @@ export const FUSION_DEF = {
 // jamResist = max(base, min(jamResistCap, base + jamResistPerWave * adapt * (wave - 1)))
 export const ADAPT = { evadePerWave: 0.07, evadeFloor: 0.25, jamResistPerWave: 0.05, jamResistCap: 0.95 };
 
-// Structures are drawn this much larger than true size. Muzzle heights scale with it, so it is part of the rules.
+// Zoomed right out, systems are drawn this many scene units per model unit, much larger than life; close up they are true size.
 export const STRUCT_SCALE = 1.8;
+// Metres per system model unit at true size: the models are built so that a truck is about 7.5 m long. A launcher's muzzle is
+// muzzleY model units up, so this many metres each.
+export const SYSTEM_UNIT_M = 2.2;

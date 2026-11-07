@@ -6,9 +6,12 @@ import { u, hereU } from '../sim/units.js';
 import { drapedRing } from './terrain-view.js';
 import { view } from './view.js';
 
-const COLOUR = 0xc6ff00, ROUTE_COLOUR = 0x40c4ff, HALF_WIDTH = 1, LIFT = 1, SAMPLE = 4; // scene units: fine enough to follow the hills
+const COLOUR = 0xc6ff00, ROUTE_COLOUR = 0x40c4ff, SAMPLE = 4; // scene units: fine enough to follow the hills
+// How wide (each side) and how high the marks are drawn, scene units: 20 m from afar, shrinking as the camera closes in so they
+// do not cover a true-size patrol. Kept to steps, as the marks are rebuilt when it changes.
+const markSize = () => 2 ** (Math.round(Math.log2(Math.min(1, Math.max(0.05, view.zoom * 0.004))) * 2) / 2);
 
-function ribbon(points, closed) {
+function ribbon(points, closed, HALF_WIDTH, LIFT) {
   const positions = [], index = [];
   const edges = closed ? points.length : points.length - 1;
   for (let e = 0; e < edges; e++) {
@@ -36,14 +39,15 @@ export function createZoneView(scene, sim) {
   const spot = drapedRing(u(150), 1.5, COLOUR, 0.95);
   spot.mesh.visible = false;
   scene.add(marks, routeMarks, spot.mesh);
-  let drawnZone = null, drawnSpot = null, drawnRoute = null;
+  let drawnZone = null, drawnSpot = null, drawnRoute = null, drawnSize = 0;
 
   function outline(group, zone, material) {
     for (const m of group.children) if (m.geometry !== peg) m.geometry.dispose();
     group.clear();
     if (!zone) return;
-    if (zone.points.length > 1) { const line = new THREE.Mesh(ribbon(zone.points, zone.closed), material); line.frustumCulled = false; group.add(line); }
-    if (!zone.closed) for (const [x, z] of zone.points) { const m = new THREE.Mesh(peg, material); m.position.set(x, hereU(x, z) + LIFT, z); group.add(m); }
+    const size = markSize();
+    if (zone.points.length > 1) { const line = new THREE.Mesh(ribbon(zone.points, zone.closed, size, size), material); line.frustumCulled = false; group.add(line); }
+    if (!zone.closed) for (const [x, z] of zone.points) { const m = new THREE.Mesh(peg, material); m.position.set(x, hereU(x, z) + size, z); m.scale.setScalar(size); group.add(m); }
   }
   const drawZone = () => outline(marks, view.zone, mat);
   const route = () => view.route || (sim.getPatrol() ? { points: sim.getPatrol().route, closed: true } : null);
@@ -57,6 +61,7 @@ export function createZoneView(scene, sim) {
 
   return {
     sync() {
+      if (markSize() !== drawnSize) { drawnSize = markSize(); drawnZone = drawnRoute = null; } // rebuild both at the new size
       if (view.zone !== drawnZone) { drawnZone = view.zone; drawZone(); }
       if (view.spot !== drawnSpot) { drawnSpot = view.spot; drawSpot(); }
       const key = routeKey();

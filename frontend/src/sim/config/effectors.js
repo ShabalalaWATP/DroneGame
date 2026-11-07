@@ -302,4 +302,24 @@ export const EFFECTORS = {
       },
     },
   },
+  gun_hmg: {
+    product: '12.7 mm machine gun on a remote weapon station', variantOf: 'missile_s', size: 'S', name: 'Heavy machine gun', short: 'HMG', model: 'missile', cost: 250000, shotCost: 150, color: 0xffab40, role: 'effector', kind: 'missile', published: 1200, muzzleY: 1.2, fire: 'guided', mobile: 'vehicle',
+    health: 30, signature: 0.1, emits: [],
+    pk: 0.2, damage: 60, splash: 0, fuze: 3, cooldown: 1.5, missileSpeed: 850, magazine: 20, storage: 60, reloadTime: 60,
+    desc: 'A heavy machine gun on a remote weapon station, here on a Hilux: the mobile fire groups that down many Shaheds over Ukraine. Cheap to fire and short-ranged, and its gunner needs to see the drone.',
+    sapient: { nodeType: 'NODE_TYPE_KINETIC', subType: ['Gun'], scan: 'SCAN_TYPE_STEERABLE' },
+    ref: {
+      class: 'Heavy machine gun on a remote weapon station',
+      analogues: ['Kongsberg Protector RS4 with M2 .50', 'mobile fire groups with 12.7 mm guns'],
+      published: 'Ukrainian officials credited mobile fire groups with machine guns with up to 80% of Shahed kills at one point, later about 40%, with experts at about 20%. Machine guns stop being effective above about 2 km. Kongsberg says its Protector stations can be counter-UAS enabled, and Poland is buying 12.7 mm guns for counter-UAS. No hit rate or rounds per kill was found.',
+      basis: 'Game range 1.2 km is an ASSUMPTION within the 2 km reported limit. One shot is a 20-round burst. Hit chance 0.2 a burst (with no airburst, a burst must hit) and the rest are ASSUMPTIONS.',
+      confidence: 'Reported share of kills; performance is an assumption',
+      sources: [
+        { label: 'Ukraine’s Arms Monitor: stopping Shaheds', url: 'https://ukrainesarmsmonitor.substack.com/p/stopping-shaheds-ukraines-solutions' },
+        { label: 'Euromaidan Press: fire groups down drones in the north', url: 'https://euromaidanpress.com/2024/01/03/firearm-groups-down-large-share-of-russias-drones-missiles-in-ukraines-north-on-2-january' },
+        { label: 'Kongsberg: counter-UAS contract in Poland', url: 'https://www.kongsberg.com/news/news-archive/2026/kongsberg-wins-nok-16-billion-contract-to-deliver-counter-uas-solutions-in-poland/' },
+      ],
+      cost: { capex: 'No public price. Game prices of $250,000 for the station and gun, and $150 a burst, are placeholders.', confidence: 'ASSUMPTION: tune this yourself', sources: [] },
+    },
+  },
 };
