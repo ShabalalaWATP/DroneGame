@@ -30,7 +30,7 @@ It is not built to be hosted. See [Before hosting](#before-hosting).
 | Imported figure files | Only known keys and finite numbers are applied | `sim/config/figures.js` |
 | Input echoed back | Validation errors say what is wrong, without repeating the input | `main.py` |
 | Sign-in | Every route except `/health`, `/auth/*` and the OpenAPI schema needs a session. Passwords of 10 to 128 characters, not the username, stored with scrypt (n 2^14, r 8, p 1) and a random salt. An unknown username costs the same hashing, so timing does not reveal it | `routes/auth.py`, `services/accounts.py` |
-| Sessions | A random 256-bit token in an `HttpOnly`, `SameSite=Strict` cookie scoped to `/api`. Only its SHA-256 is stored. 12 hours, or 30 days with "Keep me signed in". Sign-out deletes it. A password change signs out every other session, and a reset signs out all of them | `services/accounts.py` |
+| Sessions | A random 256-bit token in an `HttpOnly`, `SameSite=Strict` cookie scoped to `/api`. Only its SHA-256 is stored. 12 hours, or 30 days with "Keep me signed in". Sign-out deletes it. A password change signs out every other session, and a reset or a deleted account signs out all of them | `services/accounts.py` |
 | Guessing | Five wrong passwords or recovery codes in a row lock the account for 5 minutes, with `429` and `Retry-After`. Both count towards the same lockout. Each try is counted in one statement before the slow hash, so tries sent at the same moment still lock it after five | `services/accounts.py` |
 | Forgotten passwords | A 120-bit recovery code, shown once at sign-up and stored only as a scrypt hash. Each use replaces it. There is no email, so nothing leaves the machine | `services/accounts.py` |
 | Other people's packs | Every unit query includes the signed-in account's id, so another account's pack is `404`, never `403` | `db/account_stores.py` |
@@ -64,7 +64,8 @@ Accounts and packs were checked on 2026-11-07. `backend/tests/test_accounts.py` 
 - **Sessions are not capped per account.** Only someone with the password can add one, and expired ones are cleared each time a session starts.
 - **Cookies ignore ports,** so another web app on `localhost` sends `sg_session` with its own requests to this one. JSON-only writes and no CORS still stop it from writing or reading anything.
 - **A lost password and recovery code cannot be recovered.** There is no email and no administrator. Only that account's packs are lost; shared saves are not.
-- **There is no way to delete an account yet.**
+- **Deleting an account needs its password,** and takes its sessions and packs with it. Laydowns and runs it saved stay, as saves are shared.
+- **Signing out keeps the game in the page,** so the next person to sign in finds the laydown as it was, which matches shared saves. The last account's deployed pack and tray are cleared. The browser keeps the deployed pack's id with its owner's username, so a reload restores it for that person only.
 - **No limits on laydowns, runs or figure sets.** Someone with access could fill the disk, which is acceptable for local use.
 - **The database is not encrypted.** Beyond password and code hashes, it holds what players type: names, ranks and organisations on profiles, and names on saves.
 - **Kept runs sit in browser storage** until the server returns, readable by anything running on the same origin.
@@ -90,7 +91,7 @@ A hosted version needs a new security review before deployment, and at least:
 - Ownership checks on laydowns, runs and figure sets, which are shared today, or a deliberate decision to share them.
 - Rate limits by address as well as by account, and per-user quotas on every record.
 - HTTPS, `Secure` cookies, and a real host allowlist from configuration.
-- An account recovery route other than the code, and a way to delete an account.
+- An account recovery route other than the code.
 - A move off SQLite, if many users write at once.
 - Server-side checks on run results if scores are ever to mean anything.
 - Automated dependency scanning.

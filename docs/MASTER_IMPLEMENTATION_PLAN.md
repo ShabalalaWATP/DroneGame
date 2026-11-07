@@ -145,7 +145,7 @@ All under `/api/v1`, JSON only.
 |---|---|
 | `GET /health` | Liveness check |
 | `POST /auth/register`, `/auth/sign-in`, `/auth/sign-out`, `/auth/reset` | Accounts: sign up, sign in and out, reset with a recovery code |
-| `GET, PUT /auth/me`, `POST /auth/password`, `/auth/recovery-code` | Profile, change password, new recovery code |
+| `GET, PUT /auth/me`, `POST /auth/password`, `/auth/recovery-code`, `/auth/delete-account` | Profile, change password, new recovery code, delete the account (with the password) |
 | `GET, POST /units`, `GET, PUT, DELETE /units/{id}` | Deployment packs, for the signed-in account only |
 | `GET, POST /laydowns` | List, create |
 | `GET, PUT, DELETE /laydowns/{id}` | Read, replace, delete |
@@ -752,7 +752,7 @@ A popup that guides a new player from an empty site to the first wave. Built, ap
 Built. Alex asked for a login page, a profile for each person, and deployment packs: a military unit with the real sensors, effectors, vehicles and people assigned to it, to make deploying easier. Alex chose a recovery code for forgotten passwords, a required login, a tray to drag a pack's kit from, and shared saves. See [ADR 0004](adr/0004-local-accounts-with-recovery-codes.md).
 
 - **Backend:** migration `0002_accounts.sql` adds `users`, `sessions` and `units`. `services/accounts.py` holds the rules (scrypt, lockout, sessions, recovery codes) and `services/units.py` the pack limits. Unit queries always include the account's id.
-- **Frontend:** `ui/account/Root.jsx` gates the game behind `AuthScreen.jsx`, then shows `ProfileHub.jsx`. `PackEditor.jsx` builds packs from the same catalogue as the toolbar. A deployed pack reaches the game through `AccountContext`.
+- **Frontend:** `ui/account/Root.jsx` gates the game behind `AuthScreen.jsx`, then shows `ProfileHub.jsx`. `PackEditor.jsx` builds packs from the same catalogue as the toolbar. A deployed pack reaches the game through `AccountContext`, and its id is kept in the browser so a reload keeps it. Signing out or deleting the account clears the pack but keeps the game, without a reload.
 - **The catalogue:** the S, M and L buttons are gone. A toolbar row opens its list of real systems (`ToolPicker.jsx`), and each card can be dragged onto the map (`drag.js`, `render/placement.js`) or clicked, then the map clicked. `tools.js` holds the tool and the open list. A deployed pack opens as its own list, the tray, with how many of each are left.
 - **The wizard** gives three numbered steps for each system it recommends, and the ring moves from the toolbar row to the card in the list.
 - **Vehicles** are a roster only: there is no placeable vehicle yet.

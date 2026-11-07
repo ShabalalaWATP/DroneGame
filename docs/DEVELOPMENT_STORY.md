@@ -333,6 +333,8 @@ Vehicles were the awkward part: the game has none to place yet, and a patrol bra
 
 A walk through in a real browser found four things the tests had not. The bright buttons had grey text, because a reset rule for buttons outranked their colour. The pack's summary and Save button scrolled away on a small screen, because a grid item stretches and so never sticks. The wizard's steps fell below its fold once the list opened beside it, so the step to do now scrolls into view. And a drop said to press Esc to stop placing, when a drag had already stopped it.
 
+Alex then asked for the open items to be fixed. An account can now be deleted with its password, and the database's cascades take its sessions and packs. Signing out no longer reloads the page. The reload had been there so nothing of one account carried into the next, but saves are shared, so only the deployed pack and its tray belonged to the account, and those are now cleared by hand while the half-built laydown stays. The deployed pack now survives a reload, keyed by its owner's username so it never comes back for someone else. The wrong "server not running" message for a run saved while signed out had already been fixed in the review pass, so only the to-do list needed ticking.
+
 ## Numbers at the end of Phase 8
 
 | | Before | After |

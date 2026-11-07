@@ -241,7 +241,7 @@ Everything is under `/api/v1`, with the schema at `/api/v1/openapi.json`.
 | Resource | Routes |
 |---|---|
 | `/health` | `GET` |
-| `/auth` | `POST` `/register`, `/sign-in`, `/sign-out`, `/reset`, `/password` and `/recovery-code`, and `GET`, `PUT` `/me` |
+| `/auth` | `POST` `/register`, `/sign-in`, `/sign-out`, `/reset`, `/password`, `/recovery-code` and `/delete-account`, and `GET`, `PUT` `/me` |
 | `/units` | Deployment packs: `GET`, `POST`, and `GET`, `PUT`, `DELETE` by ID, for the signed-in account only |
 | `/laydowns` | `GET`, `POST`, and `GET`, `PUT`, `DELETE` by ID |
 | `/runs` | `GET`, `POST`, and `GET`, `DELETE` by ID |
