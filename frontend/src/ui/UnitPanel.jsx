@@ -199,7 +199,7 @@ function measuresOf(def) {
   if (def.sapient.velocity) out.push('velocity');
   if (def.kind === 'camera') out.push(`airframe type once the drone covers ${RECOGNISE_PX} pixels, and its model at ${IDENTIFY_PX}`);
   if (def.microDoppler === 'yes') out.push('multirotor or fixed wing, close in');
-  if (def.kind === 'rf') out.push(LIBRARIES[def.library].knows ? `the airframe, where its ${LIBRARIES[def.library].name} library knows the link` : 'energy in the band, not what it is');
+  if (def.kind === 'rf') out.push(LIBRARIES[def.library].knows ? `the airframe, where its ${LIBRARIES[def.library].name} library knows the link, and the model of a commercial drone` : 'energy in the band, not what it is');
   const text = out.join(', ');
   return text[0].toUpperCase() + text.slice(1);
 }

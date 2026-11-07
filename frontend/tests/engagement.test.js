@@ -149,3 +149,24 @@ describe('a beam weapon', () => {
     for (const t of rf) expect(t).toBe(0);
   });
 });
+
+describe('a track an effector found nothing at', () => {
+  const HOLD = 10; // seconds: fixed here, so dropping the shared hold makes the test fail
+  const stations = (n, r, off) => Array.from({ length: n }, (_, i) => { const a = off + (i / n) * Math.PI * 2; return ['acoustic_l', Math.cos(a) * r, Math.sin(a) * r]; });
+
+  it('is offered to no effector for a while, so ghost tracks cannot tie up the launchers', () => {
+    start([...MIXED, ...stations(6, 1200, 0.2), ...stations(6, 2200, 0.7)], '7'); // many bearing-only sensors make ghosts
+    const trackOf = new Map(), sent = [], empty = [];
+    const listen = (e) => {
+      const task = e.type === 'task' && e.msg.task, ack = e.type === 'task_ack' && e.msg.task_ack;
+      if (task?.command?.request === 'Engage') { trackOf.set(task.task_id, task.command.command_parameter); sent.push({ t: e.t, track: task.command.command_parameter }); }
+      if (ack && (ack.reason || []).includes('nothing found at the cued position')) empty.push({ t: e.t, track: trackOf.get(ack.task_id) });
+    };
+    sim.bus.listeners.add(listen);
+    try {
+      for (let n = 0; n < 30000 && !sim.state.over; n++) { sim.step(); if (!sim.state.waveActive) sim.commands.startWave(); }
+    } finally { sim.bus.listeners.delete(listen); }
+    expect(empty.length).toBeGreaterThan(0);
+    for (const e of empty) expect(sent.filter((x) => x.track === e.track && x.t > e.t && x.t < e.t + HOLD - 0.5)).toEqual([]);
+  }, 120000);
+});

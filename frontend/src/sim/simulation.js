@@ -57,7 +57,7 @@ export function createSimulation({ seed = '1', terrainSeed = '1' } = {}) {
     roundsCover: (s, d) => !!d && !d.dead && enoughInAir(w, s, d), // enough on the way that this launcher can look for another target
     // An effector decides whether it can take a task from the fusion node.
     acceptTask(s, d) {
-      if (!d || d.dead) return { ok: false, reasons: ['nothing found at the cued position'] };
+      if (!d || d.dead) return { ok: false, empty: true, reasons: ['nothing found at the cued position'] };
       if (s.pos.distanceTo(d.pos) > u(s.def.range)) return { ok: false, reasons: ['target outside effector range'] };
       if (!opticalLos(s, d)) return { ok: false, reasons: ['no line of sight to target'] };
       if (s.def.engages && !s.def.engages.includes(d.def.variantOf ?? d.type)) return { ok: false, permanent: true, reasons: ['target outside engagement envelope (too fast or too high for this interceptor)'] };

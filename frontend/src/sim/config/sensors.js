@@ -139,7 +139,7 @@ export const SENSORS = {
     },
   },
   rf_s: {
-    product: 'MyDefence Wingman 103/105', size: 'S', name: 'Small RF detector', short: 'RFS', model: 'rf', modelScale: 0.7, cost: 10000, shotCost: 0, color: 0x69f0ae, role: 'sensor', kind: 'rf', published: 2000, mount: 9, senses: 'rf', falseAlarm: 0.08,
+    product: 'MyDefence Wingman 103/105', size: 'S', name: 'Small RF detector', short: 'RFS', model: 'rf', modelScale: 0.7, cost: 10000, shotCost: 0, color: 0x69f0ae, role: 'sensor', kind: 'rf', published: 2000, mount: 1.5, mobile: 'manpack', senses: 'rf', falseAlarm: 0.08,
     health: 30, signature: 0.05, emits: [], listens: [[2.4, 2.4835], [5.15, 5.925]], // without its optional wideband antenna
     library: 'commercial', sensitivity: -85, df: 'sector',
     desc: 'Wearable passive RF detector. Cheap and short range, and its bearing is only a rough sector, so it warns of a drone more than it locates one.',
@@ -151,7 +151,7 @@ export const SENSORS = {
       class: 'Wearable passive RF drone detector',
       analogues: ['MyDefence Wingman 103/105'],
       published: 'The maker\u2019s sheet gives up to 6 km and 3 to 5 km effective, depending on line of sight and the RF environment. A Lithuanian evaluation of the 105 reported more than 1 km, depending on conditions. Listings give \u00B130\u00B0 direction finding, and 2.4, 5.2 and 5.8 GHz without an antenna, or 200 MHz\u20136 GHz with one.',
-      basis: 'Game range 2 km is an ASSESSMENT from a link budget: 2 dBi gain and -85 dBm sensitivity, both assumed, give 1.6 km at 5.8 GHz and 2.2 km against 20 dBm at 2.4 GHz. It sits above the evaluation\u2019s "more than 1 km" and below the maker\u2019s 3 to 5 km. The bearing error is the listed figure.',
+      basis: 'Game range 2 km is an ASSESSMENT from a link budget: 2 dBi gain and -85 dBm sensitivity, both assumed, give 1.6 km at 5.8 GHz and 2.2 km against 20 dBm at 2.4 GHz. It sits above the evaluation\u2019s "more than 1 km" and below the maker\u2019s 3 to 5 km. The bearing error is the listed figure. It is worn, so it stands 1.5 m up.',
       confidence: 'Assessed; a national evaluation found less and the maker claims more',
       sources: [
         { label: 'Danish Parliament: MyDefence specification', url: 'https://ft.dk/samling/20222/almdel/FOU/bilag/136/2737420/index.htm' },

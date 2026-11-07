@@ -39,15 +39,25 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 **Feature B: magazine depth**
 
 - [x] B1: magazine, storage and reload rules in the simulation. Shots are still paid for from the budget, at the user's request
-- [ ] B2: balance rack size, storage and reload time. The digests are re-baselined; the balance is not done
+- [x] B2: balance rack size, storage and reload time. Measured, and nothing changed: only the Sting's magazine decides anything, about two waves on the mixed laydown
 - [x] Resupply between waves: buy back used rounds, emptiest launcher first. A bought round is paid for once
 - [x] B3: the Cost tab is now Magazine depth, with a row for each launcher and laser. Expanding rows and Refill buttons are not built
 
 **Systems added outside the plan**
 
 - [x] Small and large interceptors, missiles and lasers, and three acoustic sensors, all from public sources
+- [x] Sensofusion Airfence 7 (RF detector, 10 km) and its 800 W jammer, and Kirintec K-CEMA NEO and Jupiter (45 W jammers with their own receiver). No jammer range is published, so each is set from its power, reach going with the square root. Jupiter publishes almost nothing and plays as a NEO on a vehicle. Airfence also finds the pilot, which is not modelled
+- [x] Carried systems stand lower: 1.5 m for manpack (the Wingman, both DroneGuns, K-CEMA NEO) and 3 m for vehicle-mounted (K-CEMA Jupiter, the Sensofusion jammer, Giraffe 1X, RapidDestroyer, LOCUST), against 9 m or more on a fixed mast. On the game's ground that cuts their mean reach by 7 to 17%, more against low flyers. The mast can still be raised, at a price
+- [ ] Ground reflection for low antennas. A radio antenna 1.5 m up loses more to the ground than the path model counts, so short masts are probably still too kind
+- [x] A threat library in the fusion node (`sim/network/threats.js`): what it may believe about each track from what its sensors named, never the real drone. Jammers switch on only for drones they could touch; tracks are ranked by the harm they would do over how soon they arrive; RF detectors name a commercial drone's model, as DJI's DroneID allows; and rounds are held for a drone with a link to break while a jammer has time on its way in, unless it comes close, the jammer has had it 10 s, or jamming keeps failing against that model
+- [ ] Against the Russian mix the mixed laydown lasts 15.4 waves with the threat library against 16.9 before, over twelve seeds. Near chance, but every other laydown and mix gained or held, so it is worth a look
+- [ ] Jammer power is left where you set it. The fusion node turning it down to what each target needed cost about 1.5 waves, because the power that breaks a control link depends on how far the drone is from its operator, which the node cannot know
 - [ ] Review the placeholder prices. The DragonFire's $2M looks low beside about $8M reported for the smaller LOCUST, and the Iron Beam and NASAMS launcher prices are set low only so that they fit the budget
-- [ ] Balance the new systems. Cheap long-range acoustic stations and the Large missile have not been tuned
+- [x] Balance the new systems. Measured on the mixed laydown, and none is too strong, so no figure changed. Six $50k Medium acoustic sensors help (16.5 waves against 15.2). The NASAMS in place of the Coyote costs $4M more for 15.5 waves. Twelve $500 Large acoustic stations in place of the radar last 8 waves. Added to it, they made things worse (11.2 waves) until launchers stopped chasing empty tracks, and now help (16.0)
+- [x] Ghost tracks no longer tie up the launchers. Once an effector finds nothing where a track says a drone is, no effector is sent there for 10 s. With twelve acoustic stations the Stings had a task 5% of the time and the mixed laydown lasted 11.2 waves; now 31% and 16.0. Holding the Coyote until a track came within 2.5 km was tried first and dropped: it fired on tracks no Sting was on, so holding it let bursts through
+- [ ] The Coyote earns little for $1M on the mixed laydown: 9 rounds in 15 waves, and a second radar in its place lasts about two waves longer. Its launcher price is a placeholder
+- [ ] Many bearing-only sensors can hand one drone's classification to another's track: with twelve acoustic stations, 5 of the Coyote's 29 tasks were on quadcopters whose tracks said fixed wing
+- [ ] Most runs end when the one radar is destroyed, as nothing else sees fixed-wing drones far out: the mixed laydown lost its radar in wave 14 and fell in wave 15. Systems cannot be repaired
 
 **Feature C: unit panel** (build this first)
 
@@ -75,7 +85,7 @@ Full detail is in `docs/MASTER_IMPLEMENTATION_PLAN.md`.
 - [ ] More real systems, such as Giraffe AMB and Aveillant Gamekeeper, and replacing the two generic entries. A row for guns and one for RF weapons, which sit under Missile and Laser for now
 - [x] Hit chance for guided rounds, by weapon, evasion, target speed, range and track quality. Launchers shoot, look and shoot while there is time, salvo when there is not, and move to the next target while rounds fly
 - [x] A beam's damage falls with distance, and sensor error grows as the signal weakens
-- [ ] Better figures for hit chance: 8 of 11 are assumptions, because no rate is published. Only the Sting, P1-SUN and DroneHunter have reported figures
+- [ ] Better figures for hit chance. NASAMS (94%, Norwegian Air Force) and the Paladin (Gepard crews' one burst a Shahed) are set to published figures, and the Sting's three rounds a Shahed matches what is reported. Systems with no published rate take their class's, 2 points lower: 0.98 for the Coyote, Frankenburg, Rapid Ranger, Starstreak and Sky Sabre, below NASAMS, and 0.88 for Merops, below the Sting. Replace those with real rates if any are published. Lasers have none either
 - [ ] Jamming strength that falls with distance: inside its reach a jammer works fully, then stops. The drone's distance from its operator sets that reach since A6 part 2
 - [x] Use the bands a detector listens on, and work out each jammed link on its own band (A6 part 1)
 - [x] A radar that classifies by micro-Doppler: standard on the IRIS and A400, and a paid option on the others

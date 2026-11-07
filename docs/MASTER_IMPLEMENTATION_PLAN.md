@@ -484,6 +484,12 @@ Add one scenario setting on the start screen and in the sandbox: clear day (defa
 
 **Real systems in the toolbar:** clicking a row opens `ui/ToolPicker.jsx`, which lists the real systems of that kind by name, with the settings the next one will be placed with. S, M and L stay as quick choices. The list starts with the systems the Sources tab already named, three of which gained their own entries, marked `variantOf`: Blighter A800 (Ku band, 3 km against a Phantom, price assumed), Hensoldt Elysion RF DF (unverified ±30° and bands, range and price assumed) and SkyFall P1-SUN (about $1,000 a drone, performance copied from the Sting). "Generic EO/IR turret" and "Generic fixed site jammer" have no real product behind them. The P1-SUN is cheaper to fire than the Sting but hits half as often, and A7 measured the mixed laydown lasting 9.5 waves with it against 15.2 with the Sting. Since A4 the A800 looks through its published 90° cone, so it no longer simply beats the IRIS.
 
+**Added later:** Sensofusion Airfence 7 and its Portable Asymmetric Jammer in `sim/config/eu-systems.js`, and Kirintec K-CEMA NEO and Jupiter in `sim/config/uk-systems.js`. A jammer with no published range is set from its output power, from Aaronia's 40 W handheld at half its 2 km claim, with reach going with the square root of power. A jammer may now come with its own receiver as standard (`receiver` in its entry): the setting starts there, and taking it off refunds its price.
+
+**Carried systems:** a `mobile` field marks a system as `manpack` (1.5 m up) or `vehicle` (3 m up), set from what the real product is; everything else stands on its fixed mast. Range in an open field is unchanged, and the path model and line of sight do the rest, as trees and hills block a low antenna sooner. The mast field now steps by 0.5 m.
+
+**Threat library:** `sim/network/threats.js` builds, from the drone catalogue each tasking pass, what the fusion node may believe about a track: a named model's own figures, the spread of drones of a named airframe, or any drone. `sim/network/tasking.js` uses it four ways. Jammers switch on only for tracks with a band they jam. Effectors take the most urgent track, its distance over its speed divided by the harm it would do, and switch only for one 25% more urgent. RF detectors name a commercial drone's model, as DJI's DroneID allows. A kinetic round is held for a drone with a known link to break when its way in spends at least `FUSION.softKillWait` (10 s) inside a jammer's reach before 800 m, judged over the ground, until it comes within 800 m, a jammer has had it that long, or jamming has failed against over half of three or more held drones of that model. Turning jammer power down to the need was tried and dropped.
+
 **What A3 can edit today:** only fields that already change the game, as design rule 1 requires. The limits, prices and threshold factors are assumptions in `sim/unit-config.js`.
 
 | Kind | Fields |
@@ -510,7 +516,7 @@ The Cost tab becomes **Magazine depth** and keeps all its cost information.
 - **The fusion node reads the magazine directly**, not through a SAPIENT `Empty` mode. A launcher that cannot fire fails its task with the reason, and is offered nothing until it can.
 - **The sandbox** reloads without using up storage, and its resupply is free.
 - **Resupply** is allowed between waves and buys back every missing round, emptiest launcher first if the budget is short. Rounds a launcher came with are paid for when fired, and rounds bought are paid for now and marked `prepaid`, so no round is paid for twice. `ledger.consumables` therefore includes bought rounds not yet fired, while `ledger.shots` counts only what was fired.
-- **Not built:** loading fewer rounds, rounds on 3D labels, expanding rows in the tab. Balance (B2) is still open.
+- **Not built:** loading fewer rounds, rounds on 3D labels, expanding rows in the tab.
 
 #### Tab layout
 
@@ -589,7 +595,7 @@ Real miss rates will push those numbers higher. These are calculated from `makeW
 | Stage | Work | Done when |
 |---|---|---|
 | B1 | Magazine rules in the simulation: rounds, empty handling, resupply, sandbox, reset and replay | Tests cover running empty, handing over to another launcher, resupply limits, and load surviving a reset |
-| B2 | Re-baseline and balance rack size and missile capacity using `tools/balance.js` | New digests are committed with the reason recorded |
+| B2 (measured, no change) | Re-baseline and balance rack size and missile capacity using `tools/balance.js`. The re-baseline came with B1. Over six seeds, halving, doubling or lifting each limit changed nothing for one of everything (it runs out of money at wave 18), for 8 interceptors (blind once its compact radars are destroyed, about wave 5), or for a radar with 3 missiles (it holds its missiles for fixed-wing tracks and loses at wave 3). On the mixed laydown no missile figure mattered either, as Stings take the fixed-wing tracks first, and the Sting's magazine was the only limit that did: 6 rounds 14.0 waves, 12 15.2, 24 18.0, none 17.3. That is a limit worth refilling for, not a wall, so the figures stay. | No digests changed, as no figure did |
 | B3 | The tab, as new work in `ui/dock/CostTab.jsx` | The expanded rows, spend split and all existing sections work in a browser |
 
 **Left out:** separate ready and reserve stocks with crew reload times, resupply lead times or resupply during a wave, auto-refill between waves, and holding back the last rounds for particular targets.

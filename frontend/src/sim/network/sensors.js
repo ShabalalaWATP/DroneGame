@@ -89,7 +89,8 @@ export function createSensors(core, feed) {
     if (id === 'acoustic') return [{ type: 'Air Vehicle', confidence: 0.7, sub_class: [sub('UAV', 0.6, 1)] }]; // it sounds like a drone, not which one
     if (id === 'rf') { // its library names the airframe of a link it knows, and takes any other moving emitter for a drone; with none, it is energy
       if (!LIBRARIES[s.def.library].knows) return [{ type: 'Unknown', confidence: 0.5 }];
-      return [{ type: 'Air Vehicle', confidence: 0.85, sub_class: [sub('UAV', 0.8, 1, libraryKnows(s.def, d.def) ? sub(d.def.airframe, 0.9, 2) : null)] }];
+      const model = d.def.protocol === 'commercial' ? sub(d.def.label ?? d.def.name, 0.9, 3) : null; // a DJI or Autel link says what the drone is
+      return [{ type: 'Air Vehicle', confidence: 0.85, sub_class: [sub('UAV', 0.8, 1, libraryKnows(s.def, d.def) ? sub(d.def.airframe, 0.9, 2, model) : null)] }];
     }
     if (classifiesAt(s.def, rng, reach)) return [{ type: 'Air Vehicle', confidence: 0.8, sub_class: [sub('UAV', 0.7, 1, sub(d.def.airframe, 0.6, 2))] }]; // rotors or wings, by micro-Doppler
     return [{ type: 'Air Vehicle', confidence: 0.7, sub_class: [sub('UAV', 0.55, 1)] }];

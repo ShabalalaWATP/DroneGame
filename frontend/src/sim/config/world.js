@@ -6,7 +6,7 @@
 // independent test results. Edit freely, or use the in-game Tuning panel.
 
 // Stored with saved laydowns and runs. Raise it when a change means old saves no longer replay the same.
-export const GAME_VERSION = '0.12.0';
+export const GAME_VERSION = '0.13.0';
 
 export const WORLD = {
   metresPerUnit: 20,     // 3D scene scale: 1 scene unit = this many metres
@@ -78,7 +78,10 @@ export const FUSION = {
   warnZone: 2500,        // WARNING alert when a track comes this close to the site
   critZone: 800,         // CRITICAL alert inside this
   rejectBackoff: 3,      // after a rejected task, don't retry that effector for this long
-  retaskAdvantage: 300,  // switch target only if the new one is this much closer to the site
+  emptyHold: 10,         // after an effector finds nothing at a track's position, no effector is offered that track for this long: an assumption
+  retaskGain: 0.25,      // switch target only if the new one is this much more urgent (sooner to arrive for the harm it would do)
+  minClosing: 10,        // m/s: a track slower than this is taken to close at this speed, so a hovering one still counts
+  softKillWait: 10,      // s a jammer is given to break a drone's link before rounds are fired at it anyway: an assumption, twice a jammer's kill time
   // Who decides to engage. SAPIENT has no message for a weapon-release decision (see the Alert/AlertAck emulation in
   // network.js), so this is a C2 policy: 'auto' engages by itself, 'costly' asks the operator for engagements whose
   // shot costs at least authorityThreshold dollars, 'all' asks for every engagement.

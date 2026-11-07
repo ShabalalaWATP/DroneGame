@@ -5,8 +5,11 @@ import { FUSION, DRONES } from '../config/index.js';
 import { canFire } from '../magazine.js';
 import { DETECT_PX, IDENTIFY_PX, zoomMax } from '../camera-model.js';
 import { inArcOf } from '../sensor-model.js';
-import { libraryKnows } from '../rf-model.js';
+import { bandGhz, libraryKnows } from '../rf-model.js';
+import { antennaHeight, reachOnPath, typicalAltitude } from '../site-range.js';
+import { terrainState } from '../terrain.js';
 import { hears } from '../jamming.js';
+import { threatLibrary } from './threats.js';
 
 // s: a jammer on its own receiver that has heard nothing for this long stops to listen. It switches once a second, so a barrage, deaf to
 // the bands it fills, jams 3 s in every 4: an assumption.
@@ -19,6 +22,67 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
   const { ctx, mpu, T, nodes, tracker, fusion, send, deliver, distToTrack, siteDist } = core;
   const faces = (s, tr) => inArcOf(s.def, s.pos, { x: tr.est.east / mpu(), z: -tr.est.north / mpu() }); // a sector antenna only jams what it faces
   const { sendStatus } = registration;
+  let believe = threatLibrary(); // what the fusion node may believe about each track (threats.js), built again each pass
+  // Seconds until a track arrives, for each point of harm it would do: the lower, the sooner it must be dealt with.
+  const urgency = (tr) => siteDist(tr) / Math.max(tr.speed ?? 0, FUSION.minClosing) / Math.max(believe(tr).harm, 1);
+  // How far a jammer reaches at full power towards a point (east, north, up in metres) on a band, over the ground in between. The fusion
+  // node knows the map, as a planning tool does, so it judges a jammer's reach through the trees and hills, not in an open field.
+  let reachMemo = new Map();
+  function pathReach(j, east, north, up, band) {
+    const key = `${j.nodeId}|${Math.round(east / 50)}|${Math.round(north / 50)}|${Math.round(up / 20)}|${band}`;
+    if (!reachMemo.has(key)) {
+      const m = mpu(), a = { x: j.pos.x * m, y: j.pos.y * m + antennaHeight(j.def), z: j.pos.z * m };
+      reachMemo.set(key, reachOnPath(j.def, DRONES.fpv, terrainState.data, a, { x: east, y: up, z: -north }, bandGhz(band)));
+    }
+    return reachMemo.get(key);
+  }
+  // A track's height for judging a jammer's reach. Far out a measured height can be well out, so a named drone is held to the heights it
+  // flies at. A track with no measured height (bearings only), or an unnamed one below the ground, is taken 60 m up.
+  function heightOf(tr) {
+    const ground = terrainState.data.groundAt(tr.est.east, -tr.est.north), model = believe(tr).model;
+    if (model) return tr.flat ? ground + typicalAltitude(model) : Math.min(ground + model.alt[1], Math.max(ground + model.alt[0], tr.est.up));
+    return tr.flat || tr.est.up < ground ? ground + 60 : tr.est.up;
+  }
+  const reachesTrack = (j, tr, band) => distToTrack(j, tr) <= pathReach(j, tr.est.east, tr.est.north, heightOf(tr), band);
+
+  // The jammers that could break this track's link: it is known to have one, on a band they jam, and they can follow it if reactive.
+  function breakers(tr) {
+    const b = believe(tr), links = b.breakable && b.model ? [b.model.links.control, b.model.links.video].filter(Boolean) : [];
+    if (!links.length) return [];
+    return [...nodes.values()].filter((j) => j.def.kind === 'jammer' && !j.offline && (!['receiver', 'manual'].includes(j.def.trigger) || j.mode === 'Jam')
+      && links.some((band) => j.jamBands.has(band)) && (j.def.technique !== 'reactive' || libraryKnows(j.def, b.model)));
+  }
+  // How holding fire for a jammer has gone against each model: a model that keeps outlasting the jammers is not waited for again,
+  // as a crew would learn. Drones grow harder to jam each wave, so this matters more as the attack goes on.
+  const softKill = new Map();
+  function record(tr, what) {
+    if (tr[what]) return;
+    tr[what] = true;
+    const r = softKill.get(tr.model) ?? { held: 0, failed: 0 };
+    r[what]++;
+    softKill.set(tr.model, r);
+  }
+  const jammingFails = (model) => { const r = softKill.get(model); return !!r && r.held >= 3 && r.failed / r.held > 0.5; };
+
+  // Soft kill first: a drone known to have a link to break, whose way in passes through such a jammer's reach, is left to the jammer,
+  // unless it has come close, or a jammer has had it for FUSION.softKillWait seconds and it still flies.
+  function leaveToJammer(tr) {
+    const js = breakers(tr), b = believe(tr), band = (j) => [b.model.links.control, b.model.links.video].find((x) => x && j.jamBands.has(x));
+    if (!js.length || siteDist(tr) < FUSION.critZone || jammingFails(tr.model)) return false;
+    if (js.some((j) => j.mode === 'Jam' && faces(j, tr) && reachesTrack(j, tr, band(j)))) tr.jamSince ??= T();
+    if (tr.jamSince != null && T() - tr.jamSince > FUSION.softKillWait) { record(tr, 'failed'); return false; }
+    // Only worth it if its way in spends long enough inside a jammer's reach before it comes close: otherwise holding fire just lets
+    // drones bunch up near the site.
+    const c = ctx.siteCentre(), m = mpu(), ax = tr.est.east, an = tr.est.north, dx = c.x * m - ax, dn = -c.z * m - an, len = Math.hypot(dx, dn) || 1;
+    const close = Math.max(0, 1 - FUSION.critZone / len), speed = Math.max(tr.speed ?? 0, FUSION.minClosing); // the share of its way in before it is close
+    return js.some((j) => {
+      const t = Math.min(1, Math.max(0, ((j.pos.x * m - ax) * dx + (-j.pos.z * m - an) * dn) / (len * len))), px = ax + dx * t, pn = an + dn * t;
+      const up = heightOf(tr), across = Math.hypot(j.pos.x * m - px, -j.pos.z * m - pn), r = Math.min(j.def.range, pathReach(j, px, pn, up, band(j)));
+      if (across >= r || !inArcOf(j.def, j.pos, { x: px / m, z: -pn / m })) return false; // its nearest point is out of reach, or behind a sector
+      const half = Math.sqrt(r * r - across * across) / len, from = Math.max(0, t - half), to = Math.min(close, t + half); // inside its reach
+      return ((to - from) * len) / speed >= FUSION.softKillWait;
+    }) && (record(tr, 'held'), true);
+  }
 
   function sendTask(s, task, name, description) {
     const id = S.ulid();
@@ -56,6 +120,7 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
       sendTaskAck(s, id, 'TASK_STATUS_REJECTED', res.reasons);
       if (res.permanent) s.denied.add(tr.id); // it can never take this track; don't ask again
       else s.rejected.set(tr.id, T() + FUSION.rejectBackoff); // try a different target next time
+      if (res.empty) tr.emptyUntil = T() + FUSION.emptyHold; // it looked and saw nothing there: no effector is sent there for a while
     }
   }
 
@@ -63,8 +128,9 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
   function eligible(s, tr) {
     const def = s.def;
     if (s.denied.has(tr.id) || authority().isPending(s, tr)) return false;
-    if (T() < (s.rejected.get(tr.id) ?? 0)) return false;
+    if (T() < (s.rejected.get(tr.id) ?? 0) || T() < (tr.emptyUntil ?? 0)) return false;
     if (!takesAirframe(def, tr.airframe)) return false; // already known to be beyond this effector
+    if (def.fire === 'guided' && leaveToJammer(tr)) return false; // soft kill first
     if (def.engagePolicy === 'fixed-wing' && tr.airframe !== 'Fixed wing') {
       if (tr.airframe === 'Multirotor') return false; // a known quadcopter is never worth the round
       // last ditch only: something unidentified that has got close and that nothing else is on
@@ -132,7 +198,8 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
       return;
     }
     if (s.offline) return; // a jammer we have lost contact with can't be switched
-    const want = live.some((tr) => distToTrack(s, tr) <= s.def.range && faces(s, tr)) ? 'Jam' : 'Standby';
+    // only for a drone it could do something to, on a band it jams, as far as the fusion node knows (threats.js)
+    const want = live.some((tr) => distToTrack(s, tr) <= s.def.range && faces(s, tr) && [...believe(tr).bands].some((b) => s.jamBands.has(b))) ? 'Jam' : 'Standby';
     if (s.mode !== want && s.modePending !== want) {
       const { id, res } = sendTask(s, { control: 'CONTROL_START', command: { mode_change: want } }, `Mode ${want}`, `Switch ${s.name} to ${want}`);
       if (!res.dropped) {
@@ -144,6 +211,8 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
 
   function tasking() {
     const live = confirmedTracks();
+    believe = threatLibrary();
+    reachMemo = new Map();
     cueCameras(live);
     for (const s of nodes.values()) {
       if (s.def.kind === 'jammer') { switchJammer(s, live); continue; }
@@ -170,19 +239,19 @@ export function createTasking(core, { raiseAlert }, registration, authority, con
           completeTask(s, 'TASK_STATUS_COMPLETED', ['target left engagement envelope']);
         }
       }
-      // best target: the track closest to the site that this effector can reach (skipping one it just rejected)
+      // best target: the most urgent track this effector can reach, for the harm it would do and how soon it arrives (skipping one it just rejected)
       let best = null, bd = Infinity;
       for (const tr of live) {
         if (distToTrack(s, tr) > s.def.range) continue;
         if (!eligible(s, tr) || ctx.roundsCover(s, tr.drone)) continue;
-        const dd = siteDist(tr);
+        const dd = urgency(tr);
         if (dd < bd) { bd = dd; best = tr; }
       }
       if (!best || (s.task && s.task.trackId === best.id)) continue;
       if (s.task) {
         const cur = tracker.tracks.get(s.task.trackId);
-        if (cur && !ctx.roundsCover(s, cur.drone) && siteDist(cur) - bd < FUSION.retaskAdvantage) continue;
-        sendTask(s, { control: 'CONTROL_STOP' }, `Stop ${cur ? cur.short : 'task'}`, 'Re-tasked to a closer threat');
+        if (cur && !ctx.roundsCover(s, cur.drone) && bd > urgency(cur) * (1 - FUSION.retaskGain)) continue;
+        sendTask(s, { control: 'CONTROL_STOP' }, `Stop ${cur ? cur.short : 'task'}`, 'Re-tasked to a more urgent threat');
         completeTask(s, 'TASK_STATUS_COMPLETED', ['re-tasked']);
       }
       assign(s, best);
