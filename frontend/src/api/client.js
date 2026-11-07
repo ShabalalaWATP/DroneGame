@@ -61,5 +61,6 @@ export const createApi = () => ({
     updateProfile: (body) => request('PUT', '/auth/me', body),
     changePassword: (body) => request('POST', '/auth/password', body),
     newRecoveryCode: (body) => request('POST', '/auth/recovery-code', body),
+    deleteAccount: (body) => request('POST', '/auth/delete-account', body),
   },
 });

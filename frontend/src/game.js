@@ -273,7 +273,7 @@ export function createGame({ seed, terrainSeed, api = createApi(), storage = glo
 
   return {
     packs, loadPack, ensureWorld, mapSource, cursor: () => placement?.cursor() ?? null,
-    sim, commands, clock, setSpeed, reviewClock, subscribe, getTick, bump, attach, debug, api, saver, pageClosing,
+    sim, commands, clock, setSpeed, reviewClock, subscribe, getTick, bump, attach, debug, api, saver, storage, pageClosing,
     getTool: tools.get, setTool, toolChoice: tools.choice, cycleTool: tools.cycle, loadoutFor, setLoadout, lastRefusal: () => refusal, select, getSelected, reveal,
     catalogue: tools.catalogue, openCatalogue: tools.openCatalogue, pickFromTray: tools.pickFromTray, startDrag: tools.startDrag, endDrag: tools.endDrag, dropAt,
     toast, onToast(fn) { toastListeners.add(fn); return () => toastListeners.delete(fn); },

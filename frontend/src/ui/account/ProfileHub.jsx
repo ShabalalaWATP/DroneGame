@@ -44,8 +44,8 @@ function ProfileCard({ api, user, onChange }) {
   );
 }
 
-function SecurityCard({ api, onSignOut }) {
-  const [open, setOpen] = useState(null); // password | code
+function SecurityCard({ api, onSignOut, onDeleted }) {
+  const [open, setOpen] = useState(null); // password | code | delete
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [code, setCode] = useState(null);
@@ -58,18 +58,21 @@ function SecurityCard({ api, onSignOut }) {
     run(async () => { await api.auth.changePassword({ current_password: current, new_password: next }); close(); setDone('Password changed. Every other device was signed out.'); });
   };
   const newCode = (e) => { e.preventDefault(); run(async () => setCode((await api.auth.newRecoveryCode({ password: current })).recovery_code)); };
+  const remove = (e) => { e.preventDefault(); run(async () => { await api.auth.deleteAccount({ password: current }); onDeleted(); }); };
+  const submit = { password: [change, 'Change password'], code: [newCode, 'Show a new code'], delete: [remove, 'Delete my account'] }[open];
   if (code) return <section className="acct-box"><RecoveryCode code={code} title="Your new recovery code" doneLabel="Done" onDone={() => { close(); setDone('The old recovery code no longer works.'); }}>Save it somewhere safe. The old one no longer works.</RecoveryCode></section>;
   return (
     <section className="acct-box" aria-label="Security">
       <h3>Security</h3>
       {done && <p className="acct-note" role="status">{done}</p>}
       {open ? (
-        <form className="acct-form" onSubmit={open === 'password' ? change : newCode}>
+        <form className="acct-form" onSubmit={submit[0]}>
+          {open === 'delete' && <p className="acct-error">This deletes your account, your profile and all your deployment packs, and cannot be undone. Shared laydowns and runs stay.</p>}
           <PasswordField label="Current password" value={current} onChange={setCurrent} autoComplete="current-password" />
           {open === 'password' && <PasswordField label="New password" hint={`At least ${MIN_PASSWORD} characters`} value={next} onChange={setNext} autoComplete="new-password" />}
           {error && <p className="acct-error" role="alert">{error}</p>}
           <div className="acct-actions">
-            <button className="acct-go" disabled={busy || !current}>{open === 'password' ? 'Change password' : 'Show a new code'}</button>
+            <button className={open === 'delete' ? 'acct-ghost danger' : 'acct-go'} disabled={busy || !current}>{submit[1]}</button>
             <button type="button" className="acct-ghost" onClick={close}>Cancel</button>
           </div>
         </form>
@@ -78,6 +81,7 @@ function SecurityCard({ api, onSignOut }) {
           <button className="acct-ghost" onClick={() => { setDone(null); setOpen('password'); }}>Change password</button>
           <button className="acct-ghost" onClick={() => { setDone(null); setOpen('code'); }}>New recovery code</button>
           <button className="acct-ghost danger" onClick={onSignOut}>Sign out</button>
+          <button className="acct-ghost danger" onClick={() => { setDone(null); setOpen('delete'); }}>Delete account</button>
         </div>
       )}
     </section>
@@ -143,7 +147,7 @@ export function ProfileHub({ api, account, inGame, onEnter }) {
         <div className="acct-grid">
           <div className="acct-side">
             <ProfileCard api={api} user={user} onChange={account.setUser} />
-            <SecurityCard api={api} onSignOut={account.signOut} />
+            <SecurityCard api={api} onSignOut={account.signOut} onDeleted={() => account.leave('Your account and its deployment packs were deleted.')} />
           </div>
           <Packs api={api} account={account} onEnter={onEnter} />
         </div>

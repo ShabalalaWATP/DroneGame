@@ -32,6 +32,7 @@ function fakeApi() {
     updateProfile: vi.fn(async (body) => ({ ...USER, ...body })),
     changePassword: vi.fn(async () => null),
     newRecoveryCode: vi.fn(async () => ({ recovery_code: 'FRESH2-FRESH3-FRESH4-FRESH5' })),
+    deleteAccount: vi.fn(async () => null),
   };
   return base;
 }
@@ -155,14 +156,15 @@ describe('password strength', () => {
 });
 
 describe('the login gate', { timeout: 30000 }, () => {
-  let game, reload;
-  const gate = () => {
-    game = createGame({ seed: '1', terrainSeed: '1', api, storage: createFakeStorage() });
+  let game;
+  const gate = (storage = createFakeStorage()) => {
+    game = createGame({ seed: '1', terrainSeed: '1', api, storage });
     game.attach = vi.fn();
     vi.spyOn(game.saver, 'flush');
-    reload = vi.fn();
-    render(<Root game={game} reload={reload} />);
+    render(<Root game={game} />);
   };
+  const PACK = { name: '1 Troop', echelon: 'troop', callsign: '', assets: { systems: [{ id: 'radar_a800', count: 1 }], vehicles: [], people: [] } };
+  const DEPLOYED = 'site-guard.deployed-pack';
 
   it('shows the login page until someone signs in, then their profile, and saves runs kept meanwhile', async () => {
     gate();
@@ -216,15 +218,26 @@ describe('the login gate', { timeout: 30000 }, () => {
     expect($('.acct-login')).toBeNull();
     expect($('#acct-chip')).not.toBeNull();
     expect(game.attach).toHaveBeenCalledTimes(1);
-    expect(reload).not.toHaveBeenCalled();
   });
 
-  it('reloads if someone else signs in after a session runs out, so nothing of the first carries over', async () => {
+  const deployFirstPack = async () => {
+    await api.units.create(PACK);
     await inGame();
+    fireEvent.click($('#acct-chip'));
+    await settle();
+    press('Deploy');
+    expect($('[data-catalogue="unit"]')).not.toBeNull();
+  };
+
+  it('gives the game, but not the pack, to someone else who signs in after a session runs out', async () => {
+    await deployFirstPack();
     act(() => { dispatchEvent(new Event(SIGNED_OUT)); });
-    api.auth.signIn.mockResolvedValueOnce({ ...USER, username: 'someone' });
+    api.auth.signIn.mockResolvedValueOnce({ ...USER, username: 'someone', display_name: 'Cpl Jo Bloggs' });
     await signBackIn();
-    expect(reload).toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'Welcome, Cpl Jo Bloggs' })).not.toBeNull(); // their profile first
+    expect($('#enter-game').textContent).toBe('Back to the game');
+    expect($('[data-catalogue="unit"]')).toBeNull();
+    expect(game.attach).toHaveBeenCalledTimes(1); // the same game, never reloaded
   });
 
   it('keeps the hidden game\'s hotkeys off under the profile', async () => {
@@ -237,14 +250,64 @@ describe('the login gate', { timeout: 30000 }, () => {
     expect(game.getTool()).toBe('radar');
   });
 
-  it('signs out on the server and reloads the page', async () => {
-    api.auth.me.mockResolvedValueOnce(USER);
-    gate();
-    await settle();
+  it('signs out without a reload, keeping the game but not the pack', async () => {
+    await deployFirstPack();
+    fireEvent.click($('#acct-chip'));
     press('Sign out');
     await settle();
     expect(api.auth.signOut).toHaveBeenCalled();
-    expect(reload).toHaveBeenCalled();
+    expect(screen.getByRole('status').textContent).toBe('You are signed out.');
+    expect(game.storage.getItem(DEPLOYED)).toBeNull();
+    await signBackIn();
+    expect($('#enter-game').textContent).toBe('Back to the game');
+    expect(screen.getByText(/Build a deployment pack/)).not.toBeNull();
+    expect(game.attach).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the deployed pack across a reload, for its owner only', async () => {
+    await deployFirstPack();
+    expect(JSON.parse(game.storage.getItem(DEPLOYED))).toEqual({ username: 'operator', id: 1 });
+    const storage = game.storage;
+    cleanup();
+    api.auth.me.mockResolvedValueOnce(USER);
+    gate(storage); // the page loaded again
+    await settle();
+    expect(screen.getByText('Deployed: 1 Troop. Its kit waits in the pack tray in the game.')).not.toBeNull();
+    cleanup();
+    api.auth.me.mockResolvedValueOnce({ ...USER, username: 'someone' });
+    gate(storage);
+    await settle();
+    expect(screen.queryByText(/Deployed:/)).toBeNull();
+  });
+
+  it('forgets a kept pack that was deleted meanwhile', async () => {
+    const storage = createFakeStorage();
+    storage.setItem(DEPLOYED, JSON.stringify({ username: 'operator', id: 99 }));
+    api.auth.me.mockResolvedValueOnce(USER);
+    gate(storage);
+    await settle();
+    expect(screen.queryByText(/Deployed:/)).toBeNull();
+    expect(storage.getItem(DEPLOYED)).toBeNull();
+  });
+
+  it('deletes the account only with the password, then shows the login page', async () => {
+    await deployFirstPack();
+    fireEvent.click($('#acct-chip'));
+    press('Delete account');
+    expect(screen.getByText(/cannot be undone/)).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Delete my account' }).disabled).toBe(true);
+    api.auth.deleteAccount.mockRejectedValueOnce(new ApiError('Wrong username, password or recovery code', false, 401));
+    type('Current password', 'wrong one');
+    press('Delete my account');
+    await settle();
+    expect(screen.getByRole('alert').textContent).toBe('Wrong username, password or recovery code');
+    expect($('.acct-login')).toBeNull();
+    type('Current password', 'correct horse battery');
+    press('Delete my account');
+    await settle();
+    expect(api.auth.deleteAccount).toHaveBeenLastCalledWith({ password: 'correct horse battery' });
+    expect(screen.getByRole('status').textContent).toBe('Your account and its deployment packs were deleted.');
+    expect(game.storage.getItem(DEPLOYED)).toBeNull();
   });
 });
 
@@ -257,11 +320,11 @@ describe('the API client', () => {
     vi.stubGlobal('fetch', f);
     const { auth, units } = createApi();
     await auth.health(); await auth.me(); await auth.register({}); await auth.signIn({}); await auth.signOut(); await auth.reset({});
-    await auth.updateProfile({}); await auth.changePassword({}); await auth.newRecoveryCode({});
+    await auth.updateProfile({}); await auth.changePassword({}); await auth.newRecoveryCode({}); await auth.deleteAccount({});
     await units.list(); await units.get(2); await units.create({}); await units.replace(2, {}); await units.remove(2);
     expect(f.mock.calls.map(([url, o]) => `${o.method} ${url}`)).toEqual([
       'GET /api/v1/health', 'GET /api/v1/auth/me', 'POST /api/v1/auth/register', 'POST /api/v1/auth/sign-in', 'POST /api/v1/auth/sign-out',
-      'POST /api/v1/auth/reset', 'PUT /api/v1/auth/me', 'POST /api/v1/auth/password', 'POST /api/v1/auth/recovery-code',
+      'POST /api/v1/auth/reset', 'PUT /api/v1/auth/me', 'POST /api/v1/auth/password', 'POST /api/v1/auth/recovery-code', 'POST /api/v1/auth/delete-account',
       'GET /api/v1/units', 'GET /api/v1/units/2', 'POST /api/v1/units', 'PUT /api/v1/units/2', 'DELETE /api/v1/units/2',
     ]);
     expect(f.mock.calls[4][1]).toMatchObject({ headers: { 'Content-Type': 'application/json' }, body: '{}' }); // the server only takes JSON writes

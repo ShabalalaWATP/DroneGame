@@ -121,11 +121,11 @@ function Reset({ api, onReset, onBack }) {
   );
 }
 
-export function AuthScreen({ api, onSignedIn }) {
+export function AuthScreen({ api, onSignedIn, notice: said = null }) {
   const [mode, setMode] = useState('signin'); // signin | register | reset | registered | reset-done
   const [code, setCode] = useState(null);
   const [user, setUser] = useState(null);
-  const [notice, setNotice] = useState(null);
+  const [notice, setNotice] = useState(said);
   const tabs = mode === 'signin' || mode === 'register';
   let body;
   if (mode === 'registered') {
